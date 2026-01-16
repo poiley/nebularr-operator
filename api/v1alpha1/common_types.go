@@ -1,0 +1,383 @@
+/*
+Copyright 2026.
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+*/
+
+package v1alpha1
+
+import (
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+// =============================================================================
+// Connection Types
+// =============================================================================
+
+// ConnectionSpec defines how to connect to an *arr service
+type ConnectionSpec struct {
+	// URL is the base URL of the service (e.g., http://radarr:7878)
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^https?://`
+	URL string `json:"url"`
+
+	// APIKeySecretRef references a Secret containing the API key.
+	// If not specified, auto-discovery is attempted.
+	// +optional
+	APIKeySecretRef *SecretKeySelector `json:"apiKeySecretRef,omitempty"`
+
+	// ConfigPath is the path to config.xml for API key auto-discovery.
+	// Only used if APIKeySecretRef is not specified.
+	// Defaults to /{app}-config/config.xml
+	// +optional
+	ConfigPath string `json:"configPath,omitempty"`
+
+	// InsecureSkipVerify disables TLS certificate verification.
+	// +optional
+	InsecureSkipVerify bool `json:"insecureSkipVerify,omitempty"`
+
+	// Timeout specifies the connection timeout.
+	// +optional
+	// +kubebuilder:default="30s"
+	Timeout *metav1.Duration `json:"timeout,omitempty"`
+}
+
+// SecretKeySelector selects a key from a Kubernetes Secret
+type SecretKeySelector struct {
+	// Name is the name of the Secret in the same namespace.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Key is the key within the Secret.
+	// +optional
+	// +kubebuilder:default="apiKey"
+	Key string `json:"key,omitempty"`
+}
+
+// CredentialsSecretRef references username/password from a Secret
+type CredentialsSecretRef struct {
+	// Name is the name of the Secret.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// UsernameKey is the key for the username.
+	// +optional
+	// +kubebuilder:default="username"
+	UsernameKey string `json:"usernameKey,omitempty"`
+
+	// PasswordKey is the key for the password.
+	// +optional
+	// +kubebuilder:default="password"
+	PasswordKey string `json:"passwordKey,omitempty"`
+}
+
+// LocalObjectReference references an object in the same namespace
+type LocalObjectReference struct {
+	// Name is the name of the referenced object.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+}
+
+// =============================================================================
+// Quality Types
+// =============================================================================
+
+// VideoQualitySpec defines video quality preferences
+type VideoQualitySpec struct {
+	// Preset is a built-in quality configuration.
+	// See PRESETS.md for available presets.
+	// Valid values: uhd-hdr, uhd-sdr, fhd-quality, fhd-streaming, hd, balanced, any, storage-optimized
+	// If not specified, defaults to "balanced".
+	// +optional
+	Preset string `json:"preset,omitempty"`
+
+	// TemplateRef references a QualityTemplate for custom presets.
+	// Mutually exclusive with Preset.
+	// +optional
+	TemplateRef *LocalObjectReference `json:"templateRef,omitempty"`
+
+	// Exclude removes formats/features from the preset.
+	// +optional
+	Exclude []string `json:"exclude,omitempty"`
+
+	// PreferAdditional adds formats to the preferred list.
+	// +optional
+	PreferAdditional []string `json:"preferAdditional,omitempty"`
+
+	// RejectAdditional adds formats to the rejected list.
+	// +optional
+	RejectAdditional []string `json:"rejectAdditional,omitempty"`
+
+	// --- Full manual control (overrides preset entirely if specified) ---
+
+	// Tiers defines quality tiers in order of preference.
+	// If specified, preset is ignored.
+	// +optional
+	Tiers []VideoQualityTier `json:"tiers,omitempty"`
+
+	// UpgradeUntil defines the quality to upgrade until.
+	// +optional
+	UpgradeUntil *VideoQualityTier `json:"upgradeUntil,omitempty"`
+
+	// PreferredFormats lists formats with positive scoring.
+	// +optional
+	PreferredFormats []string `json:"preferredFormats,omitempty"`
+
+	// RejectedFormats lists formats to reject.
+	// +optional
+	RejectedFormats []string `json:"rejectedFormats,omitempty"`
+}
+
+// VideoQualityTier represents a resolution + source combination
+type VideoQualityTier struct {
+	// Resolution: 2160, 1080, 720, 480 (without 'p' suffix)
+	// +kubebuilder:validation:Enum=2160;1080;720;480
+	Resolution string `json:"resolution"`
+
+	// Sources: bluray, remux, webdl, webrip, hdtv, dvd
+	// +optional
+	Sources []string `json:"sources,omitempty"`
+}
+
+// AudioQualitySpec defines audio quality preferences (for Lidarr)
+type AudioQualitySpec struct {
+	// Preset is a built-in quality configuration.
+	// See PRESETS.md for available presets.
+	// +optional
+	// +kubebuilder:validation:Enum=lossless-hires;lossless;high-quality;balanced;portable;any
+	Preset string `json:"preset,omitempty"`
+
+	// TemplateRef references a QualityTemplate.
+	// +optional
+	TemplateRef *LocalObjectReference `json:"templateRef,omitempty"`
+
+	// Exclude removes tiers/formats from the preset.
+	// +optional
+	Exclude []string `json:"exclude,omitempty"`
+
+	// PreferAdditional adds formats to preferred list.
+	// +optional
+	PreferAdditional []string `json:"preferAdditional,omitempty"`
+
+	// --- Full manual control ---
+
+	// Tiers defines quality tiers: lossless-hires, lossless, lossy-high, lossy-mid, lossy-low
+	// +optional
+	Tiers []string `json:"tiers,omitempty"`
+
+	// UpgradeUntil defines the tier to upgrade until.
+	// +optional
+	UpgradeUntil string `json:"upgradeUntil,omitempty"`
+
+	// PreferredFormats: flac, alac, mp3-320, aac-320, etc.
+	// +optional
+	PreferredFormats []string `json:"preferredFormats,omitempty"`
+}
+
+// =============================================================================
+// Download Client Types
+// =============================================================================
+
+// DownloadClientSpec defines a download client
+type DownloadClientSpec struct {
+	// Name is the display name for this client.
+	// Also used for type inference if Type is not specified.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// URL is the client URL (e.g., http://qbittorrent:8080)
+	// +kubebuilder:validation:Required
+	URL string `json:"url"`
+
+	// Type is the client type. If not specified, inferred from Name.
+	// +optional
+	// +kubebuilder:validation:Enum=qbittorrent;transmission;deluge;rtorrent;nzbget;sabnzbd
+	Type string `json:"type,omitempty"`
+
+	// CredentialsSecretRef references username/password.
+	// +optional
+	CredentialsSecretRef *CredentialsSecretRef `json:"credentialsSecretRef,omitempty"`
+
+	// Category for downloads. Defaults to app name (e.g., "radarr").
+	// +optional
+	Category string `json:"category,omitempty"`
+
+	// Priority affects client selection (higher = preferred).
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	// +kubebuilder:validation:Maximum=100
+	// +kubebuilder:default=50
+	Priority int `json:"priority,omitempty"`
+
+	// Enabled enables/disables this client.
+	// +optional
+	// +kubebuilder:default=true
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+// =============================================================================
+// Indexer Types
+// =============================================================================
+
+// IndexersSpec defines indexer configuration
+type IndexersSpec struct {
+	// ProwlarrRef delegates indexer management to Prowlarr.
+	// Mutually exclusive with Direct.
+	// +optional
+	ProwlarrRef *ProwlarrRef `json:"prowlarrRef,omitempty"`
+
+	// Direct configures indexers directly (no Prowlarr).
+	// Mutually exclusive with ProwlarrRef.
+	// +optional
+	Direct []DirectIndexer `json:"direct,omitempty"`
+}
+
+// ProwlarrRef references a Prowlarr instance for indexer management
+type ProwlarrRef struct {
+	// Name is the name of a ProwlarrConfig in the same namespace.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// AutoRegister automatically registers this app with Prowlarr.
+	// +optional
+	// +kubebuilder:default=true
+	AutoRegister *bool `json:"autoRegister,omitempty"`
+
+	// Include filters which Prowlarr indexers to sync.
+	// If empty, all indexers are synced.
+	// +optional
+	Include []string `json:"include,omitempty"`
+
+	// Exclude filters out specific Prowlarr indexers.
+	// +optional
+	Exclude []string `json:"exclude,omitempty"`
+}
+
+// DirectIndexer defines an indexer configured directly
+type DirectIndexer struct {
+	// Name is the display name.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// URL is the indexer URL.
+	// +kubebuilder:validation:Required
+	URL string `json:"url"`
+
+	// Type: torrent or usenet
+	// +kubebuilder:validation:Enum=torrent;usenet
+	// +kubebuilder:default=torrent
+	Type string `json:"type,omitempty"`
+
+	// APIKeySecretRef for indexer authentication.
+	// +optional
+	APIKeySecretRef *SecretKeySelector `json:"apiKeySecretRef,omitempty"`
+
+	// Categories to search. Human-readable (e.g., "movies-hd") or numeric IDs.
+	// +optional
+	Categories []string `json:"categories,omitempty"`
+
+	// Priority (1-50, lower = higher priority).
+	// +optional
+	// +kubebuilder:default=25
+	Priority int `json:"priority,omitempty"`
+
+	// Enabled enables/disables this indexer.
+	// +optional
+	// +kubebuilder:default=true
+	Enabled *bool `json:"enabled,omitempty"`
+}
+
+// =============================================================================
+// Naming Types
+// =============================================================================
+
+// NamingSpec defines file/folder naming configuration
+type NamingSpec struct {
+	// Preset is a built-in naming configuration.
+	// +optional
+	// +kubebuilder:validation:Enum=plex-friendly;jellyfin-friendly;kodi-friendly;detailed;minimal;scene
+	// +kubebuilder:default=plex-friendly
+	Preset string `json:"preset,omitempty"`
+
+	// --- Full manual control (overrides preset) ---
+
+	// RenameMedia enables renaming (movies/episodes/tracks).
+	// +optional
+	RenameMedia *bool `json:"renameMedia,omitempty"`
+
+	// StandardFormat is the format string for standard files.
+	// +optional
+	StandardFormat string `json:"standardFormat,omitempty"`
+
+	// FolderFormat is the format string for folders.
+	// +optional
+	FolderFormat string `json:"folderFormat,omitempty"`
+}
+
+// =============================================================================
+// Reconciliation Types
+// =============================================================================
+
+// ReconciliationSpec configures reconciliation behavior
+type ReconciliationSpec struct {
+	// Interval between reconciliations.
+	// +optional
+	// +kubebuilder:default="5m"
+	Interval *metav1.Duration `json:"interval,omitempty"`
+
+	// Suspend pauses reconciliation.
+	// +optional
+	Suspend bool `json:"suspend,omitempty"`
+}
+
+// =============================================================================
+// Status Types
+// =============================================================================
+
+// ManagedResources tracks created resources
+type ManagedResources struct {
+	// QualityProfileID is the managed quality profile ID.
+	// +optional
+	QualityProfileID *int `json:"qualityProfileId,omitempty"`
+
+	// CustomFormatIDs are the managed custom format IDs.
+	// +optional
+	CustomFormatIDs []int `json:"customFormatIds,omitempty"`
+
+	// DownloadClientIDs are the managed download client IDs.
+	// +optional
+	DownloadClientIDs []int `json:"downloadClientIds,omitempty"`
+
+	// IndexerIDs are the managed indexer IDs.
+	// +optional
+	IndexerIDs []int `json:"indexerIds,omitempty"`
+
+	// RootFolderIDs are the managed root folder IDs.
+	// +optional
+	RootFolderIDs []int `json:"rootFolderIds,omitempty"`
+}
+
+// PolicyStatus is common status for all policies
+type PolicyStatus struct {
+	// Conditions represent the latest observations.
+	// +optional
+	Conditions []metav1.Condition `json:"conditions,omitempty"`
+
+	// Realized indicates whether the policy has been applied.
+	// +optional
+	Realized bool `json:"realized,omitempty"`
+
+	// Message provides additional status information.
+	// +optional
+	Message string `json:"message,omitempty"`
+}

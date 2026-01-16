@@ -1,0 +1,499 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: sonarrconfigs.arr.rinzler.cloud
+spec:
+  group: arr.rinzler.cloud
+  names:
+    kind: SonarrConfig
+    listKind: SonarrConfigList
+    plural: sonarrconfigs
+    singular: sonarrconfig
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.connection.url
+      name: URL
+      type: string
+    - jsonPath: .spec.quality.preset
+      name: Quality
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: SonarrConfig is the all-in-one configuration for a Sonarr instance
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired configuration for Sonarr.
+            properties:
+              connection:
+                description: Connection specifies how to connect to Sonarr.
+                properties:
+                  apiKeySecretRef:
+                    description: |-
+                      APIKeySecretRef references a Secret containing the API key.
+                      If not specified, auto-discovery is attempted.
+                    properties:
+                      key:
+                        default: apiKey
+                        description: Key is the key within the Secret.
+                        type: string
+                      name:
+                        description: Name is the name of the Secret in the same namespace.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  configPath:
+                    description: |-
+                      ConfigPath is the path to config.xml for API key auto-discovery.
+                      Only used if APIKeySecretRef is not specified.
+                      Defaults to /{app}-config/config.xml
+                    type: string
+                  insecureSkipVerify:
+                    description: InsecureSkipVerify disables TLS certificate verification.
+                    type: boolean
+                  timeout:
+                    default: 30s
+                    description: Timeout specifies the connection timeout.
+                    type: string
+                  url:
+                    description: URL is the base URL of the service (e.g., http://radarr:7878)
+                    pattern: ^https?://
+                    type: string
+                required:
+                - url
+                type: object
+              downloadClients:
+                description: DownloadClients configures download clients.
+                items:
+                  description: DownloadClientSpec defines a download client
+                  properties:
+                    category:
+                      description: Category for downloads. Defaults to app name (e.g.,
+                        "radarr").
+                      type: string
+                    credentialsSecretRef:
+                      description: CredentialsSecretRef references username/password.
+                      properties:
+                        name:
+                          description: Name is the name of the Secret.
+                          type: string
+                        passwordKey:
+                          default: password
+                          description: PasswordKey is the key for the password.
+                          type: string
+                        usernameKey:
+                          default: username
+                          description: UsernameKey is the key for the username.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    enabled:
+                      default: true
+                      description: Enabled enables/disables this client.
+                      type: boolean
+                    name:
+                      description: |-
+                        Name is the display name for this client.
+                        Also used for type inference if Type is not specified.
+                      type: string
+                    priority:
+                      default: 50
+                      description: Priority affects client selection (higher = preferred).
+                      maximum: 100
+                      minimum: 1
+                      type: integer
+                    type:
+                      description: Type is the client type. If not specified, inferred
+                        from Name.
+                      enum:
+                      - qbittorrent
+                      - transmission
+                      - deluge
+                      - rtorrent
+                      - nzbget
+                      - sabnzbd
+                      type: string
+                    url:
+                      description: URL is the client URL (e.g., http://qbittorrent:8080)
+                      type: string
+                  required:
+                  - name
+                  - url
+                  type: object
+                type: array
+              indexers:
+                description: Indexers configures indexer sources.
+                properties:
+                  direct:
+                    description: |-
+                      Direct configures indexers directly (no Prowlarr).
+                      Mutually exclusive with ProwlarrRef.
+                    items:
+                      description: DirectIndexer defines an indexer configured directly
+                      properties:
+                        apiKeySecretRef:
+                          description: APIKeySecretRef for indexer authentication.
+                          properties:
+                            key:
+                              default: apiKey
+                              description: Key is the key within the Secret.
+                              type: string
+                            name:
+                              description: Name is the name of the Secret in the same
+                                namespace.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        categories:
+                          description: Categories to search. Human-readable (e.g.,
+                            "movies-hd") or numeric IDs.
+                          items:
+                            type: string
+                          type: array
+                        enabled:
+                          default: true
+                          description: Enabled enables/disables this indexer.
+                          type: boolean
+                        name:
+                          description: Name is the display name.
+                          type: string
+                        priority:
+                          default: 25
+                          description: Priority (1-50, lower = higher priority).
+                          type: integer
+                        type:
+                          default: torrent
+                          description: 'Type: torrent or usenet'
+                          enum:
+                          - torrent
+                          - usenet
+                          type: string
+                        url:
+                          description: URL is the indexer URL.
+                          type: string
+                      required:
+                      - name
+                      - url
+                      type: object
+                    type: array
+                  prowlarrRef:
+                    description: |-
+                      ProwlarrRef delegates indexer management to Prowlarr.
+                      Mutually exclusive with Direct.
+                    properties:
+                      autoRegister:
+                        default: true
+                        description: AutoRegister automatically registers this app
+                          with Prowlarr.
+                        type: boolean
+                      exclude:
+                        description: Exclude filters out specific Prowlarr indexers.
+                        items:
+                          type: string
+                        type: array
+                      include:
+                        description: |-
+                          Include filters which Prowlarr indexers to sync.
+                          If empty, all indexers are synced.
+                        items:
+                          type: string
+                        type: array
+                      name:
+                        description: Name is the name of a ProwlarrConfig in the same
+                          namespace.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                type: object
+              naming:
+                description: Naming configures file/folder naming.
+                properties:
+                  animeEpisodeFormat:
+                    description: AnimeEpisodeFormat for anime.
+                    type: string
+                  dailyEpisodeFormat:
+                    description: DailyEpisodeFormat for daily shows.
+                    type: string
+                  folderFormat:
+                    description: FolderFormat is the format string for folders.
+                    type: string
+                  preset:
+                    default: plex-friendly
+                    description: Preset is a built-in naming configuration.
+                    enum:
+                    - plex-friendly
+                    - jellyfin-friendly
+                    - kodi-friendly
+                    - detailed
+                    - minimal
+                    - scene
+                    type: string
+                  renameMedia:
+                    description: RenameMedia enables renaming (movies/episodes/tracks).
+                    type: boolean
+                  seasonFolderFormat:
+                    description: SeasonFolderFormat for season folders.
+                    type: string
+                  standardFormat:
+                    description: StandardFormat is the format string for standard
+                      files.
+                    type: string
+                type: object
+              quality:
+                description: Quality defines TV quality preferences.
+                properties:
+                  exclude:
+                    description: Exclude removes formats/features from the preset.
+                    items:
+                      type: string
+                    type: array
+                  preferAdditional:
+                    description: PreferAdditional adds formats to the preferred list.
+                    items:
+                      type: string
+                    type: array
+                  preferredFormats:
+                    description: PreferredFormats lists formats with positive scoring.
+                    items:
+                      type: string
+                    type: array
+                  preset:
+                    description: |-
+                      Preset is a built-in quality configuration.
+                      See PRESETS.md for available presets.
+                      Valid values: uhd-hdr, uhd-sdr, fhd-quality, fhd-streaming, hd, balanced, any, storage-optimized
+                      If not specified, defaults to "balanced".
+                    type: string
+                  rejectAdditional:
+                    description: RejectAdditional adds formats to the rejected list.
+                    items:
+                      type: string
+                    type: array
+                  rejectedFormats:
+                    description: RejectedFormats lists formats to reject.
+                    items:
+                      type: string
+                    type: array
+                  templateRef:
+                    description: |-
+                      TemplateRef references a QualityTemplate for custom presets.
+                      Mutually exclusive with Preset.
+                    properties:
+                      name:
+                        description: Name is the name of the referenced object.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  tiers:
+                    description: |-
+                      Tiers defines quality tiers in order of preference.
+                      If specified, preset is ignored.
+                    items:
+                      description: VideoQualityTier represents a resolution + source
+                        combination
+                      properties:
+                        resolution:
+                          description: 'Resolution: 2160, 1080, 720, 480 (without
+                            ''p'' suffix)'
+                          enum:
+                          - 2160
+                          - 1080
+                          - 720
+                          - 480
+                          type: string
+                        sources:
+                          description: 'Sources: bluray, remux, webdl, webrip, hdtv,
+                            dvd'
+                          items:
+                            type: string
+                          type: array
+                      required:
+                      - resolution
+                      type: object
+                    type: array
+                  upgradeUntil:
+                    description: UpgradeUntil defines the quality to upgrade until.
+                    properties:
+                      resolution:
+                        description: 'Resolution: 2160, 1080, 720, 480 (without ''p''
+                          suffix)'
+                        enum:
+                        - 2160
+                        - 1080
+                        - 720
+                        - 480
+                        type: string
+                      sources:
+                        description: 'Sources: bluray, remux, webdl, webrip, hdtv,
+                          dvd'
+                        items:
+                          type: string
+                        type: array
+                    required:
+                    - resolution
+                    type: object
+                type: object
+              reconciliation:
+                description: Reconciliation configures sync behavior.
+                properties:
+                  interval:
+                    default: 5m
+                    description: Interval between reconciliations.
+                    type: string
+                  suspend:
+                    description: Suspend pauses reconciliation.
+                    type: boolean
+                type: object
+              rootFolders:
+                description: RootFolders configures root folder paths.
+                items:
+                  type: string
+                type: array
+            required:
+            - connection
+            type: object
+          status:
+            description: Status defines the observed state of SonarrConfig.
+            properties:
+              conditions:
+                description: Conditions represent the latest observations of the SonarrConfig's
+                  state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              connected:
+                description: Connected indicates whether Sonarr is reachable.
+                type: boolean
+              lastAppliedHash:
+                description: LastAppliedHash is the hash of the last applied spec.
+                type: string
+              lastReconcile:
+                description: LastReconcile is the timestamp of the last reconciliation.
+                format: date-time
+                type: string
+              managedResources:
+                description: ManagedResources lists resources created by this config.
+                properties:
+                  customFormatIds:
+                    description: CustomFormatIDs are the managed custom format IDs.
+                    items:
+                      type: integer
+                    type: array
+                  downloadClientIds:
+                    description: DownloadClientIDs are the managed download client
+                      IDs.
+                    items:
+                      type: integer
+                    type: array
+                  indexerIds:
+                    description: IndexerIDs are the managed indexer IDs.
+                    items:
+                      type: integer
+                    type: array
+                  qualityProfileId:
+                    description: QualityProfileID is the managed quality profile ID.
+                    type: integer
+                  rootFolderIds:
+                    description: RootFolderIDs are the managed root folder IDs.
+                    items:
+                      type: integer
+                    type: array
+                type: object
+              serviceVersion:
+                description: ServiceVersion is the Sonarr version.
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

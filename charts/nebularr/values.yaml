@@ -1,0 +1,122 @@
+# Default values for nebularr.
+# This is a YAML-formatted file.
+
+# -- Number of replicas for the controller
+replicaCount: 1
+
+image:
+  # -- Container image repository
+  repository: ghcr.io/poiley/nebularr-operator
+  # -- Image pull policy
+  pullPolicy: IfNotPresent
+  # -- Overrides the image tag whose default is the chart appVersion
+  tag: ""
+
+# -- Image pull secrets for private registries
+imagePullSecrets: []
+
+# -- Override the name of the chart
+nameOverride: ""
+
+# -- Override the full name of the chart
+fullnameOverride: ""
+
+serviceAccount:
+  # -- Specifies whether a service account should be created
+  create: true
+  # -- Annotations to add to the service account
+  annotations: {}
+  # -- The name of the service account to use
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+# -- Annotations to add to the pod
+podAnnotations: {}
+
+# -- Labels to add to the pod
+podLabels: {}
+
+# -- Pod security context
+podSecurityContext:
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
+
+# -- Container security context
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop:
+      - ALL
+  readOnlyRootFilesystem: true
+
+# -- Resource requests and limits
+resources:
+  limits:
+    cpu: 500m
+    memory: 128Mi
+  requests:
+    cpu: 10m
+    memory: 64Mi
+
+# -- Node selector for pod assignment
+nodeSelector: {}
+
+# -- Tolerations for pod assignment
+tolerations: []
+
+# -- Affinity rules for pod assignment
+affinity: {}
+
+# Leader election configuration
+leaderElection:
+  # -- Enable leader election for controller manager
+  enabled: true
+
+# Metrics configuration
+metrics:
+  # -- Enable metrics endpoint
+  enabled: true
+  # -- Port for metrics endpoint
+  port: 8443
+  # -- Use secure (HTTPS) metrics
+  secure: true
+  # -- Service monitor for Prometheus Operator
+  serviceMonitor:
+    # -- Create a ServiceMonitor resource
+    enabled: false
+    # -- Interval at which metrics should be scraped
+    interval: 30s
+    # -- Labels to add to the ServiceMonitor
+    labels: {}
+
+# Health probes configuration
+healthProbes:
+  # -- Port for health probes
+  port: 8081
+
+# Webhook configuration (for future use)
+webhook:
+  # -- Enable admission webhooks
+  enabled: false
+  # -- Port for webhook server
+  port: 9443
+
+# CRD installation
+crds:
+  # -- Install CRDs with the chart
+  install: true
+  # -- Keep CRDs when the chart is uninstalled
+  keep: true
+
+# RBAC configuration
+rbac:
+  # -- Create RBAC resources
+  create: true
+
+# Logging configuration
+logging:
+  # -- Log level (debug, info, error)
+  level: info
+  # -- Use development mode logging (more human-readable)
+  development: false

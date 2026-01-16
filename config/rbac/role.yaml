@@ -1,0 +1,49 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: manager-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - secrets
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - arr.rinzler.cloud
+  resources:
+  - lidarrconfigs
+  - prowlarrconfigs
+  - radarrconfigs
+  - sonarrconfigs
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - arr.rinzler.cloud
+  resources:
+  - lidarrconfigs/finalizers
+  - prowlarrconfigs/finalizers
+  - radarrconfigs/finalizers
+  - sonarrconfigs/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - arr.rinzler.cloud
+  resources:
+  - lidarrconfigs/status
+  - prowlarrconfigs/status
+  - radarrconfigs/status
+  - sonarrconfigs/status
+  verbs:
+  - get
+  - patch
+  - update

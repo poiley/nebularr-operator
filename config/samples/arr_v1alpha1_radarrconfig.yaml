@@ -1,0 +1,9 @@
+apiVersion: arr.rinzler.cloud/v1alpha1
+kind: RadarrConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: nebularr
+    app.kubernetes.io/managed-by: kustomize
+  name: radarrconfig-sample
+spec:
+  # TODO(user): Add fields here

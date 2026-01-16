@@ -1,0 +1,32 @@
+apiVersion: v2
+name: nebularr
+description: A Kubernetes operator for managing *arr ecosystem (Radarr, Sonarr, Lidarr, Prowlarr) configuration through declarative CRDs
+
+type: application
+
+# Chart version - increment for chart changes
+version: 0.1.0
+
+# App version - matches the operator version
+appVersion: "0.1.0"
+
+keywords:
+  - radarr
+  - sonarr
+  - lidarr
+  - prowlarr
+  - arr
+  - media
+  - kubernetes
+  - operator
+
+home: https://github.com/poiley/nebularr-operator
+
+sources:
+  - https://github.com/poiley/nebularr-operator
+
+maintainers:
+  - name: poiley
+    url: https://github.com/poiley
+
+kubeVersion: ">=1.26.0-0"

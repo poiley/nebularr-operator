@@ -1,0 +1,160 @@
+apiVersion: arr.rinzler.cloud/v1alpha1
+kind: ProwlarrConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: nebularr
+    app.kubernetes.io/managed-by: kustomize
+  name: prowlarrconfig-sample
+spec:
+  # Connection to Prowlarr instance
+  connection:
+    url: http://prowlarr.media.svc.cluster.local:9696
+    apiKeySecretRef:
+      name: prowlarr-credentials
+      key: apiKey
+
+  # Native indexers in Prowlarr
+  indexers:
+    # Public indexer example
+    - name: nyaa
+      definition: Nyaa
+      priority: 10
+      tags:
+        - anime
+
+    # Private tracker example with API key
+    - name: iptorrents
+      definition: IPTorrents
+      priority: 5
+      apiKeySecretRef:
+        name: iptorrents-credentials
+        key: apiKey
+      settings:
+        freeleechOnly: "false"
+
+    # Usenet indexer example
+    - name: nzbgeek
+      definition: NZBgeek
+      priority: 15
+      apiKeySecretRef:
+        name: nzbgeek-credentials
+        key: apiKey
+
+  # Indexer proxies (e.g., for Cloudflare-protected sites)
+  proxies:
+    - name: flaresolverr
+      type: flaresolverr
+      host: http://flaresolverr.media.svc.cluster.local:8191
+      requestTimeout: 60
+      tags:
+        - cloudflare
+
+  # Applications to sync indexers to
+  applications:
+    - name: radarr
+      type: radarr
+      url: http://radarr.media.svc.cluster.local:7878
+      apiKeySecretRef:
+        name: radarr-credentials
+        key: apiKey
+      syncLevel: fullSync
+      syncCategories:
+        - movies
+        - movies-hd
+        - movies-4k
+
+    - name: sonarr
+      type: sonarr
+      url: http://sonarr.media.svc.cluster.local:8989
+      apiKeySecretRef:
+        name: sonarr-credentials
+        key: apiKey
+      syncLevel: fullSync
+      syncCategories:
+        - tv
+        - tv-hd
+        - tv-4k
+
+    - name: lidarr
+      type: lidarr
+      url: http://lidarr.media.svc.cluster.local:8686
+      apiKeySecretRef:
+        name: lidarr-credentials
+        key: apiKey
+      syncLevel: fullSync
+      # Uses default music categories if not specified
+
+  # Download clients (optional - Prowlarr can also use these)
+  downloadClients:
+    - name: qbittorrent
+      type: qbittorrent
+      url: http://qbittorrent.media.svc.cluster.local:8080
+      credentialsSecretRef:
+        name: qbittorrent-credentials
+        usernameKey: username
+        passwordKey: password
+      category: prowlarr
+      priority: 1
+
+  # Reconciliation settings
+  reconciliation:
+    interval: 5m
+    suspend: false
+---
+# Example secrets (DO NOT use in production - use sealed-secrets or external-secrets)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: prowlarr-credentials
+type: Opaque
+stringData:
+  apiKey: "your-prowlarr-api-key"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: iptorrents-credentials
+type: Opaque
+stringData:
+  apiKey: "your-iptorrents-api-key"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: nzbgeek-credentials
+type: Opaque
+stringData:
+  apiKey: "your-nzbgeek-api-key"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: radarr-credentials
+type: Opaque
+stringData:
+  apiKey: "your-radarr-api-key"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sonarr-credentials
+type: Opaque
+stringData:
+  apiKey: "your-sonarr-api-key"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: lidarr-credentials
+type: Opaque
+stringData:
+  apiKey: "your-lidarr-api-key"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: qbittorrent-credentials
+type: Opaque
+stringData:
+  username: "admin"
+  password: "your-qbittorrent-password"

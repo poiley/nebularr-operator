@@ -1,0 +1,9 @@
+apiVersion: arr.rinzler.cloud/v1alpha1
+kind: LidarrConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: nebularr
+    app.kubernetes.io/managed-by: kustomize
+  name: lidarrconfig-sample
+spec:
+  # TODO(user): Add fields here
