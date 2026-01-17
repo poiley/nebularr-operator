@@ -29,6 +29,9 @@ type IR struct {
 	// DownloadClients configuration
 	DownloadClients []DownloadClientIR `json:"downloadClients,omitempty"`
 
+	// RemotePathMappings configuration
+	RemotePathMappings []RemotePathMappingIR `json:"remotePathMappings,omitempty"`
+
 	// Indexers configuration (or ProwlarrRef) - for Radarr/Sonarr/Lidarr
 	Indexers *IndexersIR `json:"indexers,omitempty"`
 

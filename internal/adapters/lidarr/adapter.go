@@ -136,6 +136,11 @@ func (a *Adapter) CurrentState(ctx context.Context, conn *irv1.ConnectionIR) (*i
 		ir.RootFolders = folders
 	}
 
+	// Get remote path mappings (not tag-based, get all)
+	if mappings, err := a.getRemotePathMappings(ctx, c); err == nil {
+		ir.RemotePathMappings = mappings
+	}
+
 	// Get naming config
 	if naming, err := a.getNamingConfig(ctx, c); err == nil {
 		ir.Naming = &irv1.NamingIR{
@@ -187,6 +192,11 @@ func (a *Adapter) Diff(current, desired *irv1.IR, caps *adapters.Capabilities) (
 	// Diff root folders
 	if err := a.diffRootFolders(current, desired, changes); err != nil {
 		return nil, fmt.Errorf("failed to diff root folders: %w", err)
+	}
+
+	// Diff remote path mappings
+	if err := a.diffRemotePathMappings(current, desired, changes); err != nil {
+		return nil, fmt.Errorf("failed to diff remote path mappings: %w", err)
 	}
 
 	// Diff naming config

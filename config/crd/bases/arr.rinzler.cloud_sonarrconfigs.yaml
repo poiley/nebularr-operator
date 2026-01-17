@@ -587,6 +587,36 @@ spec:
                     description: Suspend pauses reconciliation.
                     type: boolean
                 type: object
+              remotePathMappings:
+                description: |-
+                  RemotePathMappings maps download client paths to local paths.
+                  Required when download clients and Sonarr see files at different paths.
+                items:
+                  description: |-
+                    RemotePathMappingSpec maps download client paths to local paths.
+                    This is needed when the download client and *arr app see the same files at different paths.
+                  properties:
+                    host:
+                      description: |-
+                        Host is the download client hostname.
+                        Must match the host configured in the download client.
+                      type: string
+                    localPath:
+                      description: |-
+                        LocalPath is the path as seen by the *arr app.
+                        This is where the *arr app can access the same files.
+                      type: string
+                    remotePath:
+                      description: |-
+                        RemotePath is the path as reported by the download client.
+                        This is the path where the download client places completed files.
+                      type: string
+                  required:
+                  - host
+                  - localPath
+                  - remotePath
+                  type: object
+                type: array
               rootFolders:
                 description: RootFolders configures root folder paths.
                 items:
@@ -734,6 +764,12 @@ spec:
                   qualityProfileId:
                     description: QualityProfileID is the managed quality profile ID.
                     type: integer
+                  remotePathMappingIds:
+                    description: RemotePathMappingIDs are the managed remote path
+                      mapping IDs.
+                    items:
+                      type: integer
+                    type: array
                   rootFolderIds:
                     description: RootFolderIDs are the managed root folder IDs.
                     items:

@@ -124,3 +124,11 @@ type CustomFormatSpecification struct {
 	Required       bool    `json:"required"`
 	Fields         []Field `json:"fields"`
 }
+
+// RemotePathMappingResource represents a Sonarr remote path mapping
+type RemotePathMappingResource struct {
+	ID         int    `json:"id,omitempty"`
+	Host       string `json:"host"`
+	RemotePath string `json:"remotePath"`
+	LocalPath  string `json:"localPath"`
+}

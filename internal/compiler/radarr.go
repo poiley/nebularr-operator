@@ -49,6 +49,9 @@ func (c *Compiler) CompileRadarrConfig(ctx context.Context, config *arrv1alpha1.
 	// Download clients
 	input.DownloadClients = convertDownloadClients(config.Spec.DownloadClients, resolvedSecrets)
 
+	// Remote path mappings
+	input.RemotePathMappings = convertRemotePathMappings(config.Spec.RemotePathMappings)
+
 	// Indexers
 	input.Indexers = convertIndexers(config.Spec.Indexers, resolvedSecrets)
 
@@ -103,6 +106,9 @@ func (c *Compiler) CompileSonarrConfig(ctx context.Context, config *arrv1alpha1.
 	// Download clients
 	input.DownloadClients = convertDownloadClients(config.Spec.DownloadClients, resolvedSecrets)
 
+	// Remote path mappings
+	input.RemotePathMappings = convertRemotePathMappings(config.Spec.RemotePathMappings)
+
 	// Indexers
 	input.Indexers = convertIndexers(config.Spec.Indexers, resolvedSecrets)
 
@@ -156,6 +162,9 @@ func (c *Compiler) CompileLidarrConfig(ctx context.Context, config *arrv1alpha1.
 	// Download clients
 	input.DownloadClients = convertDownloadClients(config.Spec.DownloadClients, resolvedSecrets)
 
+	// Remote path mappings
+	input.RemotePathMappings = convertRemotePathMappings(config.Spec.RemotePathMappings)
+
 	// Indexers
 	input.Indexers = convertIndexers(config.Spec.Indexers, resolvedSecrets)
 
@@ -174,6 +183,23 @@ func (c *Compiler) CompileLidarrConfig(ctx context.Context, config *arrv1alpha1.
 	input.Authentication = convertAuthentication(config.Spec.Authentication, resolvedSecrets)
 
 	return c.Compile(ctx, input)
+}
+
+// convertRemotePathMappings converts CRD RemotePathMappingSpec to compiler input
+func convertRemotePathMappings(mappings []arrv1alpha1.RemotePathMappingSpec) []RemotePathMappingInput {
+	if len(mappings) == 0 {
+		return nil
+	}
+
+	result := make([]RemotePathMappingInput, 0, len(mappings))
+	for _, m := range mappings {
+		result = append(result, RemotePathMappingInput{
+			Host:       m.Host,
+			RemotePath: m.RemotePath,
+			LocalPath:  m.LocalPath,
+		})
+	}
+	return result
 }
 
 // convertDownloadClients converts CRD DownloadClientSpec to compiler input

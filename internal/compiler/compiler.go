@@ -51,6 +51,9 @@ type CompileInput struct {
 	// Download clients
 	DownloadClients []DownloadClientInput
 
+	// Remote path mappings
+	RemotePathMappings []RemotePathMappingInput
+
 	// Indexers
 	Indexers *IndexersInput
 
@@ -86,6 +89,13 @@ type DownloadClientInput struct {
 	Priority                 int
 	RemoveCompletedDownloads bool
 	RemoveFailedDownloads    bool
+}
+
+// RemotePathMappingInput holds remote path mapping configuration
+type RemotePathMappingInput struct {
+	Host       string
+	RemotePath string
+	LocalPath  string
 }
 
 // IndexersInput holds indexer configuration
@@ -219,29 +229,32 @@ func (c *Compiler) Compile(ctx context.Context, input CompileInput) (*irv1.IR, e
 	// 4. Compile download clients
 	ir.DownloadClients = c.compileDownloadClients(input.DownloadClients, input.ConfigName)
 
-	// 5. Compile indexers
+	// 5. Compile remote path mappings
+	ir.RemotePathMappings = c.compileRemotePathMappings(input.RemotePathMappings)
+
+	// 6. Compile indexers
 	ir.Indexers = c.compileIndexers(input.Indexers, input.ConfigName)
 
-	// 6. Compile root folders
+	// 7. Compile root folders
 	for _, path := range input.RootFolders {
 		ir.RootFolders = append(ir.RootFolders, irv1.RootFolderIR{Path: path})
 	}
 
-	// 7. Compile import lists
+	// 8. Compile import lists
 	ir.ImportLists = c.compileImportListsToIR(input.ImportLists)
 
-	// 8. Compile media management
+	// 9. Compile media management
 	ir.MediaManagement = c.compileMediaManagementToIR(input.MediaManagement)
 
-	// 9. Compile authentication
+	// 10. Compile authentication
 	ir.Authentication = c.compileAuthenticationToIR(input.Authentication)
 
-	// 10. Prune unsupported features based on capabilities
+	// 11. Prune unsupported features based on capabilities
 	if input.Capabilities != nil {
 		ir.Unrealized = c.pruneUnsupported(ir, input.Capabilities)
 	}
 
-	// 8. Generate source hash for drift detection
+	// 12. Generate source hash for drift detection
 	ir.SourceHash = c.hashInput(input)
 
 	return ir, nil
@@ -270,6 +283,24 @@ func (c *Compiler) compileDownloadClients(clients []DownloadClientInput, configN
 		result = append(result, ir)
 	}
 
+	return result
+}
+
+// compileRemotePathMappings converts remote path mapping inputs to IR
+func (c *Compiler) compileRemotePathMappings(mappings []RemotePathMappingInput) []irv1.RemotePathMappingIR {
+	if len(mappings) == 0 {
+		return nil
+	}
+
+	result := make([]irv1.RemotePathMappingIR, 0, len(mappings))
+	for _, m := range mappings {
+		ir := irv1.RemotePathMappingIR{
+			Host:       m.Host,
+			RemotePath: m.RemotePath,
+			LocalPath:  m.LocalPath,
+		}
+		result = append(result, ir)
+	}
 	return result
 }
 
@@ -392,23 +423,25 @@ func (c *Compiler) pruneUnsupported(ir *irv1.IR, caps *adapters.Capabilities) []
 func (c *Compiler) hashInput(input CompileInput) string {
 	// Create a simplified struct for hashing (exclude resolved secrets for security)
 	hashable := struct {
-		App              string
-		ConfigName       string
-		QualityPreset    string
-		QualityOverrides *presets.QualityOverrides
-		NamingPreset     string
-		DownloadClients  []DownloadClientInput
-		Indexers         *IndexersInput
-		RootFolders      []string
+		App                string
+		ConfigName         string
+		QualityPreset      string
+		QualityOverrides   *presets.QualityOverrides
+		NamingPreset       string
+		DownloadClients    []DownloadClientInput
+		RemotePathMappings []RemotePathMappingInput
+		Indexers           *IndexersInput
+		RootFolders        []string
 	}{
-		App:              input.App,
-		ConfigName:       input.ConfigName,
-		QualityPreset:    input.QualityPreset,
-		QualityOverrides: input.QualityOverrides,
-		NamingPreset:     input.NamingPreset,
-		DownloadClients:  input.DownloadClients,
-		Indexers:         input.Indexers,
-		RootFolders:      input.RootFolders,
+		App:                input.App,
+		ConfigName:         input.ConfigName,
+		QualityPreset:      input.QualityPreset,
+		QualityOverrides:   input.QualityOverrides,
+		NamingPreset:       input.NamingPreset,
+		DownloadClients:    input.DownloadClients,
+		RemotePathMappings: input.RemotePathMappings,
+		Indexers:           input.Indexers,
+		RootFolders:        input.RootFolders,
 	}
 
 	data, err := json.Marshal(hashable)

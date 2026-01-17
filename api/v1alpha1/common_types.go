@@ -226,6 +226,29 @@ type DownloadClientSpec struct {
 }
 
 // =============================================================================
+// Remote Path Mapping Types
+// =============================================================================
+
+// RemotePathMappingSpec maps download client paths to local paths.
+// This is needed when the download client and *arr app see the same files at different paths.
+type RemotePathMappingSpec struct {
+	// Host is the download client hostname.
+	// Must match the host configured in the download client.
+	// +kubebuilder:validation:Required
+	Host string `json:"host"`
+
+	// RemotePath is the path as reported by the download client.
+	// This is the path where the download client places completed files.
+	// +kubebuilder:validation:Required
+	RemotePath string `json:"remotePath"`
+
+	// LocalPath is the path as seen by the *arr app.
+	// This is where the *arr app can access the same files.
+	// +kubebuilder:validation:Required
+	LocalPath string `json:"localPath"`
+}
+
+// =============================================================================
 // Indexer Types
 // =============================================================================
 
@@ -392,6 +415,10 @@ type ManagedResources struct {
 	// RootFolderIDs are the managed root folder IDs.
 	// +optional
 	RootFolderIDs []int `json:"rootFolderIds,omitempty"`
+
+	// RemotePathMappingIDs are the managed remote path mapping IDs.
+	// +optional
+	RemotePathMappingIDs []int `json:"remotePathMappingIds,omitempty"`
 }
 
 // PolicyStatus is common status for all policies

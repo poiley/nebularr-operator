@@ -26,6 +26,8 @@ func (a *Adapter) applyCreate(ctx context.Context, c *client.Client, change adap
 		return a.createIndexer(ctx, c, change.Payload.(*irv1.IndexerIR), tagID)
 	case adapters.ResourceRootFolder:
 		return a.createRootFolder(ctx, c, change.Payload.(*irv1.RootFolderIR))
+	case adapters.ResourceRemotePathMapping:
+		return a.createRemotePathMapping(ctx, c, change.Payload.(*irv1.RemotePathMappingIR))
 	default:
 		return fmt.Errorf("unknown resource type for create: %s", change.ResourceType)
 	}
@@ -44,6 +46,8 @@ func (a *Adapter) applyUpdate(ctx context.Context, c *client.Client, change adap
 		return a.updateIndexer(ctx, c, change.Payload.(*irv1.IndexerIR), tagID)
 	case adapters.ResourceNamingConfig:
 		return a.updateNamingConfig(ctx, c, change.Payload.(*irv1.RadarrNamingIR))
+	case adapters.ResourceRemotePathMapping:
+		return a.updateRemotePathMapping(ctx, c, change.Payload.(*irv1.RemotePathMappingIR))
 	default:
 		return fmt.Errorf("unknown resource type for update: %s", change.ResourceType)
 	}
@@ -60,6 +64,11 @@ func (a *Adapter) applyDelete(ctx context.Context, c *client.Client, change adap
 		return a.deleteDownloadClient(ctx, c, change.Name)
 	case adapters.ResourceIndexer:
 		return a.deleteIndexer(ctx, c, change.Name)
+	case adapters.ResourceRemotePathMapping:
+		if change.ID != nil {
+			return a.deleteRemotePathMapping(ctx, c, *change.ID)
+		}
+		return fmt.Errorf("remote path mapping ID is required for delete")
 	default:
 		return fmt.Errorf("unknown resource type for delete: %s", change.ResourceType)
 	}

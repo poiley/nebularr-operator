@@ -141,16 +141,17 @@ const (
 
 // Resource type constants
 const (
-	ResourceQualityProfile  = "QualityProfile"
-	ResourceCustomFormat    = "CustomFormat"
-	ResourceDownloadClient  = "DownloadClient"
-	ResourceIndexer         = "Indexer"
-	ResourceRootFolder      = "RootFolder"
-	ResourceTag             = "Tag"
-	ResourceNamingConfig    = "NamingConfig"
-	ResourceMetadataProfile = "MetadataProfile" // Lidarr
-	ResourceApplication     = "Application"     // Prowlarr
-	ResourceImportList      = "ImportList"      // Radarr/Sonarr/Lidarr
-	ResourceMediaManagement = "MediaManagement" // All apps
-	ResourceAuthentication  = "Authentication"  // All apps
+	ResourceQualityProfile    = "QualityProfile"
+	ResourceCustomFormat      = "CustomFormat"
+	ResourceDownloadClient    = "DownloadClient"
+	ResourceIndexer           = "Indexer"
+	ResourceRootFolder        = "RootFolder"
+	ResourceTag               = "Tag"
+	ResourceNamingConfig      = "NamingConfig"
+	ResourceMetadataProfile   = "MetadataProfile"   // Lidarr
+	ResourceApplication       = "Application"       // Prowlarr
+	ResourceImportList        = "ImportList"        // Radarr/Sonarr/Lidarr
+	ResourceMediaManagement   = "MediaManagement"   // All apps
+	ResourceAuthentication    = "Authentication"    // All apps
+	ResourceRemotePathMapping = "RemotePathMapping" // All apps
 )

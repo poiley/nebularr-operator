@@ -51,6 +51,11 @@ type SonarrConfigSpec struct {
 	// +optional
 	DownloadClients []DownloadClientSpec `json:"downloadClients,omitempty"`
 
+	// RemotePathMappings maps download client paths to local paths.
+	// Required when download clients and Sonarr see files at different paths.
+	// +optional
+	RemotePathMappings []RemotePathMappingSpec `json:"remotePathMappings,omitempty"`
+
 	// Indexers configures indexer sources.
 	// +optional
 	Indexers *IndexersSpec `json:"indexers,omitempty"`

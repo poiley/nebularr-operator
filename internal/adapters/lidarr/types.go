@@ -105,3 +105,11 @@ type Field struct {
 	Name  string      `json:"name"`
 	Value interface{} `json:"value"`
 }
+
+// RemotePathMappingResource represents a Lidarr remote path mapping
+type RemotePathMappingResource struct {
+	ID         int    `json:"id,omitempty"`
+	Host       string `json:"host"`
+	RemotePath string `json:"remotePath"`
+	LocalPath  string `json:"localPath"`
+}
