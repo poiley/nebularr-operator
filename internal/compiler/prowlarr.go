@@ -39,8 +39,8 @@ func (c *Compiler) CompileProwlarrConfig(ctx context.Context, config *arrv1alpha
 	// Compile proxies
 	ir.Prowlarr.Proxies = compileProwlarrProxies(config.Spec.Proxies, config.Name, resolvedSecrets)
 
-	// Compile applications
-	ir.Prowlarr.Applications = compileProwlarrApplications(config.Spec.Applications, config.Name, resolvedSecrets)
+	// Compile applications (pass Prowlarr URL so apps can connect back)
+	ir.Prowlarr.Applications = compileProwlarrApplications(config.Spec.Applications, config.Name, config.Spec.Connection.URL, resolvedSecrets)
 
 	// Compile download clients
 	ir.Prowlarr.DownloadClients = compileProwlarrDownloadClients(config.Spec.DownloadClients, config.Name, resolvedSecrets)
@@ -144,7 +144,7 @@ func compileProwlarrProxies(proxies []arrv1alpha1.IndexerProxy, configName strin
 }
 
 // compileProwlarrApplications converts CRD applications to IR
-func compileProwlarrApplications(apps []arrv1alpha1.ProwlarrApplication, configName string, resolvedSecrets map[string]string) []irv1.ProwlarrApplicationIR {
+func compileProwlarrApplications(apps []arrv1alpha1.ProwlarrApplication, configName string, prowlarrURL string, resolvedSecrets map[string]string) []irv1.ProwlarrApplicationIR {
 	result := make([]irv1.ProwlarrApplicationIR, 0, len(apps))
 
 	for _, app := range apps {
@@ -154,10 +154,11 @@ func compileProwlarrApplications(apps []arrv1alpha1.ProwlarrApplication, configN
 		}
 
 		ir := irv1.ProwlarrApplicationIR{
-			Name:      fmt.Sprintf("nebularr-%s-%s", configName, app.Name),
-			Type:      app.Type,
-			URL:       app.URL,
-			SyncLevel: syncLevel,
+			Name:        fmt.Sprintf("nebularr-%s-%s", configName, app.Name),
+			Type:        app.Type,
+			URL:         app.URL,
+			ProwlarrURL: prowlarrURL, // Apps need this to connect back to Prowlarr
+			SyncLevel:   syncLevel,
 		}
 
 		// Convert sync categories
