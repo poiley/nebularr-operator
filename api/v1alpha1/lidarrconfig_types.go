@@ -141,6 +141,10 @@ type LidarrConfigStatus struct {
 	// LastAppliedHash is the hash of the last applied spec.
 	// +optional
 	LastAppliedHash string `json:"lastAppliedHash,omitempty"`
+
+	// ProwlarrRegistration tracks registration with Prowlarr (Pull Model).
+	// +optional
+	ProwlarrRegistration *ProwlarrRegistration `json:"prowlarrRegistration,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -93,6 +93,10 @@ type RadarrConfigStatus struct {
 	// Used for drift detection.
 	// +optional
 	LastAppliedHash string `json:"lastAppliedHash,omitempty"`
+
+	// ProwlarrRegistration tracks registration with Prowlarr (Pull Model).
+	// +optional
+	ProwlarrRegistration *ProwlarrRegistration `json:"prowlarrRegistration,omitempty"`
 }
 
 // +kubebuilder:object:root=true

@@ -344,6 +344,33 @@ type ReconciliationSpec struct {
 // Status Types
 // =============================================================================
 
+// ProwlarrRegistration tracks registration state with Prowlarr
+type ProwlarrRegistration struct {
+	// Registered indicates whether this app is registered with Prowlarr.
+	// +optional
+	Registered bool `json:"registered,omitempty"`
+
+	// ProwlarrName is the name of the ProwlarrConfig this app is registered with.
+	// +optional
+	ProwlarrName string `json:"prowlarrName,omitempty"`
+
+	// ApplicationID is the ID of this app in Prowlarr.
+	// +optional
+	ApplicationID *int `json:"applicationId,omitempty"`
+
+	// LastSync is the timestamp of the last successful sync.
+	// +optional
+	LastSync *metav1.Time `json:"lastSync,omitempty"`
+
+	// SyncedIndexers lists indexers synced from Prowlarr.
+	// +optional
+	SyncedIndexers []string `json:"syncedIndexers,omitempty"`
+
+	// Message provides status details or error information.
+	// +optional
+	Message string `json:"message,omitempty"`
+}
+
 // ManagedResources tracks created resources
 type ManagedResources struct {
 	// QualityProfileID is the managed quality profile ID.

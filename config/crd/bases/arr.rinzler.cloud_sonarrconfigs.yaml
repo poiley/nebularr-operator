@@ -697,6 +697,35 @@ spec:
                       type: integer
                     type: array
                 type: object
+              prowlarrRegistration:
+                description: ProwlarrRegistration tracks registration with Prowlarr
+                  (Pull Model).
+                properties:
+                  applicationId:
+                    description: ApplicationID is the ID of this app in Prowlarr.
+                    type: integer
+                  lastSync:
+                    description: LastSync is the timestamp of the last successful
+                      sync.
+                    format: date-time
+                    type: string
+                  message:
+                    description: Message provides status details or error information.
+                    type: string
+                  prowlarrName:
+                    description: ProwlarrName is the name of the ProwlarrConfig this
+                      app is registered with.
+                    type: string
+                  registered:
+                    description: Registered indicates whether this app is registered
+                      with Prowlarr.
+                    type: boolean
+                  syncedIndexers:
+                    description: SyncedIndexers lists indexers synced from Prowlarr.
+                    items:
+                      type: string
+                    type: array
+                type: object
               serviceVersion:
                 description: ServiceVersion is the Sonarr version.
                 type: string
