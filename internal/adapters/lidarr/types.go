@@ -91,12 +91,10 @@ type NamingConfigResource struct {
 }
 
 // MetadataProfileResource represents a Lidarr metadata profile
+// We only need the ID and Name for root folder creation
 type MetadataProfileResource struct {
-	ID              int      `json:"id,omitempty"`
-	Name            string   `json:"name"`
-	PrimaryTypes    []string `json:"primaryAlbumTypes"`
-	SecondaryTypes  []string `json:"secondaryAlbumTypes"`
-	ReleaseStatuses []string `json:"releaseStatuses"`
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 }
 
 // Field represents a dynamic field in resources
