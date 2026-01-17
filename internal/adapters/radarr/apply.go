@@ -66,7 +66,10 @@ func (a *Adapter) applyDelete(ctx context.Context, c *client.Client, change adap
 // Quality Profile operations
 
 func (a *Adapter) createQualityProfile(ctx context.Context, c *client.Client, ir *irv1.VideoQualityIR) error {
-	profile := a.irToQualityProfile(ir)
+	profile, err := a.irToQualityProfile(ctx, c, ir)
+	if err != nil {
+		return fmt.Errorf("failed to build quality profile: %w", err)
+	}
 
 	resp, err := c.PostApiV3Qualityprofile(ctx, profile)
 	if err != nil {
@@ -88,7 +91,10 @@ func (a *Adapter) updateQualityProfile(ctx context.Context, c *client.Client, ir
 		return err
 	}
 
-	profile := a.irToQualityProfile(ir)
+	profile, err := a.irToQualityProfile(ctx, c, ir)
+	if err != nil {
+		return fmt.Errorf("failed to build quality profile: %w", err)
+	}
 	profile.Id = intPtr(profileID)
 
 	resp, err := c.PutApiV3QualityprofileId(ctx, fmt.Sprintf("%d", profileID), profile)
@@ -144,7 +150,7 @@ func (a *Adapter) findQualityProfileIDByName(ctx context.Context, c *client.Clie
 	return 0, fmt.Errorf("quality profile not found: %s", name)
 }
 
-func (a *Adapter) irToQualityProfile(ir *irv1.VideoQualityIR) client.PostApiV3QualityprofileJSONRequestBody {
+func (a *Adapter) irToQualityProfile(ctx context.Context, c *client.Client, ir *irv1.VideoQualityIR) (client.PostApiV3QualityprofileJSONRequestBody, error) {
 	profile := client.QualityProfileResource{
 		Name:           stringPtr(ir.ProfileName),
 		UpgradeAllowed: boolPtr(ir.UpgradeAllowed),
@@ -155,10 +161,190 @@ func (a *Adapter) irToQualityProfile(ir *irv1.VideoQualityIR) client.PostApiV3Qu
 		profile.CutoffFormatScore = intPtr(ir.UpgradeUntilCustomFormatScore)
 	}
 
-	// TODO: Convert tiers to Items and set Cutoff
-	// This requires mapping our abstract tiers to Radarr's quality definitions
+	// Fetch quality definitions to map our tiers to Radarr's quality IDs
+	qualityDefs, err := a.getQualityDefinitions(ctx, c)
+	if err != nil {
+		return profile, fmt.Errorf("failed to get quality definitions: %w", err)
+	}
 
-	return profile
+	// Build Items array from tiers
+	items, cutoffID := a.buildQualityItems(ir.Tiers, ir.Cutoff, qualityDefs)
+	profile.Items = &items
+
+	// Set cutoff if we found a matching quality
+	if cutoffID > 0 {
+		profile.Cutoff = intPtr(cutoffID)
+	}
+
+	return profile, nil
+}
+
+// qualityDef holds parsed quality definition info
+type qualityDef struct {
+	ID         int
+	Name       string
+	Source     string
+	Resolution int
+}
+
+// getQualityDefinitions fetches and parses quality definitions from Radarr
+func (a *Adapter) getQualityDefinitions(ctx context.Context, c *client.Client) ([]qualityDef, error) {
+	resp, err := c.GetApiV3Qualitydefinition(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var defs []client.QualityDefinitionResource
+	if err := json.NewDecoder(resp.Body).Decode(&defs); err != nil {
+		return nil, fmt.Errorf("failed to decode quality definitions: %w", err)
+	}
+
+	result := make([]qualityDef, 0, len(defs))
+	for _, def := range defs {
+		if def.Quality == nil {
+			continue
+		}
+		qd := qualityDef{
+			ID:   ptrToInt(def.Quality.Id),
+			Name: ptrToString(def.Quality.Name),
+		}
+		if def.Quality.Source != nil {
+			qd.Source = string(*def.Quality.Source)
+		}
+		if def.Quality.Resolution != nil {
+			qd.Resolution = int(*def.Quality.Resolution)
+		}
+		result = append(result, qd)
+	}
+	return result, nil
+}
+
+// buildQualityItems builds the Items array for a quality profile from IR tiers
+func (a *Adapter) buildQualityItems(tiers []irv1.VideoQualityTierIR, cutoff irv1.VideoQualityTierIR, defs []qualityDef) ([]client.QualityProfileQualityItemResource, int) {
+	var items []client.QualityProfileQualityItemResource
+	cutoffID := 0
+
+	// Create a lookup map for quality definitions by (resolution, source)
+	qualityLookup := make(map[string]qualityDef)
+	for _, def := range defs {
+		key := fmt.Sprintf("%d-%s", def.Resolution, def.Source)
+		qualityLookup[key] = def
+	}
+
+	// Process each tier as a group
+	groupID := 1000 // Start with a high number for group IDs
+	for _, tier := range tiers {
+		res := parseResolution(tier.Resolution)
+		if res == 0 {
+			continue
+		}
+
+		// Build group items for this tier
+		var groupItems []client.QualityProfileQualityItemResource
+		for _, source := range tier.Sources {
+			radarrSource := mapSourceToRadarr(source)
+			key := fmt.Sprintf("%d-%s", res, radarrSource)
+
+			if def, ok := qualityLookup[key]; ok {
+				item := client.QualityProfileQualityItemResource{
+					Quality: &client.Quality{
+						Id:   intPtr(def.ID),
+						Name: stringPtr(def.Name),
+					},
+					Allowed: boolPtr(tier.Allowed),
+				}
+				groupItems = append(groupItems, item)
+
+				// Check if this is the cutoff tier
+				if tier.Resolution == cutoff.Resolution && containsSource(cutoff.Sources, source) {
+					cutoffID = def.ID
+				}
+			}
+		}
+
+		// Add as a group if multiple items, or as single item
+		if len(groupItems) > 1 {
+			groupName := fmt.Sprintf("%s", tier.Resolution)
+			group := client.QualityProfileQualityItemResource{
+				Id:      intPtr(groupID),
+				Name:    stringPtr(groupName),
+				Items:   &groupItems,
+				Allowed: boolPtr(tier.Allowed),
+			}
+			items = append(items, group)
+			groupID++
+
+			// For groups, cutoff should be the group ID
+			if cutoffID > 0 && tier.Resolution == cutoff.Resolution {
+				cutoffID = groupID - 1 // Use the group ID we just assigned
+			}
+		} else if len(groupItems) == 1 {
+			items = append(items, groupItems[0])
+		}
+	}
+
+	return items, cutoffID
+}
+
+// parseResolution converts "2160p", "1080p", etc. to integer
+func parseResolution(res string) int {
+	switch res {
+	case "2160p":
+		return 2160
+	case "1080p":
+		return 1080
+	case "720p":
+		return 720
+	case "480p":
+		return 480
+	case "360p":
+		return 360
+	default:
+		return 0
+	}
+}
+
+// mapSourceToRadarr converts our source names to Radarr's source names
+func mapSourceToRadarr(source string) string {
+	switch source {
+	case "bluray":
+		return "bluray"
+	case "webdl":
+		return "webdl"
+	case "webrip":
+		return "webrip"
+	case "hdtv":
+		return "tv"
+	case "dvd":
+		return "dvd"
+	case "cam":
+		return "cam"
+	case "telesync":
+		return "telesync"
+	case "telecine":
+		return "telecine"
+	case "workprint":
+		return "workprint"
+	case "remux":
+		return "bluray" // Remux is bluray source with remux modifier
+	default:
+		return source
+	}
+}
+
+// containsSource checks if a source is in the list
+func containsSource(sources []string, source string) bool {
+	for _, s := range sources {
+		if s == source {
+			return true
+		}
+	}
+	return false
 }
 
 // Custom Format operations
