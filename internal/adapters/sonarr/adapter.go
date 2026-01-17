@@ -164,6 +164,11 @@ func (a *Adapter) CurrentState(ctx context.Context, conn *irv1.ConnectionIR) (*i
 		ir.Authentication = auth
 	}
 
+	// Get notifications tagged with ownership tag
+	if notifications, err := a.getManagedNotifications(ctx, c, tagID); err == nil {
+		ir.Notifications = notifications
+	}
+
 	return ir, nil
 }
 
@@ -203,6 +208,11 @@ func (a *Adapter) Diff(current, desired *irv1.IR, caps *adapters.Capabilities) (
 	// Diff naming config
 	if err := a.diffNaming(current, desired, changes); err != nil {
 		return nil, fmt.Errorf("failed to diff naming: %w", err)
+	}
+
+	// Diff notifications
+	if err := a.diffNotifications(current, desired, changes); err != nil {
+		return nil, fmt.Errorf("failed to diff notifications: %w", err)
 	}
 
 	return changes, nil

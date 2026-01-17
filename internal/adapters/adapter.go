@@ -154,4 +154,5 @@ const (
 	ResourceMediaManagement   = "MediaManagement"   // All apps
 	ResourceAuthentication    = "Authentication"    // All apps
 	ResourceRemotePathMapping = "RemotePathMapping" // All apps
+	ResourceNotification      = "Notification"      // All apps
 )

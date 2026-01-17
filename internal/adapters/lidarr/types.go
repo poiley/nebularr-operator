@@ -113,3 +113,27 @@ type RemotePathMappingResource struct {
 	RemotePath string `json:"remotePath"`
 	LocalPath  string `json:"localPath"`
 }
+
+// NotificationResource represents a Lidarr notification
+type NotificationResource struct {
+	ID                    int     `json:"id,omitempty"`
+	Name                  string  `json:"name"`
+	Implementation        string  `json:"implementation"`
+	ConfigContract        string  `json:"configContract"`
+	Tags                  []int   `json:"tags"`
+	Fields                []Field `json:"fields"`
+	OnGrab                bool    `json:"onGrab"`
+	OnReleaseImport       bool    `json:"onReleaseImport"`
+	OnUpgrade             bool    `json:"onUpgrade"`
+	OnRename              bool    `json:"onRename"`
+	OnArtistAdd           bool    `json:"onArtistAdd"`
+	OnArtistDelete        bool    `json:"onArtistDelete"`
+	OnAlbumDelete         bool    `json:"onAlbumDelete"`
+	OnTrackRetag          bool    `json:"onTrackRetag"`
+	OnDownloadFailure     bool    `json:"onDownloadFailure"`
+	OnImportFailure       bool    `json:"onImportFailure"`
+	OnHealthIssue         bool    `json:"onHealthIssue"`
+	OnHealthRestored      bool    `json:"onHealthRestored"`
+	OnApplicationUpdate   bool    `json:"onApplicationUpdate"`
+	IncludeHealthWarnings bool    `json:"includeHealthWarnings"`
+}

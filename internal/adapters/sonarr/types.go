@@ -132,3 +132,26 @@ type RemotePathMappingResource struct {
 	RemotePath string `json:"remotePath"`
 	LocalPath  string `json:"localPath"`
 }
+
+// NotificationResource represents a Sonarr notification
+type NotificationResource struct {
+	ID                            int     `json:"id,omitempty"`
+	Name                          string  `json:"name"`
+	Implementation                string  `json:"implementation"`
+	ConfigContract                string  `json:"configContract"`
+	Tags                          []int   `json:"tags"`
+	Fields                        []Field `json:"fields"`
+	OnGrab                        bool    `json:"onGrab"`
+	OnDownload                    bool    `json:"onDownload"`
+	OnUpgrade                     bool    `json:"onUpgrade"`
+	OnRename                      bool    `json:"onRename"`
+	OnSeriesAdd                   bool    `json:"onSeriesAdd"`
+	OnSeriesDelete                bool    `json:"onSeriesDelete"`
+	OnEpisodeFileDelete           bool    `json:"onEpisodeFileDelete"`
+	OnEpisodeFileDeleteForUpgrade bool    `json:"onEpisodeFileDeleteForUpgrade"`
+	OnHealthIssue                 bool    `json:"onHealthIssue"`
+	OnHealthRestored              bool    `json:"onHealthRestored"`
+	OnApplicationUpdate           bool    `json:"onApplicationUpdate"`
+	OnManualInteractionRequired   bool    `json:"onManualInteractionRequired"`
+	IncludeHealthWarnings         bool    `json:"includeHealthWarnings"`
+}

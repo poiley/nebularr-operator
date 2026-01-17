@@ -419,6 +419,10 @@ type ManagedResources struct {
 	// RemotePathMappingIDs are the managed remote path mapping IDs.
 	// +optional
 	RemotePathMappingIDs []int `json:"remotePathMappingIds,omitempty"`
+
+	// NotificationIDs are the managed notification IDs.
+	// +optional
+	NotificationIDs []int `json:"notificationIds,omitempty"`
 }
 
 // PolicyStatus is common status for all policies
@@ -657,4 +661,158 @@ type AuthenticationSpec struct {
 	// +kubebuilder:validation:Enum=enabled;disabledForLocalAddresses
 	// +kubebuilder:default=enabled
 	AuthenticationRequired string `json:"authenticationRequired,omitempty"`
+}
+
+// =============================================================================
+// Notification Types
+// =============================================================================
+
+// NotificationSpec defines a notification connection.
+// Notifications are schema-based - the available settings depend on the type.
+// Use the /api/v3/notification/schema endpoint to discover available types and their fields.
+type NotificationSpec struct {
+	// Name is the display name for this notification.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Type is the notification implementation type.
+	// Common types: Discord, Slack, Email, Webhook, Telegram, Pushover, Gotify, Apprise, etc.
+	// Use the schema endpoint to discover all available types for your *arr app version.
+	// +kubebuilder:validation:Required
+	Type string `json:"type"`
+
+	// Enabled enables/disables this notification.
+	// +optional
+	// +kubebuilder:default=true
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// --- Event Triggers (common across all *arr apps) ---
+
+	// OnGrab triggers when a release is grabbed.
+	// +optional
+	OnGrab *bool `json:"onGrab,omitempty"`
+
+	// OnDownload triggers when a download completes and is imported.
+	// +optional
+	OnDownload *bool `json:"onDownload,omitempty"`
+
+	// OnUpgrade triggers when a better quality version is imported.
+	// +optional
+	OnUpgrade *bool `json:"onUpgrade,omitempty"`
+
+	// OnRename triggers when files are renamed.
+	// +optional
+	OnRename *bool `json:"onRename,omitempty"`
+
+	// OnHealthIssue triggers when a health check fails.
+	// +optional
+	OnHealthIssue *bool `json:"onHealthIssue,omitempty"`
+
+	// OnHealthRestored triggers when a health issue is resolved.
+	// +optional
+	OnHealthRestored *bool `json:"onHealthRestored,omitempty"`
+
+	// OnApplicationUpdate triggers when the application updates.
+	// +optional
+	OnApplicationUpdate *bool `json:"onApplicationUpdate,omitempty"`
+
+	// OnManualInteractionRequired triggers when manual intervention is needed.
+	// +optional
+	OnManualInteractionRequired *bool `json:"onManualInteractionRequired,omitempty"`
+
+	// IncludeHealthWarnings includes warnings (not just errors) in health notifications.
+	// +optional
+	IncludeHealthWarnings *bool `json:"includeHealthWarnings,omitempty"`
+
+	// --- Radarr-specific Events ---
+
+	// OnMovieAdded triggers when a movie is added (Radarr only).
+	// +optional
+	OnMovieAdded *bool `json:"onMovieAdded,omitempty"`
+
+	// OnMovieDelete triggers when a movie is deleted (Radarr only).
+	// +optional
+	OnMovieDelete *bool `json:"onMovieDelete,omitempty"`
+
+	// OnMovieFileDelete triggers when a movie file is deleted (Radarr only).
+	// +optional
+	OnMovieFileDelete *bool `json:"onMovieFileDelete,omitempty"`
+
+	// OnMovieFileDeleteForUpgrade triggers when a movie file is deleted for upgrade (Radarr only).
+	// +optional
+	OnMovieFileDeleteForUpgrade *bool `json:"onMovieFileDeleteForUpgrade,omitempty"`
+
+	// --- Sonarr-specific Events ---
+
+	// OnSeriesAdd triggers when a series is added (Sonarr only).
+	// +optional
+	OnSeriesAdd *bool `json:"onSeriesAdd,omitempty"`
+
+	// OnSeriesDelete triggers when a series is deleted (Sonarr only).
+	// +optional
+	OnSeriesDelete *bool `json:"onSeriesDelete,omitempty"`
+
+	// OnEpisodeFileDelete triggers when an episode file is deleted (Sonarr only).
+	// +optional
+	OnEpisodeFileDelete *bool `json:"onEpisodeFileDelete,omitempty"`
+
+	// OnEpisodeFileDeleteForUpgrade triggers when an episode file is deleted for upgrade (Sonarr only).
+	// +optional
+	OnEpisodeFileDeleteForUpgrade *bool `json:"onEpisodeFileDeleteForUpgrade,omitempty"`
+
+	// --- Lidarr-specific Events ---
+
+	// OnReleaseImport triggers when a release is imported (Lidarr only, equivalent to onDownload).
+	// +optional
+	OnReleaseImport *bool `json:"onReleaseImport,omitempty"`
+
+	// OnArtistAdd triggers when an artist is added (Lidarr only).
+	// +optional
+	OnArtistAdd *bool `json:"onArtistAdd,omitempty"`
+
+	// OnArtistDelete triggers when an artist is deleted (Lidarr only).
+	// +optional
+	OnArtistDelete *bool `json:"onArtistDelete,omitempty"`
+
+	// OnAlbumDelete triggers when an album is deleted (Lidarr only).
+	// +optional
+	OnAlbumDelete *bool `json:"onAlbumDelete,omitempty"`
+
+	// OnTrackRetag triggers when a track is retagged (Lidarr only).
+	// +optional
+	OnTrackRetag *bool `json:"onTrackRetag,omitempty"`
+
+	// OnDownloadFailure triggers when a download fails (Lidarr only).
+	// +optional
+	OnDownloadFailure *bool `json:"onDownloadFailure,omitempty"`
+
+	// OnImportFailure triggers when an import fails (Lidarr only).
+	// +optional
+	OnImportFailure *bool `json:"onImportFailure,omitempty"`
+
+	// --- Type-specific Settings ---
+
+	// Settings contains type-specific configuration.
+	// Keys are the field names from the notification schema (camelCase).
+	// Common examples:
+	//   Discord: webHookUrl, username, avatar
+	//   Slack: webHookUrl, username, icon, channel
+	//   Email: server, port, from, to, cc, bcc
+	//   Telegram: botToken, chatId
+	//   Webhook: url, method
+	//   Gotify: server, appToken, priority
+	// Use the /api/v3/notification/schema endpoint to discover all fields for your type.
+	// +optional
+	Settings map[string]string `json:"settings,omitempty"`
+
+	// SettingsSecretRef references a Secret containing sensitive settings.
+	// Secret keys should match the settings field names (e.g., webHookUrl, botToken).
+	// Values from this secret override Settings.
+	// +optional
+	SettingsSecretRef *SecretKeySelector `json:"settingsSecretRef,omitempty"`
+
+	// Tags are tag names to apply to this notification.
+	// Tags must exist in the *arr app.
+	// +optional
+	Tags []string `json:"tags,omitempty"`
 }

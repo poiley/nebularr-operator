@@ -114,6 +114,10 @@ type LidarrConfigSpec struct {
 	// +optional
 	Authentication *AuthenticationSpec `json:"authentication,omitempty"`
 
+	// Notifications configures notification connections (Discord, Slack, Email, etc.).
+	// +optional
+	Notifications []NotificationSpec `json:"notifications,omitempty"`
+
 	// Reconciliation configures sync behavior.
 	// +optional
 	Reconciliation *ReconciliationSpec `json:"reconciliation,omitempty"`

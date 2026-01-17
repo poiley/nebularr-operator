@@ -21,6 +21,8 @@ func (a *Adapter) applyCreate(ctx context.Context, c *httpClient, change adapter
 		return a.createRootFolder(ctx, c, change.Payload.(irv1.RootFolderIR))
 	case adapters.ResourceRemotePathMapping:
 		return a.createRemotePathMapping(ctx, c, change.Payload.(*irv1.RemotePathMappingIR))
+	case adapters.ResourceNotification:
+		return a.createNotification(ctx, c, change.Payload.(*irv1.NotificationIR), tagID)
 	default:
 		return fmt.Errorf("unsupported resource type for create: %s", change.ResourceType)
 	}
@@ -39,6 +41,8 @@ func (a *Adapter) applyUpdate(ctx context.Context, c *httpClient, change adapter
 		return a.updateNaming(ctx, c, change.Payload.(*irv1.LidarrNamingIR))
 	case adapters.ResourceRemotePathMapping:
 		return a.updateRemotePathMapping(ctx, c, change.Payload.(*irv1.RemotePathMappingIR))
+	case adapters.ResourceNotification:
+		return a.updateNotification(ctx, c, change.Payload.(*irv1.NotificationIR), tagID)
 	default:
 		return fmt.Errorf("unsupported resource type for update: %s", change.ResourceType)
 	}
@@ -61,6 +65,8 @@ func (a *Adapter) applyDelete(ctx context.Context, c *httpClient, change adapter
 		return c.delete(ctx, fmt.Sprintf("/api/v1/rootfolder/%d", *change.ID))
 	case adapters.ResourceRemotePathMapping:
 		return a.deleteRemotePathMapping(ctx, c, *change.ID)
+	case adapters.ResourceNotification:
+		return a.deleteNotification(ctx, c, *change.ID)
 	default:
 		return fmt.Errorf("unsupported resource type for delete: %s", change.ResourceType)
 	}

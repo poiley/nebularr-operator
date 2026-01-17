@@ -500,6 +500,165 @@ spec:
                       files.
                     type: string
                 type: object
+              notifications:
+                description: Notifications configures notification connections (Discord,
+                  Slack, Email, etc.).
+                items:
+                  description: |-
+                    NotificationSpec defines a notification connection.
+                    Notifications are schema-based - the available settings depend on the type.
+                    Use the /api/v3/notification/schema endpoint to discover available types and their fields.
+                  properties:
+                    enabled:
+                      default: true
+                      description: Enabled enables/disables this notification.
+                      type: boolean
+                    includeHealthWarnings:
+                      description: IncludeHealthWarnings includes warnings (not just
+                        errors) in health notifications.
+                      type: boolean
+                    name:
+                      description: Name is the display name for this notification.
+                      type: string
+                    onAlbumDelete:
+                      description: OnAlbumDelete triggers when an album is deleted
+                        (Lidarr only).
+                      type: boolean
+                    onApplicationUpdate:
+                      description: OnApplicationUpdate triggers when the application
+                        updates.
+                      type: boolean
+                    onArtistAdd:
+                      description: OnArtistAdd triggers when an artist is added (Lidarr
+                        only).
+                      type: boolean
+                    onArtistDelete:
+                      description: OnArtistDelete triggers when an artist is deleted
+                        (Lidarr only).
+                      type: boolean
+                    onDownload:
+                      description: OnDownload triggers when a download completes and
+                        is imported.
+                      type: boolean
+                    onDownloadFailure:
+                      description: OnDownloadFailure triggers when a download fails
+                        (Lidarr only).
+                      type: boolean
+                    onEpisodeFileDelete:
+                      description: OnEpisodeFileDelete triggers when an episode file
+                        is deleted (Sonarr only).
+                      type: boolean
+                    onEpisodeFileDeleteForUpgrade:
+                      description: OnEpisodeFileDeleteForUpgrade triggers when an
+                        episode file is deleted for upgrade (Sonarr only).
+                      type: boolean
+                    onGrab:
+                      description: OnGrab triggers when a release is grabbed.
+                      type: boolean
+                    onHealthIssue:
+                      description: OnHealthIssue triggers when a health check fails.
+                      type: boolean
+                    onHealthRestored:
+                      description: OnHealthRestored triggers when a health issue is
+                        resolved.
+                      type: boolean
+                    onImportFailure:
+                      description: OnImportFailure triggers when an import fails (Lidarr
+                        only).
+                      type: boolean
+                    onManualInteractionRequired:
+                      description: OnManualInteractionRequired triggers when manual
+                        intervention is needed.
+                      type: boolean
+                    onMovieAdded:
+                      description: OnMovieAdded triggers when a movie is added (Radarr
+                        only).
+                      type: boolean
+                    onMovieDelete:
+                      description: OnMovieDelete triggers when a movie is deleted
+                        (Radarr only).
+                      type: boolean
+                    onMovieFileDelete:
+                      description: OnMovieFileDelete triggers when a movie file is
+                        deleted (Radarr only).
+                      type: boolean
+                    onMovieFileDeleteForUpgrade:
+                      description: OnMovieFileDeleteForUpgrade triggers when a movie
+                        file is deleted for upgrade (Radarr only).
+                      type: boolean
+                    onReleaseImport:
+                      description: OnReleaseImport triggers when a release is imported
+                        (Lidarr only, equivalent to onDownload).
+                      type: boolean
+                    onRename:
+                      description: OnRename triggers when files are renamed.
+                      type: boolean
+                    onSeriesAdd:
+                      description: OnSeriesAdd triggers when a series is added (Sonarr
+                        only).
+                      type: boolean
+                    onSeriesDelete:
+                      description: OnSeriesDelete triggers when a series is deleted
+                        (Sonarr only).
+                      type: boolean
+                    onTrackRetag:
+                      description: OnTrackRetag triggers when a track is retagged
+                        (Lidarr only).
+                      type: boolean
+                    onUpgrade:
+                      description: OnUpgrade triggers when a better quality version
+                        is imported.
+                      type: boolean
+                    settings:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        Settings contains type-specific configuration.
+                        Keys are the field names from the notification schema (camelCase).
+                        Common examples:
+                          Discord: webHookUrl, username, avatar
+                          Slack: webHookUrl, username, icon, channel
+                          Email: server, port, from, to, cc, bcc
+                          Telegram: botToken, chatId
+                          Webhook: url, method
+                          Gotify: server, appToken, priority
+                        Use the /api/v3/notification/schema endpoint to discover all fields for your type.
+                      type: object
+                    settingsSecretRef:
+                      description: |-
+                        SettingsSecretRef references a Secret containing sensitive settings.
+                        Secret keys should match the settings field names (e.g., webHookUrl, botToken).
+                        Values from this secret override Settings.
+                      properties:
+                        key:
+                          default: apiKey
+                          description: Key is the key within the Secret.
+                          type: string
+                        name:
+                          description: Name is the name of the Secret in the same
+                            namespace.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    tags:
+                      description: |-
+                        Tags are tag names to apply to this notification.
+                        Tags must exist in the *arr app.
+                      items:
+                        type: string
+                      type: array
+                    type:
+                      description: |-
+                        Type is the notification implementation type.
+                        Common types: Discord, Slack, Email, Webhook, Telegram, Pushover, Gotify, Apprise, etc.
+                        Use the schema endpoint to discover all available types for your *arr app version.
+                      type: string
+                  required:
+                  - name
+                  - type
+                  type: object
+                type: array
               quality:
                 description: Quality defines audio quality preferences.
                 properties:
@@ -757,6 +916,11 @@ spec:
                     type: array
                   indexerIds:
                     description: IndexerIDs are the managed indexer IDs.
+                    items:
+                      type: integer
+                    type: array
+                  notificationIds:
+                    description: NotificationIDs are the managed notification IDs.
                     items:
                       type: integer
                     type: array

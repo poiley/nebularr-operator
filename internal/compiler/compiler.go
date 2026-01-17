@@ -69,6 +69,9 @@ type CompileInput struct {
 	// Authentication
 	Authentication *AuthenticationInput
 
+	// Notifications
+	Notifications []NotificationInput
+
 	// Capabilities for pruning unsupported features
 	Capabilities *adapters.Capabilities
 
@@ -171,6 +174,50 @@ type AuthenticationInput struct {
 	AuthenticationRequired string // enabled, disabledForLocalAddresses
 }
 
+// NotificationInput holds notification configuration
+type NotificationInput struct {
+	Name           string
+	Implementation string
+
+	// Event triggers
+	OnGrab                      bool
+	OnDownload                  bool
+	OnUpgrade                   bool
+	OnRename                    bool
+	OnHealthIssue               bool
+	OnHealthRestored            bool
+	OnApplicationUpdate         bool
+	OnManualInteractionRequired bool
+	IncludeHealthWarnings       bool
+
+	// Radarr-specific events
+	OnMovieAdded                bool
+	OnMovieDelete               bool
+	OnMovieFileDelete           bool
+	OnMovieFileDeleteForUpgrade bool
+
+	// Sonarr-specific events
+	OnSeriesAdd                   bool
+	OnSeriesDelete                bool
+	OnEpisodeFileDelete           bool
+	OnEpisodeFileDeleteForUpgrade bool
+
+	// Lidarr-specific events
+	OnReleaseImport   bool
+	OnArtistAdd       bool
+	OnArtistDelete    bool
+	OnAlbumDelete     bool
+	OnTrackRetag      bool
+	OnDownloadFailure bool
+	OnImportFailure   bool
+
+	// Type-specific settings (resolved from Settings and SettingsSecretRef)
+	Fields map[string]interface{}
+
+	// Tags are tag names (will be resolved to IDs by adapter)
+	Tags []string
+}
+
 // Compile transforms CRD intent into IR
 func (c *Compiler) Compile(ctx context.Context, input CompileInput) (*irv1.IR, error) {
 	ir := &irv1.IR{
@@ -249,12 +296,15 @@ func (c *Compiler) Compile(ctx context.Context, input CompileInput) (*irv1.IR, e
 	// 10. Compile authentication
 	ir.Authentication = c.compileAuthenticationToIR(input.Authentication)
 
-	// 11. Prune unsupported features based on capabilities
+	// 11. Compile notifications
+	ir.Notifications = c.compileNotificationsToIR(input.Notifications, input.ConfigName)
+
+	// 12. Prune unsupported features based on capabilities
 	if input.Capabilities != nil {
 		ir.Unrealized = c.pruneUnsupported(ir, input.Capabilities)
 	}
 
-	// 12. Generate source hash for drift detection
+	// 13. Generate source hash for drift detection
 	ir.SourceHash = c.hashInput(input)
 
 	return ir, nil
@@ -432,6 +482,7 @@ func (c *Compiler) hashInput(input CompileInput) string {
 		RemotePathMappings []RemotePathMappingInput
 		Indexers           *IndexersInput
 		RootFolders        []string
+		Notifications      []NotificationInput
 	}{
 		App:                input.App,
 		ConfigName:         input.ConfigName,
@@ -442,6 +493,7 @@ func (c *Compiler) hashInput(input CompileInput) string {
 		RemotePathMappings: input.RemotePathMappings,
 		Indexers:           input.Indexers,
 		RootFolders:        input.RootFolders,
+		Notifications:      input.Notifications,
 	}
 
 	data, err := json.Marshal(hashable)
@@ -549,4 +601,58 @@ func (c *Compiler) compileAuthenticationToIR(input *AuthenticationInput) *irv1.A
 		Password:               input.Password,
 		AuthenticationRequired: input.AuthenticationRequired,
 	}
+}
+
+// compileNotificationsToIR converts notification inputs to IR
+func (c *Compiler) compileNotificationsToIR(notifications []NotificationInput, configName string) []irv1.NotificationIR {
+	if len(notifications) == 0 {
+		return nil
+	}
+
+	result := make([]irv1.NotificationIR, 0, len(notifications))
+	for _, n := range notifications {
+		ir := irv1.NotificationIR{
+			Name:           fmt.Sprintf("nebularr-%s-%s", configName, n.Name),
+			Implementation: n.Implementation,
+			ConfigContract: n.Implementation + "Settings",
+			Enabled:        true,
+
+			// Common event triggers
+			OnGrab:                      n.OnGrab,
+			OnDownload:                  n.OnDownload,
+			OnUpgrade:                   n.OnUpgrade,
+			OnRename:                    n.OnRename,
+			OnHealthIssue:               n.OnHealthIssue,
+			OnHealthRestored:            n.OnHealthRestored,
+			OnApplicationUpdate:         n.OnApplicationUpdate,
+			OnManualInteractionRequired: n.OnManualInteractionRequired,
+			IncludeHealthWarnings:       n.IncludeHealthWarnings,
+
+			// Radarr-specific events
+			OnMovieAdded:                n.OnMovieAdded,
+			OnMovieDelete:               n.OnMovieDelete,
+			OnMovieFileDelete:           n.OnMovieFileDelete,
+			OnMovieFileDeleteForUpgrade: n.OnMovieFileDeleteForUpgrade,
+
+			// Sonarr-specific events
+			OnSeriesAdd:                   n.OnSeriesAdd,
+			OnSeriesDelete:                n.OnSeriesDelete,
+			OnEpisodeFileDelete:           n.OnEpisodeFileDelete,
+			OnEpisodeFileDeleteForUpgrade: n.OnEpisodeFileDeleteForUpgrade,
+
+			// Lidarr-specific events
+			OnReleaseImport:   n.OnReleaseImport,
+			OnArtistAdd:       n.OnArtistAdd,
+			OnArtistDelete:    n.OnArtistDelete,
+			OnAlbumDelete:     n.OnAlbumDelete,
+			OnTrackRetag:      n.OnTrackRetag,
+			OnDownloadFailure: n.OnDownloadFailure,
+			OnImportFailure:   n.OnImportFailure,
+
+			// Type-specific settings
+			Fields: n.Fields,
+		}
+		result = append(result, ir)
+	}
+	return result
 }

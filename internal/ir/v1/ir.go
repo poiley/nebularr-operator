@@ -44,6 +44,9 @@ type IR struct {
 	// ImportLists configuration - for Radarr/Sonarr/Lidarr
 	ImportLists []ImportListIR `json:"importLists,omitempty"`
 
+	// Notifications configuration - for Radarr/Sonarr/Lidarr
+	Notifications []NotificationIR `json:"notifications,omitempty"`
+
 	// MediaManagement configuration
 	MediaManagement *MediaManagementIR `json:"mediaManagement,omitempty"`
 

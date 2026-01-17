@@ -28,6 +28,8 @@ func (a *Adapter) applyCreate(ctx context.Context, c *client.Client, change adap
 		return a.createRootFolder(ctx, c, change.Payload.(*irv1.RootFolderIR))
 	case adapters.ResourceRemotePathMapping:
 		return a.createRemotePathMapping(ctx, c, change.Payload.(*irv1.RemotePathMappingIR))
+	case adapters.ResourceNotification:
+		return a.createNotification(ctx, c, change.Payload.(*irv1.NotificationIR), tagID)
 	default:
 		return fmt.Errorf("unknown resource type for create: %s", change.ResourceType)
 	}
@@ -48,6 +50,8 @@ func (a *Adapter) applyUpdate(ctx context.Context, c *client.Client, change adap
 		return a.updateNamingConfig(ctx, c, change.Payload.(*irv1.RadarrNamingIR))
 	case adapters.ResourceRemotePathMapping:
 		return a.updateRemotePathMapping(ctx, c, change.Payload.(*irv1.RemotePathMappingIR))
+	case adapters.ResourceNotification:
+		return a.updateNotification(ctx, c, change.Payload.(*irv1.NotificationIR), tagID)
 	default:
 		return fmt.Errorf("unknown resource type for update: %s", change.ResourceType)
 	}
@@ -69,6 +73,11 @@ func (a *Adapter) applyDelete(ctx context.Context, c *client.Client, change adap
 			return a.deleteRemotePathMapping(ctx, c, *change.ID)
 		}
 		return fmt.Errorf("remote path mapping ID is required for delete")
+	case adapters.ResourceNotification:
+		if change.ID != nil {
+			return a.deleteNotification(ctx, c, *change.ID)
+		}
+		return fmt.Errorf("notification ID is required for delete")
 	default:
 		return fmt.Errorf("unknown resource type for delete: %s", change.ResourceType)
 	}
