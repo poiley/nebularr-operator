@@ -154,10 +154,17 @@ func (a *Adapter) findQualityProfileIDByName(ctx context.Context, c *client.Clie
 }
 
 func (a *Adapter) irToQualityProfile(ctx context.Context, c *client.Client, ir *irv1.VideoQualityIR) (client.PostApiV3QualityprofileJSONRequestBody, error) {
+	// Set default language to "Original" (id: -2)
+	langID := int32(-2)
+	langName := "Original"
 	profile := client.QualityProfileResource{
 		Name:           stringPtr(ir.ProfileName),
 		UpgradeAllowed: boolPtr(ir.UpgradeAllowed),
 		MinFormatScore: intPtr(ir.MinimumCustomFormatScore),
+		Language: &client.Language{
+			Id:   &langID,
+			Name: &langName,
+		},
 	}
 
 	if ir.UpgradeUntilCustomFormatScore > 0 {
@@ -254,11 +261,14 @@ func (a *Adapter) buildQualityItems(tiers []irv1.VideoQualityTierIR, cutoff irv1
 			key := fmt.Sprintf("%d-%s", res, radarrSource)
 
 			if def, ok := qualityLookup[key]; ok {
+				// Each item needs an empty Items array
+				emptyItems := []client.QualityProfileQualityItemResource{}
 				item := client.QualityProfileQualityItemResource{
 					Quality: &client.Quality{
 						Id:   intPtr(def.ID),
 						Name: stringPtr(def.Name),
 					},
+					Items:   &emptyItems,
 					Allowed: boolPtr(tier.Allowed),
 				}
 				groupItems = append(groupItems, item)
