@@ -70,7 +70,7 @@ func (r *ProwlarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Reque
 	}
 
 	// Handle deletion
-	if !config.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !config.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, config)
 	}
 

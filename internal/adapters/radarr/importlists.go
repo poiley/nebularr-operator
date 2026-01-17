@@ -16,7 +16,7 @@ func (a *Adapter) getImportLists(ctx context.Context, c *client.Client) ([]clien
 	if err != nil {
 		return nil, fmt.Errorf("failed to get import lists: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -36,7 +36,7 @@ func (a *Adapter) getImportListSchemas(ctx context.Context, c *client.Client) ([
 	if err != nil {
 		return nil, fmt.Errorf("failed to get import list schemas: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -244,7 +244,7 @@ func (a *Adapter) createImportList(ctx context.Context, c *client.Client, payloa
 	if err != nil {
 		return fmt.Errorf("failed to create import list: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -259,7 +259,7 @@ func (a *Adapter) updateImportList(ctx context.Context, c *client.Client, payloa
 	if err != nil {
 		return fmt.Errorf("failed to update import list: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -274,7 +274,7 @@ func (a *Adapter) deleteImportList(ctx context.Context, c *client.Client, id int
 	if err != nil {
 		return fmt.Errorf("failed to delete import list: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)

@@ -19,7 +19,7 @@ func (a *Adapter) getManagedDownloadClients(ctx context.Context, c *httpClient, 
 		return nil, fmt.Errorf("failed to get download clients: %w", err)
 	}
 
-	var managed []irv1.DownloadClientIR
+	managed := make([]irv1.DownloadClientIR, 0, len(clients))
 	for _, client := range clients {
 		if !hasTag(client.Tags, tagID) {
 			continue

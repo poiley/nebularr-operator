@@ -335,19 +335,3 @@ func (a *Adapter) updateNaming(ctx context.Context, c *httpClient, naming *irv1.
 	}
 	return c.put(ctx, "/api/v3/config/naming", resource, nil)
 }
-
-// resolutionToInt converts resolution string to int
-func resolutionToInt(res string) int {
-	switch res {
-	case "2160p":
-		return 2160
-	case "1080p":
-		return 1080
-	case "720p":
-		return 720
-	case "480p":
-		return 480
-	default:
-		return 0
-	}
-}

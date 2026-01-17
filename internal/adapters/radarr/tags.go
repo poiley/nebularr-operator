@@ -15,7 +15,7 @@ func (a *Adapter) getOwnershipTagID(ctx context.Context, c *client.Client) (int,
 	if err != nil {
 		return 0, fmt.Errorf("failed to get tags: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -50,7 +50,7 @@ func (a *Adapter) ensureOwnershipTag(ctx context.Context, c *client.Client) (int
 	if err != nil {
 		return 0, fmt.Errorf("failed to create ownership tag: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		return 0, fmt.Errorf("unexpected status code creating tag: %d", resp.StatusCode)
@@ -75,18 +75,4 @@ func hasTag(tags *[]int32, tagID int) bool {
 		}
 	}
 	return false
-}
-
-// addTag adds a tag ID to a slice if not already present
-func addTag(tags *[]int32, tagID int) *[]int32 {
-	if tags == nil {
-		return &[]int32{int32(tagID)}
-	}
-	for _, t := range *tags {
-		if int(t) == tagID {
-			return tags
-		}
-	}
-	newTags := append(*tags, int32(tagID))
-	return &newTags
 }

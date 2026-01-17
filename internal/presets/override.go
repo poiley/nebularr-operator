@@ -87,13 +87,3 @@ func removeItems(slice []string, toRemove []string) []string {
 	}
 	return result
 }
-
-// containsString checks if a slice contains a string
-func containsString(slice []string, s string) bool {
-	for _, item := range slice {
-		if item == s {
-			return true
-		}
-	}
-	return false
-}

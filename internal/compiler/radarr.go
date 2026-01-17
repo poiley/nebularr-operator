@@ -362,7 +362,7 @@ func normalizeImplementationName(impl string) string {
 }
 
 // inferIndexerImplementation determines the indexer implementation from URL and type
-func inferIndexerImplementation(rawURL string, indexerType string) string {
+func inferIndexerImplementation(_ string, indexerType string) string {
 	if indexerType == "usenet" {
 		return "Newznab"
 	}

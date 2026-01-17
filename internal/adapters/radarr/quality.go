@@ -12,12 +12,12 @@ import (
 )
 
 // getManagedQualityProfiles retrieves quality profiles tagged with the ownership tag
-func (a *Adapter) getManagedQualityProfiles(ctx context.Context, c *client.Client, tagID int) ([]*irv1.VideoQualityIR, error) {
+func (a *Adapter) getManagedQualityProfiles(ctx context.Context, c *client.Client, _ int) ([]*irv1.VideoQualityIR, error) {
 	resp, err := c.GetApiV3Qualityprofile(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get quality profiles: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -28,7 +28,7 @@ func (a *Adapter) getManagedQualityProfiles(ctx context.Context, c *client.Clien
 		return nil, fmt.Errorf("failed to decode quality profiles: %w", err)
 	}
 
-	var result []*irv1.VideoQualityIR
+	result := make([]*irv1.VideoQualityIR, 0, len(profiles))
 	for _, profile := range profiles {
 		// Check if this profile is managed by Nebularr (has ownership tag)
 		// Quality profiles don't have tags in Radarr, so we check by name prefix
@@ -316,7 +316,7 @@ func (a *Adapter) getManagedCustomFormats(ctx context.Context, c *client.Client)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get custom formats: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)

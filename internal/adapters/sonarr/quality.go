@@ -11,7 +11,7 @@ import (
 var managedProfileID *int
 
 // getManagedQualityProfiles retrieves quality profiles managed by Nebularr
-func (a *Adapter) getManagedQualityProfiles(ctx context.Context, c *httpClient, tagID int) ([]*irv1.VideoQualityIR, error) {
+func (a *Adapter) getManagedQualityProfiles(ctx context.Context, c *httpClient, _ int) ([]*irv1.VideoQualityIR, error) {
 	var profiles []QualityProfileResource
 	if err := c.get(ctx, "/api/v3/qualityprofile", &profiles); err != nil {
 		return nil, err

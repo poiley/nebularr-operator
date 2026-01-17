@@ -132,7 +132,7 @@ func (c *TransmissionClient) getSessionID(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to send request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// 409 is expected - it provides the session ID
 	if resp.StatusCode == 409 {
@@ -194,7 +194,7 @@ func (c *TransmissionClient) request(ctx context.Context, method string, argumen
 			}
 			return nil, fmt.Errorf("request failed after retries: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		// Session expired - get new one and retry
 		if resp.StatusCode == 409 {

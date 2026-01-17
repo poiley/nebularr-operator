@@ -16,7 +16,7 @@ func (a *Adapter) getHostConfig(ctx context.Context, c *client.Client) (*client.
 	if err != nil {
 		return nil, fmt.Errorf("failed to get host config: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -41,7 +41,7 @@ func (a *Adapter) updateHostConfig(ctx context.Context, c *client.Client, config
 	if err != nil {
 		return fmt.Errorf("failed to update host config: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)

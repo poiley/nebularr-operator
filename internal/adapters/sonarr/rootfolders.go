@@ -17,7 +17,7 @@ func (a *Adapter) getRootFolders(ctx context.Context, c *httpClient) ([]irv1.Roo
 		return nil, err
 	}
 
-	var result []irv1.RootFolderIR
+	result := make([]irv1.RootFolderIR, 0, len(folders))
 	for _, f := range folders {
 		rootFolderIDMap[f.Path] = f.ID
 		result = append(result, irv1.RootFolderIR{

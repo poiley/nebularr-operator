@@ -77,7 +77,7 @@ func (a *Adapter) createQualityProfile(ctx context.Context, c *client.Client, ir
 	if err != nil {
 		return fmt.Errorf("failed to create quality profile: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -104,7 +104,7 @@ func (a *Adapter) updateQualityProfile(ctx context.Context, c *client.Client, ir
 	if err != nil {
 		return fmt.Errorf("failed to update quality profile: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -123,7 +123,7 @@ func (a *Adapter) deleteQualityProfile(ctx context.Context, c *client.Client, na
 	if err != nil {
 		return fmt.Errorf("failed to delete quality profile: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -137,7 +137,7 @@ func (a *Adapter) findQualityProfileIDByName(ctx context.Context, c *client.Clie
 	if err != nil {
 		return 0, fmt.Errorf("failed to get quality profiles: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var profiles []client.QualityProfileResource
 	if err := json.NewDecoder(resp.Body).Decode(&profiles); err != nil {
@@ -159,7 +159,7 @@ func (a *Adapter) irToQualityProfile(ctx context.Context, c *client.Client, ir *
 	if err != nil {
 		return client.QualityProfileResource{}, fmt.Errorf("failed to get quality profile schema: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return client.QualityProfileResource{}, fmt.Errorf("unexpected status code getting schema: %d", resp.StatusCode)
@@ -287,7 +287,7 @@ func (a *Adapter) qualityNameToID(name string) int {
 }
 
 // findCutoffQualityID finds the quality ID for the cutoff tier
-func (a *Adapter) findCutoffQualityID(cutoff irv1.VideoQualityTierIR, items *[]client.QualityProfileQualityItemResource) int {
+func (a *Adapter) findCutoffQualityID(cutoff irv1.VideoQualityTierIR, _ *[]client.QualityProfileQualityItemResource) int {
 	if len(cutoff.Sources) == 0 {
 		return 0
 	}
@@ -319,132 +319,6 @@ func (a *Adapter) markAllowedQualities(items []client.QualityProfileQualityItemR
 	}
 }
 
-// qualityDef holds parsed quality definition info
-type qualityDef struct {
-	ID         int
-	Name       string
-	Source     string
-	Resolution int
-	Modifier   string
-}
-
-// getQualityDefinitions fetches and parses quality definitions from Radarr
-func (a *Adapter) getQualityDefinitions(ctx context.Context, c *client.Client) ([]qualityDef, error) {
-	resp, err := c.GetApiV3Qualitydefinition(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
-	}
-
-	var defs []client.QualityDefinitionResource
-	if err := json.NewDecoder(resp.Body).Decode(&defs); err != nil {
-		return nil, fmt.Errorf("failed to decode quality definitions: %w", err)
-	}
-
-	result := make([]qualityDef, 0, len(defs))
-	for _, def := range defs {
-		if def.Quality == nil {
-			continue
-		}
-		qd := qualityDef{
-			ID:   ptrToInt(def.Quality.Id),
-			Name: ptrToString(def.Quality.Name),
-		}
-		if def.Quality.Source != nil {
-			qd.Source = string(*def.Quality.Source)
-		}
-		if def.Quality.Resolution != nil {
-			qd.Resolution = int(*def.Quality.Resolution)
-		}
-		if def.Quality.Modifier != nil {
-			qd.Modifier = string(*def.Quality.Modifier)
-		}
-		result = append(result, qd)
-	}
-	return result, nil
-}
-
-// buildQualityItems builds the Items array for a quality profile from IR tiers
-func (a *Adapter) buildQualityItems(tiers []irv1.VideoQualityTierIR, cutoff irv1.VideoQualityTierIR, defs []qualityDef) ([]client.QualityProfileQualityItemResource, int) {
-	var items []client.QualityProfileQualityItemResource
-	cutoffID := 0
-
-	// Create a lookup map for quality definitions by (resolution, source)
-	qualityLookup := make(map[string]qualityDef)
-	for _, def := range defs {
-		key := fmt.Sprintf("%d-%s", def.Resolution, def.Source)
-		qualityLookup[key] = def
-	}
-
-	// Process each tier as a group
-	groupID := 1000 // Start with a high number for group IDs
-	for _, tier := range tiers {
-		res := parseResolution(tier.Resolution)
-		if res == 0 {
-			continue
-		}
-
-		// Build group items for this tier
-		var groupItems []client.QualityProfileQualityItemResource
-		for _, source := range tier.Sources {
-			radarrSource := mapSourceToRadarr(source)
-			key := fmt.Sprintf("%d-%s", res, radarrSource)
-
-			if def, ok := qualityLookup[key]; ok {
-				// Each item needs an empty Items array
-				emptyItems := []client.QualityProfileQualityItemResource{}
-				// Build full Quality object with all required fields
-				qualitySource := client.QualitySource(def.Source)
-				qualityModifier := client.Modifier(def.Modifier)
-				qualityRes := int32(def.Resolution)
-				item := client.QualityProfileQualityItemResource{
-					Quality: &client.Quality{
-						Id:         intPtr(def.ID),
-						Name:       stringPtr(def.Name),
-						Source:     &qualitySource,
-						Resolution: &qualityRes,
-						Modifier:   &qualityModifier,
-					},
-					Items:   &emptyItems,
-					Allowed: boolPtr(tier.Allowed),
-				}
-				groupItems = append(groupItems, item)
-
-				// Check if this is the cutoff tier
-				if tier.Resolution == cutoff.Resolution && containsSource(cutoff.Sources, source) {
-					cutoffID = def.ID
-				}
-			}
-		}
-
-		// Add as a group if multiple items, or as single item
-		if len(groupItems) > 1 {
-			groupName := tier.Resolution
-			group := client.QualityProfileQualityItemResource{
-				Id:      intPtr(groupID),
-				Name:    stringPtr(groupName),
-				Items:   &groupItems,
-				Allowed: boolPtr(tier.Allowed),
-			}
-			items = append(items, group)
-			groupID++
-
-			// For groups, cutoff should be the group ID
-			if cutoffID > 0 && tier.Resolution == cutoff.Resolution {
-				cutoffID = groupID - 1 // Use the group ID we just assigned
-			}
-		} else if len(groupItems) == 1 {
-			items = append(items, groupItems[0])
-		}
-	}
-
-	return items, cutoffID
-}
-
 // parseResolution converts "2160p", "1080p", etc. to integer
 func parseResolution(res string) int {
 	switch res {
@@ -461,44 +335,6 @@ func parseResolution(res string) int {
 	default:
 		return 0
 	}
-}
-
-// mapSourceToRadarr converts our source names to Radarr's source names
-func mapSourceToRadarr(source string) string {
-	switch source {
-	case "bluray":
-		return "bluray"
-	case "webdl":
-		return "webdl"
-	case "webrip":
-		return "webrip"
-	case "hdtv":
-		return "tv"
-	case "dvd":
-		return "dvd"
-	case "cam":
-		return "cam"
-	case "telesync":
-		return "telesync"
-	case "telecine":
-		return "telecine"
-	case "workprint":
-		return "workprint"
-	case "remux":
-		return "bluray" // Remux is bluray source with remux modifier
-	default:
-		return source
-	}
-}
-
-// containsSource checks if a source is in the list
-func containsSource(sources []string, source string) bool {
-	for _, s := range sources {
-		if s == source {
-			return true
-		}
-	}
-	return false
 }
 
 // Custom Format operations
@@ -518,7 +354,7 @@ func (a *Adapter) createCustomFormat(ctx context.Context, c *client.Client, ir *
 	if err != nil {
 		return fmt.Errorf("failed to create custom format: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		// Read response body for error details
@@ -549,7 +385,7 @@ func (a *Adapter) updateCustomFormat(ctx context.Context, c *client.Client, ir *
 	if err != nil {
 		return fmt.Errorf("failed to update custom format: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		body, _ := io.ReadAll(resp.Body)
@@ -569,7 +405,7 @@ func (a *Adapter) deleteCustomFormat(ctx context.Context, c *client.Client, name
 	if err != nil {
 		return fmt.Errorf("failed to delete custom format: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -583,7 +419,7 @@ func (a *Adapter) findCustomFormatIDByName(ctx context.Context, c *client.Client
 	if err != nil {
 		return 0, fmt.Errorf("failed to get custom formats: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var formats []client.CustomFormatResource
 	if err := json.NewDecoder(resp.Body).Decode(&formats); err != nil {
@@ -723,7 +559,7 @@ func (a *Adapter) createDownloadClient(ctx context.Context, c *client.Client, ir
 	if err != nil {
 		return fmt.Errorf("failed to create download client: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -746,7 +582,7 @@ func (a *Adapter) updateDownloadClient(ctx context.Context, c *client.Client, ir
 	if err != nil {
 		return fmt.Errorf("failed to update download client: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -765,7 +601,7 @@ func (a *Adapter) deleteDownloadClient(ctx context.Context, c *client.Client, na
 	if err != nil {
 		return fmt.Errorf("failed to delete download client: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -779,7 +615,7 @@ func (a *Adapter) findDownloadClientIDByName(ctx context.Context, c *client.Clie
 	if err != nil {
 		return 0, fmt.Errorf("failed to get download clients: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var clients []client.DownloadClientResource
 	if err := json.NewDecoder(resp.Body).Decode(&clients); err != nil {
@@ -904,7 +740,7 @@ func (a *Adapter) createIndexer(ctx context.Context, c *client.Client, ir *irv1.
 	if err != nil {
 		return fmt.Errorf("failed to create indexer: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
@@ -927,7 +763,7 @@ func (a *Adapter) updateIndexer(ctx context.Context, c *client.Client, ir *irv1.
 	if err != nil {
 		return fmt.Errorf("failed to update indexer: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -946,7 +782,7 @@ func (a *Adapter) deleteIndexer(ctx context.Context, c *client.Client, name stri
 	if err != nil {
 		return fmt.Errorf("failed to delete indexer: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -960,7 +796,7 @@ func (a *Adapter) findIndexerIDByName(ctx context.Context, c *client.Client, nam
 	if err != nil {
 		return 0, fmt.Errorf("failed to get indexers: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var indexers []client.IndexerResource
 	if err := json.NewDecoder(resp.Body).Decode(&indexers); err != nil {
@@ -1059,7 +895,7 @@ func (a *Adapter) createRootFolder(ctx context.Context, c *client.Client, ir *ir
 	if err != nil {
 		return fmt.Errorf("failed to create root folder: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -1076,7 +912,7 @@ func (a *Adapter) updateNamingConfig(ctx context.Context, c *client.Client, ir *
 	if err != nil {
 		return fmt.Errorf("failed to get naming config: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var current client.NamingConfigResource
 	if err := json.NewDecoder(resp.Body).Decode(&current); err != nil {
@@ -1099,7 +935,7 @@ func (a *Adapter) updateNamingConfig(ctx context.Context, c *client.Client, ir *
 	if err != nil {
 		return fmt.Errorf("failed to update naming config: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)

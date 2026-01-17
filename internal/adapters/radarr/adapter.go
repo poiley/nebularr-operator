@@ -47,7 +47,7 @@ func (a *Adapter) Connect(ctx context.Context, conn *irv1.ConnectionIR) (*adapte
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to Radarr: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -87,7 +87,7 @@ func (a *Adapter) Discover(ctx context.Context, conn *irv1.ConnectionIR) (*adapt
 	// Discover custom format specs
 	resp, err := c.GetApiV3CustomformatSchema(ctx)
 	if err == nil && resp.StatusCode == http.StatusOK {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		var schemas []client.CustomFormatSpecificationSchema
 		if err := json.NewDecoder(resp.Body).Decode(&schemas); err == nil {
 			for _, schema := range schemas {
@@ -102,7 +102,7 @@ func (a *Adapter) Discover(ctx context.Context, conn *irv1.ConnectionIR) (*adapt
 	// Discover download client types
 	resp, err = c.GetApiV3DownloadclientSchema(ctx)
 	if err == nil && resp.StatusCode == http.StatusOK {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		var schemas []client.DownloadClientResource
 		if err := json.NewDecoder(resp.Body).Decode(&schemas); err == nil {
 			seen := make(map[string]bool)
@@ -119,7 +119,7 @@ func (a *Adapter) Discover(ctx context.Context, conn *irv1.ConnectionIR) (*adapt
 	// Discover indexer types
 	resp, err = c.GetApiV3IndexerSchema(ctx)
 	if err == nil && resp.StatusCode == http.StatusOK {
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		var schemas []client.IndexerResource
 		if err := json.NewDecoder(resp.Body).Decode(&schemas); err == nil {
 			seen := make(map[string]bool)

@@ -17,7 +17,7 @@ func (a *Adapter) getManagedDownloadClients(ctx context.Context, c *client.Clien
 	if err != nil {
 		return nil, fmt.Errorf("failed to get download clients: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -28,7 +28,7 @@ func (a *Adapter) getManagedDownloadClients(ctx context.Context, c *client.Clien
 		return nil, fmt.Errorf("failed to decode download clients: %w", err)
 	}
 
-	var result []irv1.DownloadClientIR
+	result := make([]irv1.DownloadClientIR, 0, len(clients))
 	for _, dc := range clients {
 		// Check if this client has the ownership tag
 		if !hasTag(dc.Tags, tagID) {

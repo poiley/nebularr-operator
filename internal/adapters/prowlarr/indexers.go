@@ -18,7 +18,7 @@ func (a *Adapter) getManagedIndexers(ctx context.Context, c *httpClient, tagID i
 		return nil, fmt.Errorf("failed to get indexers: %w", err)
 	}
 
-	var managed []irv1.ProwlarrIndexerIR
+	managed := make([]irv1.ProwlarrIndexerIR, 0, len(indexers))
 	for _, idx := range indexers {
 		if !hasTag(idx.Tags, tagID) {
 			continue

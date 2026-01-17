@@ -64,11 +64,3 @@ func hasTag(tags []int, tagID int) bool {
 	}
 	return false
 }
-
-// ensureTag ensures a tag is in the list
-func ensureTag(tags []int, tagID int) []int {
-	if hasTag(tags, tagID) {
-		return tags
-	}
-	return append(tags, tagID)
-}

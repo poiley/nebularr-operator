@@ -17,7 +17,7 @@ func (a *Adapter) getManagedIndexers(ctx context.Context, c *client.Client, tagI
 	if err != nil {
 		return nil, fmt.Errorf("failed to get indexers: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -28,7 +28,7 @@ func (a *Adapter) getManagedIndexers(ctx context.Context, c *client.Client, tagI
 		return nil, fmt.Errorf("failed to decode indexers: %w", err)
 	}
 
-	var result []irv1.IndexerIR
+	result := make([]irv1.IndexerIR, 0, len(indexers))
 	for _, idx := range indexers {
 		// Check if this indexer has the ownership tag
 		if !hasTag(idx.Tags, tagID) {

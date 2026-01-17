@@ -16,7 +16,7 @@ func (a *Adapter) getMediaManagementConfig(ctx context.Context, c *client.Client
 	if err != nil {
 		return nil, fmt.Errorf("failed to get media management config: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -41,7 +41,7 @@ func (a *Adapter) updateMediaManagementConfig(ctx context.Context, c *client.Cli
 	if err != nil {
 		return fmt.Errorf("failed to update media management config: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
 		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)

@@ -22,6 +22,11 @@ linters:
     - unparam
     - unused
   settings:
+    goconst:
+      min-occurrences: 6  # Only flag if string appears 6+ times (default is 3)
+      ignore-string-values: 'none|forms|None|Enabled|username|password|apiKey|bluray|webdl|webrip|dvd'
+    gocyclo:
+      min-complexity: 35  # Allow slightly higher complexity for config builders
     revive:
       rules:
         - name: comment-spacings
@@ -36,6 +41,11 @@ linters:
           - dupl
           - lll
         path: internal/*
+      # diff* functions return error for consistency but may not currently fail
+      - linters:
+          - unparam
+        text: "result 0 \\(error\\) is always nil"
+        path: internal/adapters/
     paths:
       - third_party$
       - builtin$

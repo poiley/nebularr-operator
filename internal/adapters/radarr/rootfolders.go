@@ -17,7 +17,7 @@ func (a *Adapter) getRootFolders(ctx context.Context, c *client.Client) ([]irv1.
 	if err != nil {
 		return nil, fmt.Errorf("failed to get root folders: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
@@ -28,7 +28,7 @@ func (a *Adapter) getRootFolders(ctx context.Context, c *client.Client) ([]irv1.
 		return nil, fmt.Errorf("failed to decode root folders: %w", err)
 	}
 
-	var result []irv1.RootFolderIR
+	result := make([]irv1.RootFolderIR, 0, len(folders))
 	for _, folder := range folders {
 		ir := irv1.RootFolderIR{
 			Path: ptrToString(folder.Path),

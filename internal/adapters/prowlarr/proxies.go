@@ -18,7 +18,7 @@ func (a *Adapter) getManagedProxies(ctx context.Context, c *httpClient, tagID in
 		return nil, fmt.Errorf("failed to get proxies: %w", err)
 	}
 
-	var managed []irv1.IndexerProxyIR
+	managed := make([]irv1.IndexerProxyIR, 0, len(proxies))
 	for _, proxy := range proxies {
 		if !hasTag(proxy.Tags, tagID) {
 			continue
