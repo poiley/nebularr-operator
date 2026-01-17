@@ -16,11 +16,14 @@ type TagResource struct {
 
 // QualityProfileResource represents a Lidarr quality profile
 type QualityProfileResource struct {
-	ID             int                  `json:"id,omitempty"`
-	Name           string               `json:"name"`
-	UpgradeAllowed bool                 `json:"upgradeAllowed"`
-	Cutoff         int                  `json:"cutoff"`
-	Items          []QualityProfileItem `json:"items"`
+	ID                int                  `json:"id,omitempty"`
+	Name              string               `json:"name"`
+	UpgradeAllowed    bool                 `json:"upgradeAllowed"`
+	Cutoff            int                  `json:"cutoff"`
+	Items             []QualityProfileItem `json:"items"`
+	MinFormatScore    int                  `json:"minFormatScore"`
+	CutoffFormatScore int                  `json:"cutoffFormatScore"`
+	FormatItems       []interface{}        `json:"formatItems"` // Use interface{} since we don't manage custom formats for Lidarr yet
 }
 
 // QualityProfileItem represents a quality in a profile

@@ -90,9 +90,12 @@ func (a *Adapter) updateQualityProfile(ctx context.Context, c *httpClient, id in
 // profileFromSchema builds a quality profile from schema with tier preferences applied
 func (a *Adapter) profileFromSchema(schema *QualityProfileResource, profile *irv1.AudioQualityIR) QualityProfileResource {
 	resource := QualityProfileResource{
-		Name:           profile.ProfileName,
-		UpgradeAllowed: profile.UpgradeAllowed,
-		Items:          make([]QualityProfileItem, len(schema.Items)),
+		Name:              profile.ProfileName,
+		UpgradeAllowed:    profile.UpgradeAllowed,
+		Items:             make([]QualityProfileItem, len(schema.Items)),
+		MinFormatScore:    0,
+		CutoffFormatScore: 0,
+		FormatItems:       []interface{}{}, // Empty slice, not nil
 	}
 
 	// Build tier allowed map
