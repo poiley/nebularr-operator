@@ -195,6 +195,7 @@ type qualityDef struct {
 	Name       string
 	Source     string
 	Resolution int
+	Modifier   string
 }
 
 // getQualityDefinitions fetches and parses quality definitions from Radarr
@@ -228,6 +229,9 @@ func (a *Adapter) getQualityDefinitions(ctx context.Context, c *client.Client) (
 		}
 		if def.Quality.Resolution != nil {
 			qd.Resolution = int(*def.Quality.Resolution)
+		}
+		if def.Quality.Modifier != nil {
+			qd.Modifier = string(*def.Quality.Modifier)
 		}
 		result = append(result, qd)
 	}
@@ -263,10 +267,17 @@ func (a *Adapter) buildQualityItems(tiers []irv1.VideoQualityTierIR, cutoff irv1
 			if def, ok := qualityLookup[key]; ok {
 				// Each item needs an empty Items array
 				emptyItems := []client.QualityProfileQualityItemResource{}
+				// Build full Quality object with all required fields
+				qualitySource := client.QualitySource(def.Source)
+				qualityModifier := client.Modifier(def.Modifier)
+				qualityRes := int32(def.Resolution)
 				item := client.QualityProfileQualityItemResource{
 					Quality: &client.Quality{
-						Id:   intPtr(def.ID),
-						Name: stringPtr(def.Name),
+						Id:         intPtr(def.ID),
+						Name:       stringPtr(def.Name),
+						Source:     &qualitySource,
+						Resolution: &qualityRes,
+						Modifier:   &qualityModifier,
 					},
 					Items:   &emptyItems,
 					Allowed: boolPtr(tier.Allowed),
