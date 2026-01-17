@@ -811,7 +811,286 @@ func appendUnique(slice []string, item string) []string {
 
 ---
 
-## 10. Extended IR Types for Lidarr
+## 10. Custom Format Mapping (Lidarr v2+)
+
+Starting with Lidarr v2, custom formats are supported similarly to Radarr/Sonarr. This replaces the older release profile system for more granular control.
+
+### 10.1 Audio-Specific Custom Formats
+
+| Our Format | Spec Type | Value/Pattern | Description |
+|------------|-----------|---------------|-------------|
+| `flac` | ReleaseTitleSpecification | `\bFLAC\b` | FLAC lossless |
+| `flac-24bit` | ReleaseTitleSpecification | `\b(FLAC|24bit|24-bit).*\b` | 24-bit FLAC |
+| `alac` | ReleaseTitleSpecification | `\bALAC\b` | Apple Lossless |
+| `mp3-320` | ReleaseTitleSpecification | `\b(MP3|320)\b` | MP3 320kbps |
+| `aac` | ReleaseTitleSpecification | `\bAAC\b` | AAC format |
+| `ogg` | ReleaseTitleSpecification | `\b(OGG|Vorbis)\b` | OGG Vorbis |
+| `opus` | ReleaseTitleSpecification | `\bOpus\b` | Opus format |
+| `dsd` | ReleaseTitleSpecification | `\bDSD\b` | DSD format |
+| `vinyl-rip` | ReleaseTitleSpecification | `\b(Vinyl|LP)\b` | Vinyl rip (may want to avoid) |
+| `scene` | ReleaseTitleSpecification | `\bSCENE\b` | Scene release |
+| `web` | ReleaseTitleSpecification | `\bWEB\b` | Web source |
+| `cd` | ReleaseTitleSpecification | `\bCD\b` | CD source |
+
+### 10.2 Go Implementation
+
+```go
+// internal/adapters/lidarr/customformats.go
+
+package lidarr
+
+// FormatSpecTemplate defines how to create a Lidarr custom format spec
+type FormatSpecTemplate struct {
+    Name           string
+    Implementation string
+    Negate         bool
+    Required       bool
+    Fields         map[string]interface{}
+}
+
+// FormatMapping maps our abstract formats to Lidarr spec templates
+var FormatMapping = map[string]FormatSpecTemplate{
+    "flac": {
+        Name:           "FLAC",
+        Implementation: "ReleaseTitleSpecification",
+        Fields: map[string]interface{}{
+            "value": `\bFLAC\b`,
+        },
+    },
+    "flac-24bit": {
+        Name:           "FLAC 24-bit",
+        Implementation: "ReleaseTitleSpecification",
+        Fields: map[string]interface{}{
+            "value": `\b(24bit|24-bit|24 bit)\b`,
+        },
+    },
+    "alac": {
+        Name:           "ALAC",
+        Implementation: "ReleaseTitleSpecification",
+        Fields: map[string]interface{}{
+            "value": `\bALAC\b`,
+        },
+    },
+    "mp3-320": {
+        Name:           "MP3 320",
+        Implementation: "ReleaseTitleSpecification",
+        Fields: map[string]interface{}{
+            "value": `\b320\b`,
+        },
+    },
+    "aac": {
+        Name:           "AAC",
+        Implementation: "ReleaseTitleSpecification",
+        Fields: map[string]interface{}{
+            "value": `\bAAC\b`,
+        },
+    },
+    "ogg": {
+        Name:           "OGG Vorbis",
+        Implementation: "ReleaseTitleSpecification",
+        Fields: map[string]interface{}{
+            "value": `\b(OGG|Vorbis)\b`,
+        },
+    },
+    "opus": {
+        Name:           "Opus",
+        Implementation: "ReleaseTitleSpecification",
+        Fields: map[string]interface{}{
+            "value": `\bOpus\b`,
+        },
+    },
+    "vinyl-rip": {
+        Name:           "Vinyl Rip",
+        Implementation: "ReleaseTitleSpecification",
+        Fields: map[string]interface{}{
+            "value": `\b(Vinyl|LP|Vinyl[\.\s]?Rip)\b`,
+        },
+    },
+    "web": {
+        Name:           "WEB",
+        Implementation: "ReleaseTitleSpecification",
+        Fields: map[string]interface{}{
+            "value": `\bWEB\b`,
+        },
+    },
+}
+
+// BuildCustomFormat creates a Lidarr custom format from specs
+func BuildCustomFormat(name string, specs []FormatSpecTemplate) map[string]interface{} {
+    specifications := make([]map[string]interface{}, 0, len(specs))
+    
+    for _, spec := range specs {
+        specifications = append(specifications, map[string]interface{}{
+            "name":           spec.Name,
+            "implementation": spec.Implementation,
+            "negate":         spec.Negate,
+            "required":       spec.Required,
+            "fields":         buildFields(spec.Fields),
+        })
+    }
+    
+    return map[string]interface{}{
+        "name":                  name,
+        "includeCustomFormatWhenRenaming": false,
+        "specifications":        specifications,
+    }
+}
+
+func buildFields(fields map[string]interface{}) []map[string]interface{} {
+    result := make([]map[string]interface{}, 0, len(fields))
+    for name, value := range fields {
+        result = append(result, map[string]interface{}{
+            "name":  name,
+            "value": value,
+        })
+    }
+    return result
+}
+```
+
+### 10.3 Example CRD Usage
+
+```yaml
+apiVersion: nebularr.io/v1alpha1
+kind: LidarrConfig
+metadata:
+  name: lidarr
+spec:
+  connection:
+    url: http://lidarr:8686
+    apiKeySecretRef:
+      name: lidarr-secret
+      key: api-key
+  
+  # Custom formats (Lidarr v2+)
+  customFormats:
+    # Prefer lossless formats
+    - name: Lossless Preferred
+      score: 100
+      specifications:
+        - name: FLAC
+          type: ReleaseTitleSpecification
+          value: "\\bFLAC\\b"
+        - name: ALAC
+          type: ReleaseTitleSpecification
+          value: "\\bALAC\\b"
+    
+    # Avoid vinyl rips
+    - name: Vinyl Rip
+      score: -100
+      specifications:
+        - name: Vinyl
+          type: ReleaseTitleSpecification
+          value: "\\b(Vinyl|LP)\\b"
+    
+    # Prefer 24-bit
+    - name: 24-bit
+      score: 50
+      specifications:
+        - name: 24bit
+          type: ReleaseTitleSpecification
+          value: "\\b(24bit|24-bit)\\b"
+```
+
+---
+
+## 11. Delay Profile Mapping
+
+### 11.1 Delay Profile Structure
+
+Delay profiles in Lidarr work similarly to Radarr/Sonarr:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enableUsenet` | bool | true | Enable Usenet downloads |
+| `enableTorrent` | bool | true | Enable torrent downloads |
+| `preferredProtocol` | string | usenet | Preferred protocol: `usenet` or `torrent` |
+| `usenetDelay` | int | 0 | Minutes to wait for Usenet releases |
+| `torrentDelay` | int | 0 | Minutes to wait for torrent releases |
+| `bypassIfHighestQuality` | bool | false | Skip delay if release meets quality cutoff |
+| `order` | int | varies | Priority (lower = higher priority) |
+| `tags` | []int | [] | Restrict to items with these tags |
+
+**Note:** Lidarr does not support `bypassIfAboveCustomFormatScore` in delay profiles (as of v2.x).
+
+### 11.2 Go Implementation
+
+```go
+// internal/adapters/lidarr/delayprofiles.go
+
+package lidarr
+
+import irv1 "github.com/poiley/nebularr/internal/ir/v1"
+
+// BuildDelayProfilePayload creates a Lidarr delay profile from IR
+func BuildDelayProfilePayload(ir *irv1.DelayProfileIR, tagIDs []int) map[string]interface{} {
+    enableUsenet := true
+    if ir.EnableUsenet != nil {
+        enableUsenet = *ir.EnableUsenet
+    }
+    
+    enableTorrent := true
+    if ir.EnableTorrent != nil {
+        enableTorrent = *ir.EnableTorrent
+    }
+    
+    bypassIfHighestQuality := false
+    if ir.BypassIfHighestQuality != nil {
+        bypassIfHighestQuality = *ir.BypassIfHighestQuality
+    }
+    
+    preferredProtocol := "usenet"
+    if ir.PreferredProtocol != "" {
+        preferredProtocol = ir.PreferredProtocol
+    }
+    
+    return map[string]interface{}{
+        "enableUsenet":           enableUsenet,
+        "enableTorrent":          enableTorrent,
+        "preferredProtocol":      preferredProtocol,
+        "usenetDelay":            ir.UsenetDelay,
+        "torrentDelay":           ir.TorrentDelay,
+        "bypassIfHighestQuality": bypassIfHighestQuality,
+        "order":                  ir.Order,
+        "tags":                   tagIDs,
+    }
+}
+```
+
+### 11.3 Example CRD Usage
+
+```yaml
+apiVersion: nebularr.io/v1alpha1
+kind: LidarrConfig
+metadata:
+  name: lidarr
+spec:
+  connection:
+    url: http://lidarr:8686
+    apiKeySecretRef:
+      name: lidarr-secret
+      key: api-key
+  
+  delayProfiles:
+    # Default: prefer Usenet for music
+    - name: Default
+      preferredProtocol: usenet
+      usenetDelay: 0
+      torrentDelay: 60
+      bypassIfHighestQuality: true
+    
+    # Torrents only for niche genres
+    - name: Niche Music
+      preferredProtocol: torrent
+      enableUsenet: false
+      torrentDelay: 0
+      tags:
+        - niche
+```
+
+---
+
+## 12. Extended IR Types for Lidarr (Updated)
 
 ### 10.1 Lidarr-Specific IR Types
 
@@ -924,7 +1203,7 @@ type ReleaseProfileSpec struct {
 
 ---
 
-## 12. Related Documents
+## 13. Related Documents
 
 - [README](./README.md) - Build order, file mapping (start here)
 - [RADARR](./RADARR.md) - Radarr adapter (video quality model)

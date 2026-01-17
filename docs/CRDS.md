@@ -361,7 +361,7 @@ type NamingSpec struct {
 ### 2.7 CustomFormatSpec
 
 Custom formats allow fine-grained control over release quality preferences through pattern matching.
-Used by Radarr and Sonarr only (not Lidarr).
+Used by Radarr, Sonarr, and Lidarr (v2.0+).
 
 ```go
 // CustomFormatSpec defines a custom format for release matching
@@ -529,6 +529,139 @@ spec:
           type: ReleaseTitleSpecification
           value: "\\bAMZN\\b"
           required: true
+```
+
+### 2.8 DelayProfileSpec
+
+Delay profiles control when downloads should start based on protocol preferences and timing delays. They're useful for preferring one protocol over another or waiting for better quality releases.
+
+**Supported by**: RadarrConfig, SonarrConfig, LidarrConfig
+
+```go
+// api/v1alpha1/common_types.go
+
+type DelayProfileSpec struct {
+    // Name is a display name for this delay profile (used for identification only).
+    // +kubebuilder:validation:Required
+    Name string `json:"name"`
+
+    // PreferredProtocol specifies which protocol to prefer when both are available.
+    // +optional
+    // +kubebuilder:validation:Enum=usenet;torrent
+    // +kubebuilder:default=usenet
+    PreferredProtocol string `json:"preferredProtocol,omitempty"`
+
+    // UsenetDelay is the delay in minutes before downloading from Usenet.
+    // Set to 0 for no delay.
+    // +optional
+    // +kubebuilder:default=0
+    // +kubebuilder:validation:Minimum=0
+    UsenetDelay int `json:"usenetDelay,omitempty"`
+
+    // TorrentDelay is the delay in minutes before downloading from torrents.
+    // Set to 0 for no delay.
+    // +optional
+    // +kubebuilder:default=0
+    // +kubebuilder:validation:Minimum=0
+    TorrentDelay int `json:"torrentDelay,omitempty"`
+
+    // EnableUsenet enables/disables Usenet for this profile.
+    // +optional
+    // +kubebuilder:default=true
+    EnableUsenet *bool `json:"enableUsenet,omitempty"`
+
+    // EnableTorrent enables/disables torrents for this profile.
+    // +optional
+    // +kubebuilder:default=true
+    EnableTorrent *bool `json:"enableTorrent,omitempty"`
+
+    // BypassIfHighestQuality bypasses the delay if the release is at or above
+    // the cutoff quality defined in the quality profile.
+    // +optional
+    // +kubebuilder:default=false
+    BypassIfHighestQuality *bool `json:"bypassIfHighestQuality,omitempty"`
+
+    // BypassIfAboveCustomFormatScore bypasses the delay if the release's
+    // custom format score is at or above MinimumCustomFormatScore.
+    // +optional
+    // +kubebuilder:default=false
+    BypassIfAboveCustomFormatScore *bool `json:"bypassIfAboveCustomFormatScore,omitempty"`
+
+    // MinimumCustomFormatScore is the minimum custom format score required
+    // to bypass the delay when BypassIfAboveCustomFormatScore is enabled.
+    // +optional
+    // +kubebuilder:default=0
+    MinimumCustomFormatScore int `json:"minimumCustomFormatScore,omitempty"`
+
+    // Tags restricts this delay profile to items with matching tags.
+    // If empty, the profile applies to all items.
+    // +optional
+    Tags []string `json:"tags,omitempty"`
+
+    // Order determines the priority of this profile (lower = higher priority).
+    // If not specified, profiles are ordered by their position in the array.
+    // +optional
+    Order *int `json:"order,omitempty"`
+}
+```
+
+#### Field Descriptions
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `name` | string | (required) | Display name for identification |
+| `preferredProtocol` | string | `usenet` | Which protocol to prefer: `usenet` or `torrent` |
+| `usenetDelay` | int | `0` | Minutes to wait before downloading from Usenet |
+| `torrentDelay` | int | `0` | Minutes to wait before downloading from torrents |
+| `enableUsenet` | bool | `true` | Whether Usenet downloads are enabled |
+| `enableTorrent` | bool | `true` | Whether torrent downloads are enabled |
+| `bypassIfHighestQuality` | bool | `false` | Skip delay if release meets quality cutoff |
+| `bypassIfAboveCustomFormatScore` | bool | `false` | Skip delay if custom format score threshold met |
+| `minimumCustomFormatScore` | int | `0` | Score threshold for bypass (when enabled) |
+| `tags` | []string | `[]` | Restrict profile to items with these tags |
+| `order` | int | (position) | Priority order (lower = higher priority) |
+
+#### Example: Prefer Usenet with Torrent Fallback
+
+```yaml
+apiVersion: nebularr.io/v1alpha1
+kind: RadarrConfig
+metadata:
+  name: radarr
+spec:
+  connection:
+    url: http://radarr:7878
+    apiKeySecretRef:
+      name: radarr-secret
+      key: api-key
+  
+  delayProfiles:
+    # Default profile: prefer Usenet, wait 120 min for torrents
+    - name: Default
+      preferredProtocol: usenet
+      usenetDelay: 0
+      torrentDelay: 120
+      bypassIfHighestQuality: true
+    
+    # For 4K content: longer delays for better releases
+    - name: 4K Releases
+      preferredProtocol: usenet
+      usenetDelay: 60
+      torrentDelay: 240
+      bypassIfAboveCustomFormatScore: true
+      minimumCustomFormatScore: 1000
+      tags:
+        - 4k
+```
+
+#### Example: Torrent-Only Setup
+
+```yaml
+delayProfiles:
+  - name: Torrents Only
+    preferredProtocol: torrent
+    enableUsenet: false
+    torrentDelay: 0
 ```
 
 ---

@@ -741,7 +741,112 @@ func appendUnique(slice []string, item string) []string {
 
 ---
 
-## 7. Related Documents
+## 7. Delay Profile Mapping
+
+### 7.1 Delay Profile Structure
+
+Delay profiles control when downloads should start based on protocol preferences and timing:
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `enableUsenet` | bool | true | Enable Usenet downloads |
+| `enableTorrent` | bool | true | Enable torrent downloads |
+| `preferredProtocol` | string | usenet | Preferred protocol: `usenet` or `torrent` |
+| `usenetDelay` | int | 0 | Minutes to wait for Usenet releases |
+| `torrentDelay` | int | 0 | Minutes to wait for torrent releases |
+| `bypassIfHighestQuality` | bool | false | Skip delay if release meets quality cutoff |
+| `bypassIfAboveCustomFormatScore` | bool | false | Skip delay if CF score threshold met |
+| `minimumCustomFormatScore` | int | 0 | Minimum CF score to bypass delay |
+| `order` | int | varies | Priority (lower = higher priority) |
+| `tags` | []int | [] | Restrict to items with these tags |
+
+### 7.2 Go Implementation
+
+```go
+// internal/adapters/radarr/delayprofiles.go
+
+package radarr
+
+import irv1 "github.com/poiley/nebularr/internal/ir/v1"
+
+// BuildDelayProfilePayload creates a Radarr delay profile from IR
+func BuildDelayProfilePayload(ir *irv1.DelayProfileIR, tagIDs []int) map[string]interface{} {
+    enableUsenet := true
+    if ir.EnableUsenet != nil {
+        enableUsenet = *ir.EnableUsenet
+    }
+    
+    enableTorrent := true
+    if ir.EnableTorrent != nil {
+        enableTorrent = *ir.EnableTorrent
+    }
+    
+    bypassIfHighestQuality := false
+    if ir.BypassIfHighestQuality != nil {
+        bypassIfHighestQuality = *ir.BypassIfHighestQuality
+    }
+    
+    bypassIfAboveCustomFormatScore := false
+    if ir.BypassIfAboveCustomFormatScore != nil {
+        bypassIfAboveCustomFormatScore = *ir.BypassIfAboveCustomFormatScore
+    }
+    
+    preferredProtocol := "usenet"
+    if ir.PreferredProtocol != "" {
+        preferredProtocol = ir.PreferredProtocol
+    }
+    
+    return map[string]interface{}{
+        "enableUsenet":                   enableUsenet,
+        "enableTorrent":                  enableTorrent,
+        "preferredProtocol":              preferredProtocol,
+        "usenetDelay":                    ir.UsenetDelay,
+        "torrentDelay":                   ir.TorrentDelay,
+        "bypassIfHighestQuality":         bypassIfHighestQuality,
+        "bypassIfAboveCustomFormatScore": bypassIfAboveCustomFormatScore,
+        "minimumCustomFormatScore":       ir.MinimumCustomFormatScore,
+        "order":                          ir.Order,
+        "tags":                           tagIDs,
+    }
+}
+```
+
+### 7.3 Example CRD Usage
+
+```yaml
+apiVersion: nebularr.io/v1alpha1
+kind: RadarrConfig
+metadata:
+  name: radarr
+spec:
+  connection:
+    url: http://radarr:7878
+    apiKeySecretRef:
+      name: radarr-secret
+      key: api-key
+  
+  delayProfiles:
+    # Default: prefer Usenet, wait 2 hours for torrents
+    - name: Default
+      preferredProtocol: usenet
+      usenetDelay: 0
+      torrentDelay: 120
+      bypassIfHighestQuality: true
+    
+    # 4K content: longer delays for better releases
+    - name: 4K Releases
+      preferredProtocol: usenet
+      usenetDelay: 60
+      torrentDelay: 240
+      bypassIfAboveCustomFormatScore: true
+      minimumCustomFormatScore: 1000
+      tags:
+        - 4k
+```
+
+---
+
+## 8. Related Documents
 
 - [README](./README.md) - Build order, file mapping (start here)
 - [TYPES](./TYPES.md) - IR types and adapter interface

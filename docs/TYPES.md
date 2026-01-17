@@ -522,6 +522,44 @@ type ReleaseProfileIR struct {
     Required []string `json:"required,omitempty"`
     Ignored  []string `json:"ignored,omitempty"`
 }
+
+// DelayProfileIR represents delay profile configuration
+// Supported by: Radarr, Sonarr, Lidarr
+type DelayProfileIR struct {
+    // Name is a display name for identification (not sent to API)
+    Name string `json:"name"`
+
+    // PreferredProtocol is "usenet" or "torrent"
+    PreferredProtocol string `json:"preferredProtocol,omitempty"`
+
+    // UsenetDelay is minutes to wait before downloading from Usenet
+    UsenetDelay int `json:"usenetDelay,omitempty"`
+
+    // TorrentDelay is minutes to wait before downloading from torrents
+    TorrentDelay int `json:"torrentDelay,omitempty"`
+
+    // EnableUsenet toggles Usenet downloads
+    EnableUsenet *bool `json:"enableUsenet,omitempty"`
+
+    // EnableTorrent toggles torrent downloads
+    EnableTorrent *bool `json:"enableTorrent,omitempty"`
+
+    // BypassIfHighestQuality skips delay if release meets quality cutoff
+    BypassIfHighestQuality *bool `json:"bypassIfHighestQuality,omitempty"`
+
+    // BypassIfAboveCustomFormatScore skips delay if CF score threshold met
+    // Note: Not supported by Lidarr
+    BypassIfAboveCustomFormatScore *bool `json:"bypassIfAboveCustomFormatScore,omitempty"`
+
+    // MinimumCustomFormatScore is the score threshold for bypass
+    MinimumCustomFormatScore int `json:"minimumCustomFormatScore,omitempty"`
+
+    // Tags restricts this profile to items with matching tags
+    Tags []string `json:"tags,omitempty"`
+
+    // Order determines priority (lower = higher priority)
+    Order int `json:"order,omitempty"`
+}
 ```
 
 ### 5.4 Download Client IR
