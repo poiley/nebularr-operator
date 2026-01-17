@@ -78,7 +78,7 @@ func (r *DownloadStackConfigReconciler) Reconcile(ctx context.Context, req ctrl.
 	}
 
 	// Handle deletion
-	if !config.ObjectMeta.DeletionTimestamp.IsZero() {
+	if !config.DeletionTimestamp.IsZero() {
 		return r.reconcileDelete(ctx, config)
 	}
 

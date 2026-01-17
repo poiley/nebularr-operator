@@ -18,7 +18,7 @@ func (a *Adapter) getManagedApplications(ctx context.Context, c *httpClient, tag
 		return nil, fmt.Errorf("failed to get applications: %w", err)
 	}
 
-	var managed []irv1.ProwlarrApplicationIR
+	managed := make([]irv1.ProwlarrApplicationIR, 0, len(apps))
 	for _, app := range apps {
 		if !hasTag(app.Tags, tagID) {
 			continue

@@ -60,46 +60,182 @@ func (a *Adapter) applyDelete(ctx context.Context, c *httpClient, change adapter
 	}
 }
 
-// createQualityProfile creates a quality profile
+// createQualityProfile creates a quality profile using the schema
 func (a *Adapter) createQualityProfile(ctx context.Context, c *httpClient, profile *irv1.VideoQualityIR) error {
-	resource := a.profileFromIR(profile)
-	return c.post(ctx, "/api/v3/qualityprofile", resource, nil)
-}
+	// Fetch schema to get all quality items with proper structure
+	var schema QualityProfileResource
+	if err := c.get(ctx, "/api/v3/qualityprofile/schema", &schema); err != nil {
+		return fmt.Errorf("failed to get quality profile schema: %w", err)
+	}
 
-// updateQualityProfile updates a quality profile
-func (a *Adapter) updateQualityProfile(ctx context.Context, c *httpClient, id int, profile *irv1.VideoQualityIR) error {
-	resource := a.profileFromIR(profile)
-	resource.ID = id
-	return c.put(ctx, fmt.Sprintf("/api/v3/qualityprofile/%d", id), resource, nil)
-}
+	// Build allowed qualities map from tiers
+	allowedQualities := a.buildAllowedQualitiesMap(profile.Tiers)
 
-// profileFromIR converts IR to Sonarr quality profile
-func (a *Adapter) profileFromIR(profile *irv1.VideoQualityIR) QualityProfileResource {
+	// Use schema items and mark appropriate ones as allowed
+	items, cutoffID := a.processSchemaItems(schema.Items, allowedQualities, profile.Cutoff)
+
 	resource := QualityProfileResource{
 		Name:           profile.ProfileName,
 		UpgradeAllowed: profile.UpgradeAllowed,
-		Cutoff:         1, // Default cutoff
-		Items:          []QualityProfileItem{},
+		Cutoff:         cutoffID,
+		Items:          items,
 	}
 
-	// Build quality items from tiers
-	for _, tier := range profile.Tiers {
-		sourceName := "unknown"
-		if len(tier.Sources) > 0 {
-			sourceName = tier.Sources[0]
-		}
-		item := QualityProfileItem{
-			Allowed: true,
-			Quality: &Quality{
-				Name:       fmt.Sprintf("%s %s", tier.Resolution, sourceName),
-				Resolution: resolutionToInt(tier.Resolution),
-				Source:     sourceName,
-			},
-		}
-		resource.Items = append(resource.Items, item)
+	return c.post(ctx, "/api/v3/qualityprofile", resource, nil)
+}
+
+// updateQualityProfile updates a quality profile using the schema
+func (a *Adapter) updateQualityProfile(ctx context.Context, c *httpClient, id int, profile *irv1.VideoQualityIR) error {
+	// Fetch schema to get all quality items with proper structure
+	var schema QualityProfileResource
+	if err := c.get(ctx, "/api/v3/qualityprofile/schema", &schema); err != nil {
+		return fmt.Errorf("failed to get quality profile schema: %w", err)
 	}
 
-	return resource
+	// Build allowed qualities map from tiers
+	allowedQualities := a.buildAllowedQualitiesMap(profile.Tiers)
+
+	// Use schema items and mark appropriate ones as allowed
+	items, cutoffID := a.processSchemaItems(schema.Items, allowedQualities, profile.Cutoff)
+
+	resource := QualityProfileResource{
+		ID:             id,
+		Name:           profile.ProfileName,
+		UpgradeAllowed: profile.UpgradeAllowed,
+		Cutoff:         cutoffID,
+		Items:          items,
+	}
+
+	return c.put(ctx, fmt.Sprintf("/api/v3/qualityprofile/%d", id), resource, nil)
+}
+
+// buildAllowedQualitiesMap creates a map of resolution -> sources that are allowed
+func (a *Adapter) buildAllowedQualitiesMap(tiers []irv1.VideoQualityTierIR) map[string]map[string]bool {
+	allowed := make(map[string]map[string]bool)
+	for _, tier := range tiers {
+		if !tier.Allowed {
+			continue
+		}
+		res := tier.Resolution
+		if allowed[res] == nil {
+			allowed[res] = make(map[string]bool)
+		}
+		for _, source := range tier.Sources {
+			allowed[res][source] = true
+		}
+	}
+	return allowed
+}
+
+// processSchemaItems processes schema items and marks allowed ones
+func (a *Adapter) processSchemaItems(schemaItems []QualityProfileItem, allowedQualities map[string]map[string]bool, cutoffTier irv1.VideoQualityTierIR) ([]QualityProfileItem, int) {
+	items := make([]QualityProfileItem, len(schemaItems))
+	cutoffID := 1 // Default cutoff
+
+	for i, schemaItem := range schemaItems {
+		item := schemaItem
+
+		// Check if this is a group (has nested items)
+		if len(item.Items) > 0 {
+			// Process group items
+			groupItems := make([]QualityProfileItem, len(item.Items))
+			groupAllowed := false
+			for j, subItem := range item.Items {
+				groupItems[j] = subItem
+				if subItem.Quality != nil {
+					isAllowed := a.isQualityAllowed(subItem.Quality, allowedQualities)
+					groupItems[j].Allowed = isAllowed
+					if isAllowed {
+						groupAllowed = true
+					}
+					// Check for cutoff
+					if a.isQualityCutoff(subItem.Quality, cutoffTier) && item.ID > 0 {
+						cutoffID = item.ID
+					}
+				}
+			}
+			item.Items = groupItems
+			item.Allowed = groupAllowed
+		} else if item.Quality != nil {
+			// Single quality item
+			item.Allowed = a.isQualityAllowed(item.Quality, allowedQualities)
+			// Check for cutoff
+			if a.isQualityCutoff(item.Quality, cutoffTier) && item.Quality.ID > 0 {
+				cutoffID = item.Quality.ID
+			}
+		}
+
+		items[i] = item
+	}
+
+	return items, cutoffID
+}
+
+// isQualityAllowed checks if a quality matches any allowed tier
+func (a *Adapter) isQualityAllowed(quality *Quality, allowedQualities map[string]map[string]bool) bool {
+	if quality == nil {
+		return false
+	}
+	res := resolutionToString(quality.Resolution)
+	sources := allowedQualities[res]
+	if sources == nil {
+		return false
+	}
+	// Map Sonarr source names to our source names
+	source := mapSonarrSource(quality.Source)
+	return sources[source]
+}
+
+// isQualityCutoff checks if this quality should be the cutoff
+func (a *Adapter) isQualityCutoff(quality *Quality, cutoffTier irv1.VideoQualityTierIR) bool {
+	if quality == nil {
+		return false
+	}
+	res := resolutionToString(quality.Resolution)
+	if res != cutoffTier.Resolution {
+		return false
+	}
+	source := mapSonarrSource(quality.Source)
+	for _, s := range cutoffTier.Sources {
+		if s == source {
+			return true
+		}
+	}
+	return false
+}
+
+// resolutionToString converts resolution int to string
+func resolutionToString(res int) string {
+	switch res {
+	case 2160:
+		return "2160p"
+	case 1080:
+		return "1080p"
+	case 720:
+		return "720p"
+	case 480:
+		return "480p"
+	default:
+		return ""
+	}
+}
+
+// mapSonarrSource maps Sonarr source names to our normalized names
+func mapSonarrSource(source string) string {
+	switch source {
+	case "television", "televisionRaw":
+		return "hdtv"
+	case "web", "webdl":
+		return "webdl"
+	case "webRip":
+		return "webrip"
+	case "bluray", "blurayRaw":
+		return "bluray"
+	case "dvd":
+		return "dvd"
+	default:
+		return source
+	}
 }
 
 // createDownloadClient creates a download client

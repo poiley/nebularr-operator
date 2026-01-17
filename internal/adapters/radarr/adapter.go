@@ -4,6 +4,7 @@ package radarr
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -389,8 +390,9 @@ func (a *Adapter) newClient(conn *irv1.ConnectionIR) (*client.Client, error) {
 	}
 
 	if conn.InsecureSkipVerify {
-		// In production, you'd configure TLS here
-		// For now, we'll use the default client
+		httpClient.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // User explicitly requested insecure
+		}
 	}
 
 	// Create the oapi-codegen client

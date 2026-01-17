@@ -52,11 +52,7 @@ func (a *Adapter) qualityProfileToIR(profile *client.QualityProfileResource) *ir
 		FormatScores:   make(map[string]int),
 	}
 
-	// Extract cutoff
-	if profile.Cutoff != nil {
-		// We'd need to map the cutoff ID back to a tier
-		// For now, we'll leave this as a TODO
-	}
+	// TODO: Extract cutoff - we'd need to map the cutoff ID back to a tier
 
 	// Extract tiers from items
 	if profile.Items != nil {

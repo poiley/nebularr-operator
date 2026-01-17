@@ -161,7 +161,7 @@ func (e *Expander) formatToCustomFormat(format string, isReject bool) *irv1.Cust
 		return nil
 	}
 
-	name := format
+	var name string
 	if isReject {
 		name = "Reject: " + format
 	} else {

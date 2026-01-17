@@ -423,7 +423,7 @@ func (a *Adapter) buildQualityItems(tiers []irv1.VideoQualityTierIR, cutoff irv1
 
 		// Add as a group if multiple items, or as single item
 		if len(groupItems) > 1 {
-			groupName := fmt.Sprintf("%s", tier.Resolution)
+			groupName := tier.Resolution
 			group := client.QualityProfileQualityItemResource{
 				Id:      intPtr(groupID),
 				Name:    stringPtr(groupName),
@@ -808,10 +808,11 @@ func (a *Adapter) irToDownloadClient(ir *irv1.DownloadClientIR, tagID int) clien
 	}
 
 	// Set protocol
-	if ir.Protocol == irv1.ProtocolTorrent {
+	switch ir.Protocol {
+	case irv1.ProtocolTorrent:
 		protocol := client.DownloadProtocolTorrent
 		dc.Protocol = &protocol
-	} else if ir.Protocol == irv1.ProtocolUsenet {
+	case irv1.ProtocolUsenet:
 		protocol := client.DownloadProtocolUsenet
 		dc.Protocol = &protocol
 	}
@@ -999,10 +1000,11 @@ func (a *Adapter) irToIndexer(ir *irv1.IndexerIR, tagID int) client.IndexerResou
 	}
 
 	// Set protocol
-	if ir.Protocol == irv1.ProtocolTorrent {
+	switch ir.Protocol {
+	case irv1.ProtocolTorrent:
 		protocol := client.DownloadProtocolTorrent
 		idx.Protocol = &protocol
-	} else if ir.Protocol == irv1.ProtocolUsenet {
+	case irv1.ProtocolUsenet:
 		protocol := client.DownloadProtocolUsenet
 		idx.Protocol = &protocol
 	}

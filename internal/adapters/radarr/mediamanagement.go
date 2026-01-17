@@ -90,7 +90,7 @@ func (a *Adapter) getMediaManagementIR(ctx context.Context, c *client.Client) (*
 func (a *Adapter) mediaManagementConfigToIR(config *client.MediaManagementConfigResource) *irv1.MediaManagementIR {
 	ir := &irv1.MediaManagementIR{
 		RecycleBin:            ptrToString(config.RecycleBin),
-		RecycleBinCleanupDays: int(ptrToInt(config.RecycleBinCleanupDays)),
+		RecycleBinCleanupDays: ptrToInt(config.RecycleBinCleanupDays),
 		SetPermissions:        ptrToBool(config.SetPermissionsLinux),
 		ChmodFolder:           ptrToString(config.ChmodFolder),
 		ChownGroup:            ptrToString(config.ChownGroup),

@@ -40,7 +40,7 @@ func ParseConfigXMLFromFile(path string) (*ArrConfig, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to open config.xml: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	return ParseConfigXML(f)
 }
 
