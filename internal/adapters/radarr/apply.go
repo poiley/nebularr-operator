@@ -251,16 +251,91 @@ func (a *Adapter) irToCustomFormat(ir *irv1.CustomFormatIR) client.CustomFormatR
 	specs := make([]client.CustomFormatSpecificationSchema, 0, len(ir.Specifications))
 	for _, spec := range ir.Specifications {
 		s := client.CustomFormatSpecificationSchema{
-			Name:     stringPtr(spec.Name),
-			Negate:   boolPtr(spec.Negate),
-			Required: boolPtr(spec.Required),
+			Name:           stringPtr(spec.Name),
+			Negate:         boolPtr(spec.Negate),
+			Required:       boolPtr(spec.Required),
+			Implementation: stringPtr(spec.Type),
 		}
-		// TODO: Set Implementation and Fields based on spec.Type
+
+		// Set Fields based on spec.Type
+		fields := a.buildCustomFormatFields(spec)
+		s.Fields = &fields
+
 		specs = append(specs, s)
 	}
 	cf.Specifications = &specs
 
 	return cf
+}
+
+// buildCustomFormatFields creates the Fields array for a custom format specification
+func (a *Adapter) buildCustomFormatFields(spec irv1.FormatSpecIR) []client.Field {
+	switch spec.Type {
+	case "ReleaseTitleSpecification":
+		return []client.Field{
+			{
+				Name:  stringPtr("value"),
+				Value: spec.Value,
+			},
+		}
+	case "SourceSpecification":
+		return []client.Field{
+			{
+				Name:  stringPtr("value"),
+				Value: a.sourceToInt(spec.Value),
+			},
+		}
+	case "ResolutionSpecification":
+		return []client.Field{
+			{
+				Name:  stringPtr("value"),
+				Value: a.resolutionToInt(spec.Value),
+			},
+		}
+	default:
+		// Default: use the value as-is
+		return []client.Field{
+			{
+				Name:  stringPtr("value"),
+				Value: spec.Value,
+			},
+		}
+	}
+}
+
+// sourceToInt converts source string to Radarr source enum value
+func (a *Adapter) sourceToInt(source string) int {
+	sources := map[string]int{
+		"cam":       1,
+		"telesync":  2,
+		"telecine":  3,
+		"workprint": 4,
+		"dvd":       5,
+		"tv":        6,
+		"webdl":     7,
+		"webrip":    8,
+		"bluray":    9,
+	}
+	if v, ok := sources[source]; ok {
+		return v
+	}
+	return 0
+}
+
+// resolutionToInt converts resolution string to Radarr resolution enum value
+func (a *Adapter) resolutionToInt(res string) int {
+	resolutions := map[string]int{
+		"r360p":  360,
+		"r480p":  480,
+		"r576p":  576,
+		"r720p":  720,
+		"r1080p": 1080,
+		"r2160p": 2160,
+	}
+	if v, ok := resolutions[res]; ok {
+		return v
+	}
+	return 0
 }
 
 // Download Client operations
