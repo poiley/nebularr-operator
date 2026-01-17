@@ -695,20 +695,24 @@ func (h *ReconcileHelper) CheckAndReportHealth(
 	// Emit K8s events for health issues
 	if recorder != nil && obj != nil {
 		for _, issue := range healthIR.Issues {
-			eventType := corev1.EventTypeWarning
-			reason := "HealthWarning"
+			var eventType, reason string
 
-			if issue.Type == irv1.HealthIssueTypeError {
+			switch issue.Type {
+			case irv1.HealthIssueTypeError:
+				eventType = corev1.EventTypeWarning
 				reason = "HealthError"
-			} else if issue.Type == irv1.HealthIssueTypeNotice {
-				eventType = corev1.EventTypeNormal
-				reason = "HealthNotice"
+			case irv1.HealthIssueTypeWarning:
+				eventType = corev1.EventTypeWarning
+				reason = "HealthWarning"
+			case irv1.HealthIssueTypeNotice:
+				// Skip notices - don't emit events for them
+				continue
+			default:
+				eventType = corev1.EventTypeWarning
+				reason = "HealthWarning"
 			}
 
-			// Only emit events for errors and warnings (not notices)
-			if issue.Type != irv1.HealthIssueTypeNotice {
-				recorder.Event(obj, eventType, reason, fmt.Sprintf("[%s] %s", issue.Source, issue.Message))
-			}
+			recorder.Event(obj, eventType, reason, fmt.Sprintf("[%s] %s", issue.Source, issue.Message))
 		}
 	}
 
