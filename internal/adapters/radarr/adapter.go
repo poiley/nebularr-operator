@@ -227,6 +227,11 @@ func (a *Adapter) CurrentState(ctx context.Context, conn *irv1.ConnectionIR) (*i
 		ir.Notifications = notifications
 	}
 
+	// Get delay profiles (not tagged, we manage all of them)
+	if delayProfiles, err := a.getManagedDelayProfiles(ctx, c); err == nil {
+		ir.DelayProfiles = delayProfiles
+	}
+
 	return ir, nil
 }
 
@@ -276,6 +281,11 @@ func (a *Adapter) Diff(current, desired *irv1.IR, caps *adapters.Capabilities) (
 	// Diff notifications
 	if err := a.diffNotifications(current, desired, changes); err != nil {
 		return nil, fmt.Errorf("failed to diff notifications: %w", err)
+	}
+
+	// Diff delay profiles
+	if err := a.diffDelayProfiles(current, desired, changes); err != nil {
+		return nil, fmt.Errorf("failed to diff delay profiles: %w", err)
 	}
 
 	return changes, nil

@@ -155,3 +155,18 @@ type NotificationResource struct {
 	OnManualInteractionRequired   bool    `json:"onManualInteractionRequired"`
 	IncludeHealthWarnings         bool    `json:"includeHealthWarnings"`
 }
+
+// DelayProfileResource represents a Sonarr delay profile
+type DelayProfileResource struct {
+	ID                             int    `json:"id,omitempty"`
+	Order                          int    `json:"order"`
+	PreferredProtocol              string `json:"preferredProtocol"`
+	UsenetDelay                    int    `json:"usenetDelay"`
+	TorrentDelay                   int    `json:"torrentDelay"`
+	EnableUsenet                   bool   `json:"enableUsenet"`
+	EnableTorrent                  bool   `json:"enableTorrent"`
+	BypassIfHighestQuality         bool   `json:"bypassIfHighestQuality"`
+	BypassIfAboveCustomFormatScore bool   `json:"bypassIfAboveCustomFormatScore"`
+	MinimumCustomFormatScore       int    `json:"minimumCustomFormatScore"`
+	Tags                           []int  `json:"tags"`
+}

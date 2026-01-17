@@ -741,6 +741,78 @@ type CustomFormatSpecificationSpec struct {
 }
 
 // =============================================================================
+// Delay Profile Types
+// =============================================================================
+
+// DelayProfileSpec defines a delay profile for controlling download timing.
+// Delay profiles allow waiting for better releases before downloading,
+// with different delays for different protocols and bypass conditions.
+type DelayProfileSpec struct {
+	// Name is a display name for this delay profile (used for identification only).
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// PreferredProtocol specifies which protocol to prefer when both are available.
+	// +optional
+	// +kubebuilder:validation:Enum=usenet;torrent
+	// +kubebuilder:default=usenet
+	PreferredProtocol string `json:"preferredProtocol,omitempty"`
+
+	// UsenetDelay is the delay in minutes before downloading from Usenet.
+	// Set to 0 for no delay.
+	// +optional
+	// +kubebuilder:default=0
+	// +kubebuilder:validation:Minimum=0
+	UsenetDelay int `json:"usenetDelay,omitempty"`
+
+	// TorrentDelay is the delay in minutes before downloading from torrents.
+	// Set to 0 for no delay.
+	// +optional
+	// +kubebuilder:default=0
+	// +kubebuilder:validation:Minimum=0
+	TorrentDelay int `json:"torrentDelay,omitempty"`
+
+	// EnableUsenet enables/disables Usenet for this profile.
+	// +optional
+	// +kubebuilder:default=true
+	EnableUsenet *bool `json:"enableUsenet,omitempty"`
+
+	// EnableTorrent enables/disables torrents for this profile.
+	// +optional
+	// +kubebuilder:default=true
+	EnableTorrent *bool `json:"enableTorrent,omitempty"`
+
+	// BypassIfHighestQuality bypasses the delay if the release is at or above
+	// the cutoff quality defined in the quality profile.
+	// +optional
+	// +kubebuilder:default=false
+	BypassIfHighestQuality *bool `json:"bypassIfHighestQuality,omitempty"`
+
+	// BypassIfAboveCustomFormatScore bypasses the delay if the release's
+	// custom format score is at or above MinimumCustomFormatScore.
+	// +optional
+	// +kubebuilder:default=false
+	BypassIfAboveCustomFormatScore *bool `json:"bypassIfAboveCustomFormatScore,omitempty"`
+
+	// MinimumCustomFormatScore is the minimum custom format score required
+	// to bypass the delay when BypassIfAboveCustomFormatScore is enabled.
+	// +optional
+	// +kubebuilder:default=0
+	MinimumCustomFormatScore int `json:"minimumCustomFormatScore,omitempty"`
+
+	// Tags restricts this delay profile to items with matching tags.
+	// If empty, the profile applies to all items.
+	// +optional
+	Tags []string `json:"tags,omitempty"`
+
+	// Order determines the priority of this profile (lower = higher priority).
+	// If not specified, profiles are ordered by their position in the array.
+	// +optional
+	// +kubebuilder:validation:Minimum=1
+	Order *int `json:"order,omitempty"`
+}
+
+// =============================================================================
 // Notification Types
 // =============================================================================
 

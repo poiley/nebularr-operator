@@ -155,4 +155,5 @@ const (
 	ResourceAuthentication    = "Authentication"    // All apps
 	ResourceRemotePathMapping = "RemotePathMapping" // All apps
 	ResourceNotification      = "Notification"      // All apps
+	ResourceDelayProfile      = "DelayProfile"      // Radarr/Sonarr
 )

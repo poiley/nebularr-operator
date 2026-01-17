@@ -90,6 +90,12 @@ type SonarrConfigSpec struct {
 	// +optional
 	CustomFormats []CustomFormatSpec `json:"customFormats,omitempty"`
 
+	// DelayProfiles configures download delays for better release selection.
+	// Delay profiles allow waiting for preferred releases before downloading,
+	// with different delays for Usenet vs torrents and bypass conditions.
+	// +optional
+	DelayProfiles []DelayProfileSpec `json:"delayProfiles,omitempty"`
+
 	// Reconciliation configures sync behavior.
 	// +optional
 	Reconciliation *ReconciliationSpec `json:"reconciliation,omitempty"`

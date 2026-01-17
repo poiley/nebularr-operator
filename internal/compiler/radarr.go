@@ -73,6 +73,9 @@ func (c *Compiler) CompileRadarrConfig(ctx context.Context, config *arrv1alpha1.
 	// Custom formats
 	input.CustomFormats = convertCustomFormats(config.Spec.CustomFormats)
 
+	// Delay profiles
+	input.DelayProfiles = convertDelayProfiles(config.Spec.DelayProfiles)
+
 	return c.Compile(ctx, input)
 }
 
@@ -135,6 +138,9 @@ func (c *Compiler) CompileSonarrConfig(ctx context.Context, config *arrv1alpha1.
 
 	// Custom formats
 	input.CustomFormats = convertCustomFormats(config.Spec.CustomFormats)
+
+	// Delay profiles
+	input.DelayProfiles = convertDelayProfiles(config.Spec.DelayProfiles)
 
 	return c.Compile(ctx, input)
 }
@@ -684,6 +690,41 @@ func convertCustomFormats(customFormats []arrv1alpha1.CustomFormatSpec) []Custom
 			})
 		}
 
+		result = append(result, input)
+	}
+
+	return result
+}
+
+// convertDelayProfiles converts CRD DelayProfileSpec to compiler input
+func convertDelayProfiles(profiles []arrv1alpha1.DelayProfileSpec) []DelayProfileInput {
+	if len(profiles) == 0 {
+		return nil
+	}
+
+	result := make([]DelayProfileInput, 0, len(profiles))
+	for i, p := range profiles {
+		// Default order based on position if not specified
+		order := 0
+		if p.Order != nil {
+			order = *p.Order
+		} else {
+			order = i + 1
+		}
+
+		input := DelayProfileInput{
+			Name:                           p.Name,
+			PreferredProtocol:              p.PreferredProtocol,
+			UsenetDelay:                    p.UsenetDelay,
+			TorrentDelay:                   p.TorrentDelay,
+			EnableUsenet:                   ptrBoolOrDefault(p.EnableUsenet, true),
+			EnableTorrent:                  ptrBoolOrDefault(p.EnableTorrent, true),
+			BypassIfHighestQuality:         ptrBoolOrDefault(p.BypassIfHighestQuality, false),
+			BypassIfAboveCustomFormatScore: ptrBoolOrDefault(p.BypassIfAboveCustomFormatScore, false),
+			MinimumCustomFormatScore:       p.MinimumCustomFormatScore,
+			Tags:                           p.Tags,
+			Order:                          order,
+		}
 		result = append(result, input)
 	}
 

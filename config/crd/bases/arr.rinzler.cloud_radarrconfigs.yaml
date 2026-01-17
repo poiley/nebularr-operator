@@ -215,6 +215,87 @@ spec:
                   - specifications
                   type: object
                 type: array
+              delayProfiles:
+                description: |-
+                  DelayProfiles configures download delays for better release selection.
+                  Delay profiles allow waiting for preferred releases before downloading,
+                  with different delays for Usenet vs torrents and bypass conditions.
+                items:
+                  description: |-
+                    DelayProfileSpec defines a delay profile for controlling download timing.
+                    Delay profiles allow waiting for better releases before downloading,
+                    with different delays for different protocols and bypass conditions.
+                  properties:
+                    bypassIfAboveCustomFormatScore:
+                      default: false
+                      description: |-
+                        BypassIfAboveCustomFormatScore bypasses the delay if the release's
+                        custom format score is at or above MinimumCustomFormatScore.
+                      type: boolean
+                    bypassIfHighestQuality:
+                      default: false
+                      description: |-
+                        BypassIfHighestQuality bypasses the delay if the release is at or above
+                        the cutoff quality defined in the quality profile.
+                      type: boolean
+                    enableTorrent:
+                      default: true
+                      description: EnableTorrent enables/disables torrents for this
+                        profile.
+                      type: boolean
+                    enableUsenet:
+                      default: true
+                      description: EnableUsenet enables/disables Usenet for this profile.
+                      type: boolean
+                    minimumCustomFormatScore:
+                      default: 0
+                      description: |-
+                        MinimumCustomFormatScore is the minimum custom format score required
+                        to bypass the delay when BypassIfAboveCustomFormatScore is enabled.
+                      type: integer
+                    name:
+                      description: Name is a display name for this delay profile (used
+                        for identification only).
+                      type: string
+                    order:
+                      description: |-
+                        Order determines the priority of this profile (lower = higher priority).
+                        If not specified, profiles are ordered by their position in the array.
+                      minimum: 1
+                      type: integer
+                    preferredProtocol:
+                      default: usenet
+                      description: PreferredProtocol specifies which protocol to prefer
+                        when both are available.
+                      enum:
+                      - usenet
+                      - torrent
+                      type: string
+                    tags:
+                      description: |-
+                        Tags restricts this delay profile to items with matching tags.
+                        If empty, the profile applies to all items.
+                      items:
+                        type: string
+                      type: array
+                    torrentDelay:
+                      default: 0
+                      description: |-
+                        TorrentDelay is the delay in minutes before downloading from torrents.
+                        Set to 0 for no delay.
+                      minimum: 0
+                      type: integer
+                    usenetDelay:
+                      default: 0
+                      description: |-
+                        UsenetDelay is the delay in minutes before downloading from Usenet.
+                        Set to 0 for no delay.
+                      minimum: 0
+                      type: integer
+                  required:
+                  - name
+                  type: object
+                type: array
               downloadClients:
                 description: DownloadClients configures download clients.
                 items:

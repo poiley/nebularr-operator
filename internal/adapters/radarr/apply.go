@@ -30,6 +30,8 @@ func (a *Adapter) applyCreate(ctx context.Context, c *client.Client, change adap
 		return a.createRemotePathMapping(ctx, c, change.Payload.(*irv1.RemotePathMappingIR))
 	case adapters.ResourceNotification:
 		return a.createNotification(ctx, c, change.Payload.(*irv1.NotificationIR), tagID)
+	case adapters.ResourceDelayProfile:
+		return a.createDelayProfile(ctx, c, change.Payload.(*irv1.DelayProfileIR), tagID)
 	default:
 		return fmt.Errorf("unknown resource type for create: %s", change.ResourceType)
 	}
@@ -52,6 +54,8 @@ func (a *Adapter) applyUpdate(ctx context.Context, c *client.Client, change adap
 		return a.updateRemotePathMapping(ctx, c, change.Payload.(*irv1.RemotePathMappingIR))
 	case adapters.ResourceNotification:
 		return a.updateNotification(ctx, c, change.Payload.(*irv1.NotificationIR), tagID)
+	case adapters.ResourceDelayProfile:
+		return a.updateDelayProfile(ctx, c, change.Payload.(*irv1.DelayProfileIR), tagID)
 	default:
 		return fmt.Errorf("unknown resource type for update: %s", change.ResourceType)
 	}
@@ -78,6 +82,11 @@ func (a *Adapter) applyDelete(ctx context.Context, c *client.Client, change adap
 			return a.deleteNotification(ctx, c, *change.ID)
 		}
 		return fmt.Errorf("notification ID is required for delete")
+	case adapters.ResourceDelayProfile:
+		if change.ID != nil {
+			return a.deleteDelayProfile(ctx, c, *change.ID)
+		}
+		return fmt.Errorf("delay profile ID is required for delete")
 	default:
 		return fmt.Errorf("unknown resource type for delete: %s", change.ResourceType)
 	}

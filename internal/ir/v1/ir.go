@@ -50,6 +50,9 @@ type IR struct {
 	// CustomFormats configuration - for Radarr/Sonarr only
 	CustomFormats []CustomFormatIR `json:"customFormats,omitempty"`
 
+	// DelayProfiles configuration - for Radarr/Sonarr only
+	DelayProfiles []DelayProfileIR `json:"delayProfiles,omitempty"`
+
 	// MediaManagement configuration
 	MediaManagement *MediaManagementIR `json:"mediaManagement,omitempty"`
 

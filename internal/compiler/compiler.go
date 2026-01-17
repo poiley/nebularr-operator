@@ -75,6 +75,9 @@ type CompileInput struct {
 	// CustomFormats (Radarr/Sonarr only)
 	CustomFormats []CustomFormatInput
 
+	// DelayProfiles (Radarr/Sonarr only)
+	DelayProfiles []DelayProfileInput
+
 	// Capabilities for pruning unsupported features
 	Capabilities *adapters.Capabilities
 
@@ -254,6 +257,42 @@ type CustomFormatSpecInput struct {
 	Value string
 }
 
+// DelayProfileInput holds delay profile configuration
+type DelayProfileInput struct {
+	// Name is a display name for identification
+	Name string
+
+	// PreferredProtocol: "usenet" or "torrent"
+	PreferredProtocol string
+
+	// UsenetDelay in minutes
+	UsenetDelay int
+
+	// TorrentDelay in minutes
+	TorrentDelay int
+
+	// EnableUsenet allows downloading from Usenet
+	EnableUsenet bool
+
+	// EnableTorrent allows downloading from torrents
+	EnableTorrent bool
+
+	// BypassIfHighestQuality bypasses delay if at cutoff quality
+	BypassIfHighestQuality bool
+
+	// BypassIfAboveCustomFormatScore bypasses delay based on CF score
+	BypassIfAboveCustomFormatScore bool
+
+	// MinimumCustomFormatScore is the threshold for bypass
+	MinimumCustomFormatScore int
+
+	// Tags restricts this profile to items with these tags
+	Tags []string
+
+	// Order determines priority (lower = higher priority)
+	Order int
+}
+
 // Compile transforms CRD intent into IR
 func (c *Compiler) Compile(ctx context.Context, input CompileInput) (*irv1.IR, error) {
 	ir := &irv1.IR{
@@ -345,12 +384,17 @@ func (c *Compiler) Compile(ctx context.Context, input CompileInput) (*irv1.IR, e
 		}
 	}
 
-	// 13. Prune unsupported features based on capabilities
+	// 13. Compile delay profiles (Radarr/Sonarr only)
+	if input.App == adapters.AppRadarr || input.App == adapters.AppSonarr {
+		ir.DelayProfiles = c.compileDelayProfilesToIR(input.DelayProfiles)
+	}
+
+	// 14. Prune unsupported features based on capabilities
 	if input.Capabilities != nil {
 		ir.Unrealized = c.pruneUnsupported(ir, input.Capabilities)
 	}
 
-	// 14. Generate source hash for drift detection
+	// 15. Generate source hash for drift detection
 	ir.SourceHash = c.hashInput(input)
 
 	return ir, nil
@@ -530,6 +574,7 @@ func (c *Compiler) hashInput(input CompileInput) string {
 		RootFolders        []string
 		Notifications      []NotificationInput
 		CustomFormats      []CustomFormatInput
+		DelayProfiles      []DelayProfileInput
 	}{
 		App:                input.App,
 		ConfigName:         input.ConfigName,
@@ -542,6 +587,7 @@ func (c *Compiler) hashInput(input CompileInput) string {
 		RootFolders:        input.RootFolders,
 		Notifications:      input.Notifications,
 		CustomFormats:      input.CustomFormats,
+		DelayProfiles:      input.DelayProfiles,
 	}
 
 	data, err := json.Marshal(hashable)
@@ -755,4 +801,43 @@ func (c *Compiler) compileFormatScores(formats []CustomFormatInput, configName s
 		return nil
 	}
 	return scores
+}
+
+// compileDelayProfilesToIR converts delay profile inputs to IR
+func (c *Compiler) compileDelayProfilesToIR(profiles []DelayProfileInput) []irv1.DelayProfileIR {
+	if len(profiles) == 0 {
+		return nil
+	}
+
+	result := make([]irv1.DelayProfileIR, 0, len(profiles))
+	for i, p := range profiles {
+		// Default order based on position if not specified
+		order := p.Order
+		if order == 0 {
+			order = i + 1
+		}
+
+		// Default protocol
+		preferredProtocol := p.PreferredProtocol
+		if preferredProtocol == "" {
+			preferredProtocol = irv1.ProtocolUsenet
+		}
+
+		ir := irv1.DelayProfileIR{
+			Name:                           p.Name,
+			Order:                          order,
+			PreferredProtocol:              preferredProtocol,
+			UsenetDelay:                    p.UsenetDelay,
+			TorrentDelay:                   p.TorrentDelay,
+			EnableUsenet:                   p.EnableUsenet,
+			EnableTorrent:                  p.EnableTorrent,
+			BypassIfHighestQuality:         p.BypassIfHighestQuality,
+			BypassIfAboveCustomFormatScore: p.BypassIfAboveCustomFormatScore,
+			MinimumCustomFormatScore:       p.MinimumCustomFormatScore,
+			TagNames:                       p.Tags,
+		}
+		result = append(result, ir)
+	}
+
+	return result
 }
