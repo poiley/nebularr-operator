@@ -906,7 +906,8 @@ func (a *Adapter) createIndexer(ctx context.Context, c *client.Client, ir *irv1.
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
 	}
 
 	return nil
@@ -975,10 +976,22 @@ func (a *Adapter) findIndexerIDByName(ctx context.Context, c *client.Client, nam
 }
 
 func (a *Adapter) irToIndexer(ir *irv1.IndexerIR, tagID int) client.IndexerResource {
+	// Determine the implementation and config contract
+	impl := ir.Implementation
+	if impl == "" {
+		if ir.Protocol == irv1.ProtocolTorrent {
+			impl = "Torznab"
+		} else {
+			impl = "Newznab"
+		}
+	}
+	configContract := impl + "Settings"
+
 	idx := client.IndexerResource{
 		Name:                    stringPtr(ir.Name),
 		Priority:                intPtr(ir.Priority),
-		Implementation:          stringPtr(ir.Implementation),
+		Implementation:          stringPtr(impl),
+		ConfigContract:          stringPtr(configContract),
 		EnableRss:               boolPtr(ir.Enable && ir.EnableRss),
 		EnableAutomaticSearch:   boolPtr(ir.Enable && ir.EnableAutomaticSearch),
 		EnableInteractiveSearch: boolPtr(ir.Enable && ir.EnableInteractiveSearch),
@@ -994,9 +1007,43 @@ func (a *Adapter) irToIndexer(ir *irv1.IndexerIR, tagID int) client.IndexerResou
 		idx.Protocol = &protocol
 	}
 
-	// TODO: Set Fields based on implementation type
+	// Build fields
+	fields := a.buildIndexerFields(ir)
+	idx.Fields = &fields
 
 	return idx
+}
+
+// buildIndexerFields creates the Fields array for an indexer
+func (a *Adapter) buildIndexerFields(ir *irv1.IndexerIR) []client.Field {
+	fields := []client.Field{
+		{Name: stringPtr("baseUrl"), Value: ir.URL},
+		{Name: stringPtr("apiPath"), Value: "/api"},
+	}
+
+	if ir.APIKey != "" {
+		fields = append(fields, client.Field{Name: stringPtr("apiKey"), Value: ir.APIKey})
+	}
+
+	// Add categories if specified
+	if len(ir.Categories) > 0 {
+		fields = append(fields, client.Field{Name: stringPtr("categories"), Value: ir.Categories})
+	}
+
+	// Add torrent-specific fields
+	if ir.Protocol == irv1.ProtocolTorrent {
+		if ir.MinimumSeeders > 0 {
+			fields = append(fields, client.Field{Name: stringPtr("minimumSeeders"), Value: ir.MinimumSeeders})
+		}
+		if ir.SeedRatio > 0 {
+			fields = append(fields, client.Field{Name: stringPtr("seedCriteria.seedRatio"), Value: ir.SeedRatio})
+		}
+		if ir.SeedTimeMinutes > 0 {
+			fields = append(fields, client.Field{Name: stringPtr("seedCriteria.seedTime"), Value: ir.SeedTimeMinutes})
+		}
+	}
+
+	return fields
 }
 
 // Root Folder operations
