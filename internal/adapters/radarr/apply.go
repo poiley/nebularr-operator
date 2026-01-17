@@ -154,39 +154,169 @@ func (a *Adapter) findQualityProfileIDByName(ctx context.Context, c *client.Clie
 }
 
 func (a *Adapter) irToQualityProfile(ctx context.Context, c *client.Client, ir *irv1.VideoQualityIR) (client.PostApiV3QualityprofileJSONRequestBody, error) {
+	// Fetch the quality profile schema - this gives us all items with proper structure
+	resp, err := c.GetApiV3QualityprofileSchema(ctx)
+	if err != nil {
+		return client.QualityProfileResource{}, fmt.Errorf("failed to get quality profile schema: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return client.QualityProfileResource{}, fmt.Errorf("unexpected status code getting schema: %d", resp.StatusCode)
+	}
+
+	var profile client.QualityProfileResource
+	if err := json.NewDecoder(resp.Body).Decode(&profile); err != nil {
+		return client.QualityProfileResource{}, fmt.Errorf("failed to decode quality profile schema: %w", err)
+	}
+
+	// Set profile metadata
+	profile.Name = stringPtr(ir.ProfileName)
+	profile.UpgradeAllowed = boolPtr(ir.UpgradeAllowed)
+	profile.MinFormatScore = intPtr(ir.MinimumCustomFormatScore)
+
 	// Set default language to "Original" (id: -2)
 	langID := int32(-2)
 	langName := "Original"
-	profile := client.QualityProfileResource{
-		Name:           stringPtr(ir.ProfileName),
-		UpgradeAllowed: boolPtr(ir.UpgradeAllowed),
-		MinFormatScore: intPtr(ir.MinimumCustomFormatScore),
-		Language: &client.Language{
-			Id:   &langID,
-			Name: &langName,
-		},
+	profile.Language = &client.Language{
+		Id:   &langID,
+		Name: &langName,
 	}
 
 	if ir.UpgradeUntilCustomFormatScore > 0 {
 		profile.CutoffFormatScore = intPtr(ir.UpgradeUntilCustomFormatScore)
 	}
 
-	// Fetch quality definitions to map our tiers to Radarr's quality IDs
-	qualityDefs, err := a.getQualityDefinitions(ctx, c)
-	if err != nil {
-		return profile, fmt.Errorf("failed to get quality definitions: %w", err)
+	// Build a set of allowed quality IDs from our tiers
+	allowedQualities := a.buildAllowedQualitySet(ir.Tiers)
+
+	// Find cutoff quality ID
+	cutoffID := a.findCutoffQualityID(ir.Cutoff, profile.Items)
+
+	// Update items to mark allowed qualities
+	if profile.Items != nil {
+		a.markAllowedQualities(*profile.Items, allowedQualities)
 	}
 
-	// Build Items array from tiers
-	items, cutoffID := a.buildQualityItems(ir.Tiers, ir.Cutoff, qualityDefs)
-	profile.Items = &items
-
-	// Set cutoff if we found a matching quality
+	// Set cutoff
 	if cutoffID > 0 {
 		profile.Cutoff = intPtr(cutoffID)
 	}
 
 	return profile, nil
+}
+
+// buildAllowedQualitySet builds a set of quality IDs that should be allowed based on tiers
+func (a *Adapter) buildAllowedQualitySet(tiers []irv1.VideoQualityTierIR) map[int]bool {
+	allowed := make(map[int]bool)
+
+	// Map our tier definitions to Radarr quality names
+	for _, tier := range tiers {
+		if !tier.Allowed {
+			continue
+		}
+		res := parseResolution(tier.Resolution)
+		for _, source := range tier.Sources {
+			// Add all matching quality IDs
+			qualityName := a.buildQualityName(res, source)
+			if id := a.qualityNameToID(qualityName); id > 0 {
+				allowed[id] = true
+			}
+		}
+	}
+
+	return allowed
+}
+
+// buildQualityName builds the Radarr quality name from resolution and source
+func (a *Adapter) buildQualityName(resolution int, source string) string {
+	switch source {
+	case "bluray":
+		return fmt.Sprintf("Bluray-%dp", resolution)
+	case "remux":
+		return fmt.Sprintf("Remux-%dp", resolution)
+	case "webdl":
+		return fmt.Sprintf("WEBDL-%dp", resolution)
+	case "webrip":
+		return fmt.Sprintf("WEBRip-%dp", resolution)
+	case "hdtv":
+		return fmt.Sprintf("HDTV-%dp", resolution)
+	case "dvd":
+		return "DVD"
+	default:
+		return ""
+	}
+}
+
+// qualityNameToID returns the Radarr quality ID for a quality name
+func (a *Adapter) qualityNameToID(name string) int {
+	// Standard Radarr quality IDs
+	ids := map[string]int{
+		"Unknown":      0,
+		"SDTV":         1,
+		"DVD":          2,
+		"WEBDL-1080p":  3,
+		"HDTV-720p":    4,
+		"WEBDL-720p":   5,
+		"Bluray-720p":  6,
+		"Bluray-1080p": 7,
+		"WEBDL-480p":   8,
+		"HDTV-1080p":   9,
+		"Raw-HD":       10,
+		"WEBRip-480p":  12,
+		"WEBRip-720p":  14,
+		"WEBRip-1080p": 15,
+		"HDTV-2160p":   16,
+		"WEBRip-2160p": 17,
+		"WEBDL-2160p":  18,
+		"Bluray-2160p": 19,
+		"Bluray-480p":  20,
+		"Bluray-576p":  21,
+		"BR-DISK":      22,
+		"DVD-R":        23,
+		"WORKPRINT":    24,
+		"CAM":          25,
+		"TELESYNC":     26,
+		"TELECINE":     27,
+		"DVDSCR":       28,
+		"REGIONAL":     29,
+		"Remux-1080p":  30,
+		"Remux-2160p":  31,
+	}
+	return ids[name]
+}
+
+// findCutoffQualityID finds the quality ID for the cutoff tier
+func (a *Adapter) findCutoffQualityID(cutoff irv1.VideoQualityTierIR, items *[]client.QualityProfileQualityItemResource) int {
+	if len(cutoff.Sources) == 0 {
+		return 0
+	}
+	res := parseResolution(cutoff.Resolution)
+	// Use first source for cutoff
+	qualityName := a.buildQualityName(res, cutoff.Sources[0])
+	return a.qualityNameToID(qualityName)
+}
+
+// markAllowedQualities updates the items to mark allowed qualities
+func (a *Adapter) markAllowedQualities(items []client.QualityProfileQualityItemResource, allowed map[int]bool) {
+	for i := range items {
+		item := &items[i]
+		if item.Quality != nil && item.Quality.Id != nil {
+			qualityID := int(*item.Quality.Id)
+			item.Allowed = boolPtr(allowed[qualityID])
+		}
+		// Also check nested items (for groups)
+		if item.Items != nil && len(*item.Items) > 0 {
+			a.markAllowedQualities(*item.Items, allowed)
+			// If any nested item is allowed, the group should be allowed
+			for _, nested := range *item.Items {
+				if nested.Allowed != nil && *nested.Allowed {
+					item.Allowed = boolPtr(true)
+					break
+				}
+			}
+		}
+	}
 }
 
 // qualityDef holds parsed quality definition info
