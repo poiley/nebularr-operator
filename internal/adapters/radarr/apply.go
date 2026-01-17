@@ -726,7 +726,8 @@ func (a *Adapter) createDownloadClient(ctx context.Context, c *client.Client, ir
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
 	}
 
 	return nil
@@ -800,6 +801,7 @@ func (a *Adapter) irToDownloadClient(ir *irv1.DownloadClientIR, tagID int) clien
 		Enable:                   boolPtr(ir.Enable),
 		Priority:                 intPtr(ir.Priority),
 		Implementation:           stringPtr(a.normalizeImplementation(ir.Implementation)),
+		ConfigContract:           stringPtr(a.normalizeImplementation(ir.Implementation) + "Settings"),
 		RemoveCompletedDownloads: boolPtr(ir.RemoveCompletedDownloads),
 		RemoveFailedDownloads:    boolPtr(ir.RemoveFailedDownloads),
 		Tags:                     &[]int32{int32(tagID)},
@@ -814,9 +816,62 @@ func (a *Adapter) irToDownloadClient(ir *irv1.DownloadClientIR, tagID int) clien
 		dc.Protocol = &protocol
 	}
 
-	// TODO: Set Fields based on implementation type
+	// Build fields based on implementation type
+	fields := a.buildDownloadClientFields(ir)
+	dc.Fields = &fields
 
 	return dc
+}
+
+// buildDownloadClientFields creates the Fields array for a download client
+func (a *Adapter) buildDownloadClientFields(ir *irv1.DownloadClientIR) []client.Field {
+	fields := []client.Field{
+		{Name: stringPtr("host"), Value: ir.Host},
+		{Name: stringPtr("port"), Value: ir.Port},
+		{Name: stringPtr("useSsl"), Value: ir.UseTLS},
+	}
+
+	// Add username/password if provided
+	if ir.Username != "" {
+		fields = append(fields, client.Field{Name: stringPtr("username"), Value: ir.Username})
+	}
+	if ir.Password != "" {
+		fields = append(fields, client.Field{Name: stringPtr("password"), Value: ir.Password})
+	}
+
+	// Add implementation-specific fields
+	switch ir.Implementation {
+	case irv1.ImplementationTransmission:
+		fields = append(fields,
+			client.Field{Name: stringPtr("urlBase"), Value: "/transmission/"},
+			client.Field{Name: stringPtr("movieCategory"), Value: ir.Category},
+			client.Field{Name: stringPtr("addPaused"), Value: false},
+		)
+		if ir.Directory != "" {
+			fields = append(fields, client.Field{Name: stringPtr("movieDirectory"), Value: ir.Directory})
+		}
+	case irv1.ImplementationQBittorrent:
+		fields = append(fields,
+			client.Field{Name: stringPtr("movieCategory"), Value: ir.Category},
+			client.Field{Name: stringPtr("initialState"), Value: 0}, // Start downloading
+		)
+		if ir.Directory != "" {
+			fields = append(fields, client.Field{Name: stringPtr("movieDirectory"), Value: ir.Directory})
+		}
+	case irv1.ImplementationDeluge:
+		fields = append(fields,
+			client.Field{Name: stringPtr("movieCategory"), Value: ir.Category},
+			client.Field{Name: stringPtr("addPaused"), Value: false},
+		)
+		if ir.Directory != "" {
+			fields = append(fields, client.Field{Name: stringPtr("movieDirectory"), Value: ir.Directory})
+		}
+	case irv1.ImplementationSABnzbd, irv1.ImplementationNZBGet:
+		// Usenet clients use tvCategory for category
+		fields = append(fields, client.Field{Name: stringPtr("movieCategory"), Value: ir.Category})
+	}
+
+	return fields
 }
 
 func (a *Adapter) normalizeImplementation(impl string) string {
