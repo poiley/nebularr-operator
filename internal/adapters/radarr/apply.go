@@ -1,6 +1,7 @@
 package radarr
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -351,9 +352,17 @@ func containsSource(sources []string, source string) bool {
 // Custom Format operations
 
 func (a *Adapter) createCustomFormat(ctx context.Context, c *client.Client, ir *irv1.CustomFormatIR) error {
-	cf := a.irToCustomFormat(ir)
+	// Use minimal struct to avoid null serialization issues with generated client
+	cf := a.buildMinimalCustomFormat(ir)
 
-	resp, err := c.PostApiV3Customformat(ctx, cf)
+	// Serialize to JSON
+	jsonBody, err := json.Marshal(cf)
+	if err != nil {
+		return fmt.Errorf("failed to marshal custom format: %w", err)
+	}
+
+	// Use WithBody to send our custom JSON
+	resp, err := c.PostApiV3CustomformatWithBody(ctx, "application/json", bytes.NewReader(jsonBody))
 	if err != nil {
 		return fmt.Errorf("failed to create custom format: %w", err)
 	}
@@ -374,17 +383,25 @@ func (a *Adapter) updateCustomFormat(ctx context.Context, c *client.Client, ir *
 		return err
 	}
 
-	cf := a.irToCustomFormat(ir)
-	cf.Id = intPtr(cfID)
+	// Use minimal struct to avoid null serialization issues
+	cf := a.buildMinimalCustomFormat(ir)
+	cf.ID = &cfID
 
-	resp, err := c.PutApiV3CustomformatId(ctx, fmt.Sprintf("%d", cfID), cf)
+	// Serialize to JSON
+	jsonBody, err := json.Marshal(cf)
+	if err != nil {
+		return fmt.Errorf("failed to marshal custom format: %w", err)
+	}
+
+	resp, err := c.PutApiV3CustomformatIdWithBody(ctx, fmt.Sprintf("%d", cfID), "application/json", bytes.NewReader(jsonBody))
 	if err != nil {
 		return fmt.Errorf("failed to update custom format: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-		return fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("unexpected status code: %d, body: %s", resp.StatusCode, string(body))
 	}
 
 	return nil
@@ -430,62 +447,80 @@ func (a *Adapter) findCustomFormatIDByName(ctx context.Context, c *client.Client
 	return 0, fmt.Errorf("custom format not found: %s", name)
 }
 
-func (a *Adapter) irToCustomFormat(ir *irv1.CustomFormatIR) client.CustomFormatResource {
-	cf := client.CustomFormatResource{
-		Name:                            stringPtr(ir.Name),
-		IncludeCustomFormatWhenRenaming: boolPtr(ir.IncludeWhenRenaming),
+// minimalField is a simplified field struct that only includes required fields
+// This avoids the generated client.Field which serializes nulls for optional fields
+type minimalField struct {
+	Name  string      `json:"name"`
+	Value interface{} `json:"value"`
+}
+
+// minimalSpec is a simplified specification struct
+type minimalSpec struct {
+	Name           string         `json:"name"`
+	Implementation string         `json:"implementation"`
+	Negate         bool           `json:"negate"`
+	Required       bool           `json:"required"`
+	Fields         []minimalField `json:"fields"`
+}
+
+// minimalCustomFormat is a simplified custom format struct for creation/update
+type minimalCustomFormat struct {
+	ID                              *int          `json:"id,omitempty"`
+	Name                            string        `json:"name"`
+	IncludeCustomFormatWhenRenaming bool          `json:"includeCustomFormatWhenRenaming"`
+	Specifications                  []minimalSpec `json:"specifications"`
+}
+
+// buildMinimalCustomFormat creates a minimal custom format payload for creation
+func (a *Adapter) buildMinimalCustomFormat(ir *irv1.CustomFormatIR) minimalCustomFormat {
+	cf := minimalCustomFormat{
+		Name:                            ir.Name,
+		IncludeCustomFormatWhenRenaming: ir.IncludeWhenRenaming,
+		Specifications:                  make([]minimalSpec, 0, len(ir.Specifications)),
 	}
 
-	// Convert specifications
-	specs := make([]client.CustomFormatSpecificationSchema, 0, len(ir.Specifications))
 	for _, spec := range ir.Specifications {
-		s := client.CustomFormatSpecificationSchema{
-			Name:           stringPtr(spec.Name),
-			Negate:         boolPtr(spec.Negate),
-			Required:       boolPtr(spec.Required),
-			Implementation: stringPtr(spec.Type),
+		s := minimalSpec{
+			Name:           spec.Name,
+			Implementation: spec.Type,
+			Negate:         spec.Negate,
+			Required:       spec.Required,
+			Fields:         a.buildMinimalFields(spec),
 		}
-
-		// Set Fields based on spec.Type
-		fields := a.buildCustomFormatFields(spec)
-		s.Fields = &fields
-
-		specs = append(specs, s)
+		cf.Specifications = append(cf.Specifications, s)
 	}
-	cf.Specifications = &specs
 
 	return cf
 }
 
-// buildCustomFormatFields creates the Fields array for a custom format specification
-func (a *Adapter) buildCustomFormatFields(spec irv1.FormatSpecIR) []client.Field {
+// buildMinimalFields creates the Fields array for a custom format specification
+func (a *Adapter) buildMinimalFields(spec irv1.FormatSpecIR) []minimalField {
 	switch spec.Type {
 	case "ReleaseTitleSpecification":
-		return []client.Field{
+		return []minimalField{
 			{
-				Name:  stringPtr("value"),
+				Name:  "value",
 				Value: spec.Value,
 			},
 		}
 	case "SourceSpecification":
-		return []client.Field{
+		return []minimalField{
 			{
-				Name:  stringPtr("value"),
+				Name:  "value",
 				Value: a.sourceToInt(spec.Value),
 			},
 		}
 	case "ResolutionSpecification":
-		return []client.Field{
+		return []minimalField{
 			{
-				Name:  stringPtr("value"),
+				Name:  "value",
 				Value: a.resolutionToInt(spec.Value),
 			},
 		}
 	default:
-		// Default: use the value as-is
-		return []client.Field{
+		return []minimalField{
 			{
-				Name:  stringPtr("value"),
+				Name:  "value",
 				Value: spec.Value,
 			},
 		}
