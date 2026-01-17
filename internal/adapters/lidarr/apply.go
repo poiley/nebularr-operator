@@ -60,62 +60,116 @@ func (a *Adapter) applyDelete(ctx context.Context, c *httpClient, change adapter
 	}
 }
 
-// createQualityProfile creates a quality profile
+// createQualityProfile creates a quality profile using schema for complete structure
 func (a *Adapter) createQualityProfile(ctx context.Context, c *httpClient, profile *irv1.AudioQualityIR) error {
-	resource := a.profileFromIR(profile)
+	// Get schema to get full items structure
+	var schema QualityProfileResource
+	if err := c.get(ctx, "/api/v1/qualityprofile/schema", &schema); err != nil {
+		return fmt.Errorf("failed to get quality profile schema: %w", err)
+	}
+
+	// Build profile from schema with our tier preferences
+	resource := a.profileFromSchema(&schema, profile)
 	return c.post(ctx, "/api/v1/qualityprofile", resource, nil)
 }
 
-// updateQualityProfile updates a quality profile
+// updateQualityProfile updates a quality profile using schema for complete structure
 func (a *Adapter) updateQualityProfile(ctx context.Context, c *httpClient, id int, profile *irv1.AudioQualityIR) error {
-	resource := a.profileFromIR(profile)
+	// Get schema to get full items structure
+	var schema QualityProfileResource
+	if err := c.get(ctx, "/api/v1/qualityprofile/schema", &schema); err != nil {
+		return fmt.Errorf("failed to get quality profile schema: %w", err)
+	}
+
+	// Build profile from schema with our tier preferences
+	resource := a.profileFromSchema(&schema, profile)
 	resource.ID = id
 	return c.put(ctx, fmt.Sprintf("/api/v1/qualityprofile/%d", id), resource, nil)
 }
 
-// profileFromIR converts IR to Lidarr quality profile
-func (a *Adapter) profileFromIR(profile *irv1.AudioQualityIR) QualityProfileResource {
+// profileFromSchema builds a quality profile from schema with tier preferences applied
+func (a *Adapter) profileFromSchema(schema *QualityProfileResource, profile *irv1.AudioQualityIR) QualityProfileResource {
 	resource := QualityProfileResource{
 		Name:           profile.ProfileName,
 		UpgradeAllowed: profile.UpgradeAllowed,
-		Cutoff:         1, // Default cutoff
-		Items:          []QualityProfileItem{},
+		Items:          make([]QualityProfileItem, len(schema.Items)),
 	}
 
-	// Build quality items from tiers
+	// Build tier allowed map
+	tierAllowed := make(map[string]bool)
 	for _, tier := range profile.Tiers {
-		qualityID := tierToQualityID(tier.Tier)
-		if qualityID > 0 {
-			item := QualityProfileItem{
-				Allowed: tier.Allowed,
-				Quality: &Quality{
-					ID:   qualityID,
-					Name: tier.Tier,
-				},
+		tierAllowed[tier.Tier] = tier.Allowed
+	}
+
+	// Copy schema items and apply our tier preferences
+	var cutoffID int
+	for i, item := range schema.Items {
+		resource.Items[i] = item
+
+		// Map Lidarr group names to our tier names
+		tierName := groupNameToTier(item.Name)
+		if tierName == "" && item.Quality != nil {
+			tierName = qualityNameToTier(item.Quality.Name)
+		}
+
+		// Apply allowed status from our tiers
+		if allowed, ok := tierAllowed[tierName]; ok {
+			resource.Items[i].Allowed = allowed
+
+			// Track cutoff - use the highest allowed tier
+			if allowed && profile.Cutoff == tierName {
+				if item.ID != 0 {
+					cutoffID = item.ID
+				} else if item.Quality != nil {
+					cutoffID = item.Quality.ID
+				}
 			}
-			resource.Items = append(resource.Items, item)
 		}
 	}
+
+	// Set cutoff
+	if cutoffID == 0 {
+		// Default to Lossless group if no cutoff specified
+		cutoffID = 1005
+	}
+	resource.Cutoff = cutoffID
 
 	return resource
 }
 
-// tierToQualityID maps tier names to Lidarr quality IDs
-func tierToQualityID(tier string) int {
-	// Lidarr quality IDs (approximate)
-	switch tier {
-	case "lossless-hires":
-		return 6 // FLAC 24bit
-	case "lossless":
-		return 5 // FLAC
-	case "lossy-high":
-		return 4 // MP3-320
-	case "lossy-mid":
-		return 3 // MP3-256
-	case "lossy-low":
-		return 2 // MP3-128
+// groupNameToTier maps Lidarr quality group names to IR tier names
+func groupNameToTier(groupName string) string {
+	switch groupName {
+	case "Lossless":
+		return "lossless"
+	case "High Quality Lossy":
+		return "lossy-high"
+	case "Mid Quality Lossy":
+		return "lossy-mid"
+	case "Low Quality Lossy":
+		return "lossy-low"
+	case "Poor Quality Lossy", "Trash Quality Lossy":
+		return "" // Not used in our tiers
 	default:
-		return 0
+		return ""
+	}
+}
+
+// qualityNameToTier maps individual quality names to tier names
+func qualityNameToTier(qualityName string) string {
+	switch qualityName {
+	case "FLAC 24bit", "ALAC 24bit":
+		return "lossless-hires"
+	case "FLAC", "ALAC", "APE", "WavPack", "WAV":
+		return "lossless"
+	case "MP3-320", "AAC-320", "OGG Vorbis Q10", "OGG Vorbis Q9", "MP3-VBR-V0", "AAC-VBR":
+		return "lossy-high"
+	case "MP3-256", "AAC-256", "OGG Vorbis Q8", "OGG Vorbis Q7", "MP3-VBR-V2":
+		return "lossy-mid"
+	case "MP3-192", "AAC-192", "OGG Vorbis Q6", "WMA", "MP3-160", "MP3-128":
+		return "lossy-low"
+	default:
+		return ""
 	}
 }
 

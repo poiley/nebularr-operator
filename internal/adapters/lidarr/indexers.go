@@ -70,7 +70,7 @@ func (a *Adapter) indexerToIR(idx *IndexerResource) irv1.IndexerIR {
 	return ir
 }
 
-// diffIndexers computes changes needed for indexers
+// diffIndexers computes changes needed for indexers using shared logic
 func (a *Adapter) diffIndexers(current, desired *irv1.IR, changes *adapters.ChangeSet) error {
 	var currentIndexers []irv1.IndexerIR
 	var desiredIndexers []irv1.IndexerIR
@@ -82,61 +82,7 @@ func (a *Adapter) diffIndexers(current, desired *irv1.IR, changes *adapters.Chan
 		desiredIndexers = desired.Indexers.Direct
 	}
 
-	currentMap := make(map[string]irv1.IndexerIR)
-	for _, idx := range currentIndexers {
-		currentMap[idx.Name] = idx
-	}
-
-	desiredMap := make(map[string]irv1.IndexerIR)
-	for _, idx := range desiredIndexers {
-		desiredMap[idx.Name] = idx
-	}
-
-	// Find creates and updates
-	for name, desiredIdx := range desiredMap {
-		currentIdx, exists := currentMap[name]
-		if !exists {
-			changes.Creates = append(changes.Creates, adapters.Change{
-				ResourceType: adapters.ResourceIndexer,
-				Name:         name,
-				Payload:      desiredIdx,
-			})
-		} else if indexerNeedsUpdate(currentIdx, desiredIdx) {
-			id := indexerIDMap[name]
-			changes.Updates = append(changes.Updates, adapters.Change{
-				ResourceType: adapters.ResourceIndexer,
-				Name:         name,
-				ID:           &id,
-				Payload:      desiredIdx,
-			})
-		}
-	}
-
-	// Find deletes
-	for name := range currentMap {
-		if _, exists := desiredMap[name]; !exists {
-			id := indexerIDMap[name]
-			changes.Deletes = append(changes.Deletes, adapters.Change{
-				ResourceType: adapters.ResourceIndexer,
-				Name:         name,
-				ID:           &id,
-			})
-		}
-	}
-
+	// Use shared diff logic
+	adapters.DiffIndexers(currentIndexers, desiredIndexers, indexerIDMap, changes)
 	return nil
-}
-
-// indexerNeedsUpdate checks if indexer needs updating
-func indexerNeedsUpdate(current, desired irv1.IndexerIR) bool {
-	if current.URL != desired.URL {
-		return true
-	}
-	if current.Enable != desired.Enable {
-		return true
-	}
-	if current.Priority != desired.Priority {
-		return true
-	}
-	return false
 }

@@ -72,7 +72,7 @@ func qualityToTier(qualityName string) string {
 	}
 }
 
-// diffQualityProfiles computes changes needed for quality profiles
+// diffQualityProfiles computes changes needed for quality profiles using shared logic
 func (a *Adapter) diffQualityProfiles(current, desired *irv1.IR, changes *adapters.ChangeSet) error {
 	var currentProfile *irv1.AudioQualityIR
 	var desiredProfile *irv1.AudioQualityIR
@@ -84,51 +84,7 @@ func (a *Adapter) diffQualityProfiles(current, desired *irv1.IR, changes *adapte
 		desiredProfile = desired.Quality.Audio
 	}
 
-	// No desired profile - delete current if exists
-	if desiredProfile == nil {
-		if currentProfile != nil && managedProfileID != nil {
-			changes.Deletes = append(changes.Deletes, adapters.Change{
-				ResourceType: adapters.ResourceQualityProfile,
-				Name:         currentProfile.ProfileName,
-				ID:           managedProfileID,
-			})
-		}
-		return nil
-	}
-
-	// No current profile - create new
-	if currentProfile == nil {
-		changes.Creates = append(changes.Creates, adapters.Change{
-			ResourceType: adapters.ResourceQualityProfile,
-			Name:         desiredProfile.ProfileName,
-			Payload:      desiredProfile,
-		})
-		return nil
-	}
-
-	// Both exist - check for updates
-	if profileNeedsUpdate(currentProfile, desiredProfile) {
-		changes.Updates = append(changes.Updates, adapters.Change{
-			ResourceType: adapters.ResourceQualityProfile,
-			Name:         desiredProfile.ProfileName,
-			ID:           managedProfileID,
-			Payload:      desiredProfile,
-		})
-	}
-
+	// Use shared diff logic for audio quality profiles
+	adapters.DiffAudioQualityProfiles(currentProfile, desiredProfile, managedProfileID, changes)
 	return nil
-}
-
-// profileNeedsUpdate checks if profile needs updating
-func profileNeedsUpdate(current, desired *irv1.AudioQualityIR) bool {
-	if current.ProfileName != desired.ProfileName {
-		return true
-	}
-	if current.UpgradeAllowed != desired.UpgradeAllowed {
-		return true
-	}
-	if len(current.Tiers) != len(desired.Tiers) {
-		return true
-	}
-	return false
 }

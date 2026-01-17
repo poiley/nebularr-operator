@@ -69,69 +69,9 @@ func (a *Adapter) clientToIR(dc *DownloadClientResource) irv1.DownloadClientIR {
 	return ir
 }
 
-// diffDownloadClients computes changes needed for download clients
+// diffDownloadClients computes changes needed for download clients using shared logic
 func (a *Adapter) diffDownloadClients(current, desired *irv1.IR, changes *adapters.ChangeSet) error {
-	currentMap := make(map[string]irv1.DownloadClientIR)
-	for _, dc := range current.DownloadClients {
-		currentMap[dc.Name] = dc
-	}
-
-	desiredMap := make(map[string]irv1.DownloadClientIR)
-	for _, dc := range desired.DownloadClients {
-		desiredMap[dc.Name] = dc
-	}
-
-	// Find creates and updates
-	for name, desiredDC := range desiredMap {
-		currentDC, exists := currentMap[name]
-		if !exists {
-			changes.Creates = append(changes.Creates, adapters.Change{
-				ResourceType: adapters.ResourceDownloadClient,
-				Name:         name,
-				Payload:      desiredDC,
-			})
-		} else if clientNeedsUpdate(currentDC, desiredDC) {
-			id := downloadClientIDMap[name]
-			changes.Updates = append(changes.Updates, adapters.Change{
-				ResourceType: adapters.ResourceDownloadClient,
-				Name:         name,
-				ID:           &id,
-				Payload:      desiredDC,
-			})
-		}
-	}
-
-	// Find deletes
-	for name := range currentMap {
-		if _, exists := desiredMap[name]; !exists {
-			id := downloadClientIDMap[name]
-			changes.Deletes = append(changes.Deletes, adapters.Change{
-				ResourceType: adapters.ResourceDownloadClient,
-				Name:         name,
-				ID:           &id,
-			})
-		}
-	}
-
+	// Use shared diff logic
+	adapters.DiffDownloadClients(current.DownloadClients, desired.DownloadClients, downloadClientIDMap, changes)
 	return nil
-}
-
-// clientNeedsUpdate checks if client needs updating
-func clientNeedsUpdate(current, desired irv1.DownloadClientIR) bool {
-	if current.Implementation != desired.Implementation {
-		return true
-	}
-	if current.Host != desired.Host {
-		return true
-	}
-	if current.Port != desired.Port {
-		return true
-	}
-	if current.Enable != desired.Enable {
-		return true
-	}
-	if current.Priority != desired.Priority {
-		return true
-	}
-	return false
 }

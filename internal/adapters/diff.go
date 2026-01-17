@@ -5,9 +5,9 @@ import (
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
-// DiffQualityProfiles computes changes needed for quality profiles.
-// This is shared logic used by Radarr, Sonarr, and Lidarr adapters.
-func DiffQualityProfiles(
+// DiffVideoQualityProfiles computes changes needed for video quality profiles.
+// This is shared logic used by Radarr and Sonarr adapters.
+func DiffVideoQualityProfiles(
 	currentProfile *irv1.VideoQualityIR,
 	desiredProfile *irv1.VideoQualityIR,
 	profileID *int,
@@ -39,6 +39,51 @@ func DiffQualityProfiles(
 	// and re-applying the same profile is idempotent but noisy.
 	// The profile structure (with nested groups) makes comparison difficult,
 	// and Sonarr/Radarr will accept the same profile without issues.
+}
+
+// DiffQualityProfiles is an alias for DiffVideoQualityProfiles for backward compatibility.
+func DiffQualityProfiles(
+	currentProfile *irv1.VideoQualityIR,
+	desiredProfile *irv1.VideoQualityIR,
+	profileID *int,
+	changes *ChangeSet,
+) {
+	DiffVideoQualityProfiles(currentProfile, desiredProfile, profileID, changes)
+}
+
+// DiffAudioQualityProfiles computes changes needed for audio quality profiles.
+// This is shared logic used by the Lidarr adapter.
+func DiffAudioQualityProfiles(
+	currentProfile *irv1.AudioQualityIR,
+	desiredProfile *irv1.AudioQualityIR,
+	profileID *int,
+	changes *ChangeSet,
+) {
+	// No desired profile - delete current if exists
+	if desiredProfile == nil {
+		if currentProfile != nil && profileID != nil {
+			changes.Deletes = append(changes.Deletes, Change{
+				ResourceType: ResourceQualityProfile,
+				Name:         currentProfile.ProfileName,
+				ID:           profileID,
+			})
+		}
+		return
+	}
+
+	// No current profile - create new
+	if currentProfile == nil {
+		changes.Creates = append(changes.Creates, Change{
+			ResourceType: ResourceQualityProfile,
+			Name:         desiredProfile.ProfileName,
+			Payload:      desiredProfile,
+		})
+		return
+	}
+
+	// Both exist - skip update since quality profiles are complex to compare
+	// and re-applying the same profile is idempotent but noisy.
+	// The profile structure (with nested groups) makes comparison difficult.
 }
 
 // DiffDownloadClients computes changes needed for download clients.
