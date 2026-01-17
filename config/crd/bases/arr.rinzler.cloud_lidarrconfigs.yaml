@@ -661,6 +661,49 @@ spec:
               connected:
                 description: Connected indicates whether Lidarr is reachable.
                 type: boolean
+              health:
+                description: Health represents the app's health status from its internal
+                  health checks.
+                properties:
+                  errorCount:
+                    description: ErrorCount is the number of error-level issues.
+                    type: integer
+                  healthy:
+                    description: Healthy indicates whether the app has no error-level
+                      issues.
+                    type: boolean
+                  issueCount:
+                    description: IssueCount is the total number of health issues.
+                    type: integer
+                  issues:
+                    description: Issues lists the current health issues.
+                    items:
+                      description: HealthIssueStatus represents a single health issue
+                      properties:
+                        message:
+                          description: Message is the human-readable description.
+                          type: string
+                        source:
+                          description: Source identifies the check that produced this
+                            issue.
+                          type: string
+                        type:
+                          description: 'Type is the severity: error, warning, notice.'
+                          type: string
+                        wikiUrl:
+                          description: WikiURL is a link to documentation about this
+                            issue.
+                          type: string
+                      type: object
+                    type: array
+                  lastCheck:
+                    description: LastCheck is the timestamp of the last health check.
+                    format: date-time
+                    type: string
+                  warningCount:
+                    description: WarningCount is the number of warning-level issues.
+                    type: integer
+                type: object
               lastAppliedHash:
                 description: LastAppliedHash is the hash of the last applied spec.
                 type: string

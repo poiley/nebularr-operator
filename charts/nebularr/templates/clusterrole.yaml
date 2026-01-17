@@ -15,6 +15,14 @@ rules:
       - get
       - list
       - watch
+  # Events - for health status reporting
+  - apiGroups:
+      - ""
+    resources:
+      - events
+    verbs:
+      - create
+      - patch
   # Arr CRDs - full management
   - apiGroups:
       - arr.rinzler.cloud
