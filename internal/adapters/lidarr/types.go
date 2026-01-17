@@ -28,7 +28,7 @@ type QualityProfileItem struct {
 	ID      int                  `json:"id,omitempty"`
 	Name    string               `json:"name,omitempty"`
 	Quality *Quality             `json:"quality,omitempty"`
-	Items   []QualityProfileItem `json:"items,omitempty"`
+	Items   []QualityProfileItem `json:"items"` // Must always be present (not omitempty)
 	Allowed bool                 `json:"allowed"`
 }
 

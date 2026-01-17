@@ -104,7 +104,8 @@ func (a *Adapter) profileFromSchema(schema *QualityProfileResource, profile *irv
 	// Copy schema items and apply our tier preferences
 	var cutoffID int
 	for i, item := range schema.Items {
-		resource.Items[i] = item
+		// Deep copy the item to avoid reference issues
+		resource.Items[i] = copyQualityItem(item)
 
 		// Map Lidarr group names to our tier names
 		tierName := groupNameToTier(item.Name)
@@ -135,6 +136,31 @@ func (a *Adapter) profileFromSchema(schema *QualityProfileResource, profile *irv
 	resource.Cutoff = cutoffID
 
 	return resource
+}
+
+// copyQualityItem creates a deep copy of a QualityProfileItem
+func copyQualityItem(item QualityProfileItem) QualityProfileItem {
+	copied := QualityProfileItem{
+		ID:      item.ID,
+		Name:    item.Name,
+		Allowed: item.Allowed,
+		Items:   make([]QualityProfileItem, len(item.Items)), // Always create slice, never nil
+	}
+
+	// Copy quality if present
+	if item.Quality != nil {
+		copied.Quality = &Quality{
+			ID:   item.Quality.ID,
+			Name: item.Quality.Name,
+		}
+	}
+
+	// Recursively copy nested items
+	for i, subItem := range item.Items {
+		copied.Items[i] = copyQualityItem(subItem)
+	}
+
+	return copied
 }
 
 // groupNameToTier maps Lidarr quality group names to IR tier names
@@ -247,15 +273,78 @@ func (a *Adapter) indexerFromIR(idx irv1.IndexerIR, tagID int) IndexerResource {
 
 // createRootFolder creates a root folder
 func (a *Adapter) createRootFolder(ctx context.Context, c *httpClient, rf irv1.RootFolderIR) error {
+	// Lidarr requires DefaultMetadataProfileId and DefaultQualityProfileId
+	// Fetch them to get valid default values
+
+	// Get first metadata profile
+	var metadataProfiles []MetadataProfileResource
+	if err := c.get(ctx, "/api/v1/metadataprofile", &metadataProfiles); err != nil {
+		return fmt.Errorf("failed to get metadata profiles: %w", err)
+	}
+	metadataProfileID := 1 // Default fallback
+	if len(metadataProfiles) > 0 {
+		metadataProfileID = metadataProfiles[0].ID
+	}
+
+	// Get first quality profile (prefer our managed one if it exists)
+	var qualityProfiles []QualityProfileResource
+	if err := c.get(ctx, "/api/v1/qualityprofile", &qualityProfiles); err != nil {
+		return fmt.Errorf("failed to get quality profiles: %w", err)
+	}
+	qualityProfileID := 1 // Default fallback
+	for _, qp := range qualityProfiles {
+		if len(qp.Name) > 9 && qp.Name[:9] == "nebularr-" {
+			qualityProfileID = qp.ID
+			break
+		}
+	}
+	if qualityProfileID == 1 && len(qualityProfiles) > 0 {
+		qualityProfileID = qualityProfiles[0].ID
+	}
+
+	// Generate name from path if not provided
+	name := rf.Name
+	if name == "" {
+		// Extract last component of path as name
+		parts := splitPath(rf.Path)
+		if len(parts) > 0 {
+			name = parts[len(parts)-1]
+		} else {
+			name = rf.Path
+		}
+	}
+
 	resource := RootFolderResource{
-		Path:                 rf.Path,
-		Name:                 rf.Name,
-		DefaultMonitorOption: rf.DefaultMonitor,
+		Path:                     rf.Path,
+		Name:                     name,
+		DefaultMonitorOption:     rf.DefaultMonitor,
+		DefaultMetadataProfileId: metadataProfileID,
+		DefaultQualityProfileId:  qualityProfileID,
 	}
 	if resource.DefaultMonitorOption == "" {
 		resource.DefaultMonitorOption = "all"
 	}
 	return c.post(ctx, "/api/v1/rootfolder", resource, nil)
+}
+
+// splitPath splits a path into components
+func splitPath(path string) []string {
+	var parts []string
+	current := ""
+	for _, c := range path {
+		if c == '/' {
+			if current != "" {
+				parts = append(parts, current)
+				current = ""
+			}
+		} else {
+			current += string(c)
+		}
+	}
+	if current != "" {
+		parts = append(parts, current)
+	}
+	return parts
 }
 
 // updateNaming updates the naming configuration
