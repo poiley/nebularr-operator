@@ -196,6 +196,10 @@ type ProwlarrConfigStatus struct {
 	// LastAppliedHash is the hash of the last applied spec.
 	// +optional
 	LastAppliedHash string `json:"lastAppliedHash,omitempty"`
+
+	// Health represents the app's health status from its internal health checks.
+	// +optional
+	Health *HealthStatus `json:"health,omitempty"`
 }
 
 // +kubebuilder:object:root=true

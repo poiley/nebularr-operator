@@ -22,6 +22,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -42,6 +43,7 @@ type ProwlarrConfigReconciler struct {
 	Scheme   *runtime.Scheme
 	Compiler *compiler.Compiler
 	Helper   *ReconcileHelper
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=arr.rinzler.cloud,resources=prowlarrconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -183,6 +185,12 @@ func (r *ProwlarrConfigReconciler) reconcileNormal(ctx context.Context, config *
 			log.Error(statusErr, "Failed to update status")
 		}
 		return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
+	}
+
+	// Check health and emit events for any issues
+	healthStatus := r.Helper.CheckAndReportHealth(ctx, adapters.AppProwlarr, connIR, config, r.Recorder)
+	if healthStatus != nil {
+		config.Status.Health = healthStatus
 	}
 
 	// Update status

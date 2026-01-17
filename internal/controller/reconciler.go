@@ -24,7 +24,9 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 
@@ -623,4 +625,99 @@ func (h *ReconcileHelper) HandleProwlarrUnregistration(ctx context.Context, name
 
 	log.Info("Successfully unregistered from Prowlarr", "prowlarr", prowlarrRefName, "app", appName)
 	return nil
+}
+
+// HealthStatusSetter is an interface for setting health status on config resources
+type HealthStatusSetter interface {
+	SetHealthStatus(health *arrv1alpha1.HealthStatus)
+	GetHealthStatus() *arrv1alpha1.HealthStatus
+}
+
+// CheckAndReportHealth checks the health of the app and reports events for issues.
+// It returns the health status that should be stored in the CRD status.
+// The recorder parameter is the standard Kubernetes EventRecorder from controller-runtime.
+func (h *ReconcileHelper) CheckAndReportHealth(
+	ctx context.Context,
+	appType string,
+	connIR *irv1.ConnectionIR,
+	obj runtime.Object,
+	recorder record.EventRecorder,
+) *arrv1alpha1.HealthStatus {
+	log := logf.FromContext(ctx)
+
+	// Get the adapter
+	adapter, ok := adapters.Get(appType)
+	if !ok {
+		log.V(1).Info("Adapter not found for health check", "app", appType)
+		return nil
+	}
+
+	// Check if adapter supports HealthChecker interface
+	healthChecker, ok := adapter.(adapters.HealthChecker)
+	if !ok {
+		log.V(1).Info("Adapter does not support HealthChecker", "app", appType)
+		return nil
+	}
+
+	// Fetch health from the app
+	healthIR, err := healthChecker.GetHealth(ctx, connIR)
+	if err != nil {
+		log.Error(err, "Failed to fetch health from app", "app", appType)
+		return nil
+	}
+
+	// Convert IR health to API status
+	now := metav1.Now()
+	healthStatus := &arrv1alpha1.HealthStatus{
+		Healthy:    healthIR.Healthy,
+		IssueCount: len(healthIR.Issues),
+		LastCheck:  &now,
+		Issues:     make([]arrv1alpha1.HealthIssueStatus, 0, len(healthIR.Issues)),
+	}
+
+	for _, issue := range healthIR.Issues {
+		healthStatus.Issues = append(healthStatus.Issues, arrv1alpha1.HealthIssueStatus{
+			Source:  issue.Source,
+			Type:    string(issue.Type),
+			Message: issue.Message,
+			WikiURL: issue.WikiURL,
+		})
+
+		// Count by type
+		switch issue.Type {
+		case irv1.HealthIssueTypeError:
+			healthStatus.ErrorCount++
+		case irv1.HealthIssueTypeWarning:
+			healthStatus.WarningCount++
+		}
+	}
+
+	// Emit K8s events for health issues
+	if recorder != nil && obj != nil {
+		for _, issue := range healthIR.Issues {
+			eventType := corev1.EventTypeWarning
+			reason := "HealthWarning"
+
+			if issue.Type == irv1.HealthIssueTypeError {
+				reason = "HealthError"
+			} else if issue.Type == irv1.HealthIssueTypeNotice {
+				eventType = corev1.EventTypeNormal
+				reason = "HealthNotice"
+			}
+
+			// Only emit events for errors and warnings (not notices)
+			if issue.Type != irv1.HealthIssueTypeNotice {
+				recorder.Event(obj, eventType, reason, fmt.Sprintf("[%s] %s", issue.Source, issue.Message))
+			}
+		}
+	}
+
+	log.V(1).Info("Health check completed",
+		"app", appType,
+		"healthy", healthIR.Healthy,
+		"issues", len(healthIR.Issues),
+		"errors", healthStatus.ErrorCount,
+		"warnings", healthStatus.WarningCount)
+
+	return healthStatus
 }

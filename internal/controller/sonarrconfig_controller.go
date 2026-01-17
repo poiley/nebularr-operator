@@ -23,6 +23,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -43,6 +44,7 @@ type SonarrConfigReconciler struct {
 	Scheme   *runtime.Scheme
 	Compiler *compiler.Compiler
 	Helper   *ReconcileHelper
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=arr.rinzler.cloud,resources=sonarrconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -205,6 +207,12 @@ func (r *SonarrConfigReconciler) reconcileNormal(ctx context.Context, config *ar
 		if err := r.Helper.HandleProwlarrRegistration(ctx, config.Namespace, reg); err != nil {
 			log.Error(err, "Failed to register with Prowlarr (non-fatal)")
 		}
+	}
+
+	// Check health and emit events for any issues
+	healthStatus := r.Helper.CheckAndReportHealth(ctx, adapters.AppSonarr, connIR, config, r.Recorder)
+	if healthStatus != nil {
+		config.Status.Health = healthStatus
 	}
 
 	// Update status

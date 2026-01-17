@@ -435,3 +435,56 @@ func stringPtr(s string) *string {
 func boolPtr(b bool) *bool {
 	return &b
 }
+
+// Ensure Adapter implements HealthChecker
+var _ adapters.HealthChecker = (*Adapter)(nil)
+
+// GetHealth fetches the current health status from Radarr
+func (a *Adapter) GetHealth(ctx context.Context, conn *irv1.ConnectionIR) (*irv1.HealthStatus, error) {
+	c, err := a.newClient(conn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create client: %w", err)
+	}
+
+	resp, err := c.GetApiV3Health(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get health: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var healthChecks []client.HealthResource
+	if err := json.NewDecoder(resp.Body).Decode(&healthChecks); err != nil {
+		return nil, fmt.Errorf("failed to decode health: %w", err)
+	}
+
+	status := &irv1.HealthStatus{
+		Healthy: true,
+		Issues:  make([]irv1.HealthIssue, 0, len(healthChecks)),
+	}
+
+	for _, check := range healthChecks {
+		issueType := irv1.HealthIssueTypeNotice
+		if check.Type != nil {
+			switch *check.Type {
+			case client.HealthCheckResultError:
+				issueType = irv1.HealthIssueTypeError
+				status.Healthy = false
+			case client.HealthCheckResultWarning:
+				issueType = irv1.HealthIssueTypeWarning
+			}
+		}
+
+		status.Issues = append(status.Issues, irv1.HealthIssue{
+			Source:  ptrToString(check.Source),
+			Type:    issueType,
+			Message: ptrToString(check.Message),
+			WikiURL: ptrToString(check.WikiUrl),
+		})
+	}
+
+	return status, nil
+}

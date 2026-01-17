@@ -97,6 +97,10 @@ type RadarrConfigStatus struct {
 	// ProwlarrRegistration tracks registration with Prowlarr (Pull Model).
 	// +optional
 	ProwlarrRegistration *ProwlarrRegistration `json:"prowlarrRegistration,omitempty"`
+
+	// Health represents the app's health status from its internal health checks.
+	// +optional
+	Health *HealthStatus `json:"health,omitempty"`
 }
 
 // +kubebuilder:object:root=true

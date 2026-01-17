@@ -409,6 +409,52 @@ type PolicyStatus struct {
 	Message string `json:"message,omitempty"`
 }
 
+// HealthStatus represents the health state of an *arr app
+type HealthStatus struct {
+	// Healthy indicates whether the app has no error-level issues.
+	// +optional
+	Healthy bool `json:"healthy,omitempty"`
+
+	// IssueCount is the total number of health issues.
+	// +optional
+	IssueCount int `json:"issueCount,omitempty"`
+
+	// ErrorCount is the number of error-level issues.
+	// +optional
+	ErrorCount int `json:"errorCount,omitempty"`
+
+	// WarningCount is the number of warning-level issues.
+	// +optional
+	WarningCount int `json:"warningCount,omitempty"`
+
+	// LastCheck is the timestamp of the last health check.
+	// +optional
+	LastCheck *metav1.Time `json:"lastCheck,omitempty"`
+
+	// Issues lists the current health issues.
+	// +optional
+	Issues []HealthIssueStatus `json:"issues,omitempty"`
+}
+
+// HealthIssueStatus represents a single health issue
+type HealthIssueStatus struct {
+	// Source identifies the check that produced this issue.
+	// +optional
+	Source string `json:"source,omitempty"`
+
+	// Type is the severity: error, warning, notice.
+	// +optional
+	Type string `json:"type,omitempty"`
+
+	// Message is the human-readable description.
+	// +optional
+	Message string `json:"message,omitempty"`
+
+	// WikiURL is a link to documentation about this issue.
+	// +optional
+	WikiURL string `json:"wikiUrl,omitempty"`
+}
+
 // =============================================================================
 // Import List Types
 // =============================================================================

@@ -359,3 +359,49 @@ func (c *httpClient) delete(ctx context.Context, path string) error {
 
 	return nil
 }
+
+// HealthResource represents a health check from Prowlarr API
+type HealthResource struct {
+	Source  string `json:"source"`
+	Type    string `json:"type"` // error, warning, notice
+	Message string `json:"message"`
+	WikiURL string `json:"wikiUrl"`
+}
+
+// Ensure Adapter implements HealthChecker
+var _ adapters.HealthChecker = (*Adapter)(nil)
+
+// GetHealth fetches the current health status from Prowlarr
+func (a *Adapter) GetHealth(ctx context.Context, conn *irv1.ConnectionIR) (*irv1.HealthStatus, error) {
+	c := a.newClient(conn)
+
+	var healthChecks []HealthResource
+	if err := c.get(ctx, "/api/v1/health", &healthChecks); err != nil {
+		return nil, fmt.Errorf("failed to get health: %w", err)
+	}
+
+	status := &irv1.HealthStatus{
+		Healthy: true,
+		Issues:  make([]irv1.HealthIssue, 0, len(healthChecks)),
+	}
+
+	for _, check := range healthChecks {
+		issueType := irv1.HealthIssueTypeNotice
+		switch check.Type {
+		case "error":
+			issueType = irv1.HealthIssueTypeError
+			status.Healthy = false
+		case "warning":
+			issueType = irv1.HealthIssueTypeWarning
+		}
+
+		status.Issues = append(status.Issues, irv1.HealthIssue{
+			Source:  check.Source,
+			Type:    issueType,
+			Message: check.Message,
+			WikiURL: check.WikiURL,
+		})
+	}
+
+	return status, nil
+}

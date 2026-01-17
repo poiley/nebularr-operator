@@ -49,6 +49,13 @@ type DirectApplier interface {
 	ApplyDirect(ctx context.Context, conn *irv1.ConnectionIR, ir *irv1.IR) (*ApplyResult, error)
 }
 
+// HealthChecker is an optional interface for adapters that support health checking.
+// When implemented, the controller will fetch health status and emit K8s events.
+type HealthChecker interface {
+	// GetHealth fetches the current health status from the service
+	GetHealth(ctx context.Context, conn *irv1.ConnectionIR) (*irv1.HealthStatus, error)
+}
+
 // ServiceInfo describes the connected service
 type ServiceInfo struct {
 	Version   string

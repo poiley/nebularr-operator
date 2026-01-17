@@ -24,7 +24,18 @@ linters:
   settings:
     goconst:
       min-occurrences: 6  # Only flag if string appears 6+ times (default is 3)
-      ignore-string-values: 'none|forms|None|Enabled|username|password|apiKey|bluray|webdl|webrip|dvd'
+      ignore-string-values:
+        - 'none'
+        - 'forms'
+        - 'None'
+        - 'Enabled'
+        - 'username'
+        - 'password'
+        - 'apiKey'
+        - 'bluray'
+        - 'webdl'
+        - 'webrip'
+        - 'dvd'
     gocyclo:
       min-complexity: 35  # Allow slightly higher complexity for config builders
     revive:

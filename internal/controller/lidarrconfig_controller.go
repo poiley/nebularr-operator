@@ -23,6 +23,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
@@ -43,6 +44,7 @@ type LidarrConfigReconciler struct {
 	Scheme   *runtime.Scheme
 	Compiler *compiler.Compiler
 	Helper   *ReconcileHelper
+	Recorder record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups=arr.rinzler.cloud,resources=lidarrconfigs,verbs=get;list;watch;create;update;patch;delete
@@ -193,18 +195,14 @@ func (r *LidarrConfigReconciler) reconcileNormal(ctx context.Context, config *ar
 		// Don't fail reconciliation for direct config errors - they're supplementary
 	}
 
-	// Handle Prowlarr auto-registration if prowlarrRef is set
-	if config.Spec.Indexers != nil && config.Spec.Indexers.ProwlarrRef != nil {
-		reg := ProwlarrAutoRegistration{
-			ProwlarrRef: config.Spec.Indexers.ProwlarrRef,
-			AppType:     adapters.AppLidarr,
-			AppName:     fmt.Sprintf("nebularr-%s-%s", adapters.AppLidarr, config.Name),
-			AppURL:      config.Spec.Connection.URL,
-			AppAPIKey:   resolvedSecrets["apiKey"],
-		}
-		if err := r.Helper.HandleProwlarrRegistration(ctx, config.Namespace, reg); err != nil {
-			log.Error(err, "Failed to register with Prowlarr (non-fatal)")
-		}
+	// NOTE: Prowlarr auto-registration for Pull Model is handled by ProwlarrCoordinatorReconciler.
+	// This controller should NOT register with Prowlarr directly to avoid duplicate registrations.
+	// The Coordinator has a holistic view and can detect Push/Pull conflicts.
+
+	// Check health and emit events for any issues
+	healthStatus := r.Helper.CheckAndReportHealth(ctx, adapters.AppLidarr, connIR, config, r.Recorder)
+	if healthStatus != nil {
+		config.Status.Health = healthStatus
 	}
 
 	// Update status
