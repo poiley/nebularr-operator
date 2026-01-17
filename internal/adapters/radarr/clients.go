@@ -123,20 +123,20 @@ func (a *Adapter) diffDownloadClients(current, desired *irv1.IR, changes *adapte
 
 	// Find creates and updates
 	for name, desiredDC := range desiredClients {
-		if _, exists := currentClients[name]; !exists {
+		if currentDC, exists := currentClients[name]; !exists {
 			changes.Creates = append(changes.Creates, adapters.Change{
 				ResourceType: adapters.ResourceDownloadClient,
 				Name:         name,
 				Payload:      desiredDC,
 			})
-		} else {
-			// Update
+		} else if !a.downloadClientsEqual(currentDC, desiredDC) {
 			changes.Updates = append(changes.Updates, adapters.Change{
 				ResourceType: adapters.ResourceDownloadClient,
 				Name:         name,
 				Payload:      desiredDC,
 			})
 		}
+		// If equal, no change needed
 	}
 
 	// Find deletes
@@ -150,4 +150,21 @@ func (a *Adapter) diffDownloadClients(current, desired *irv1.IR, changes *adapte
 	}
 
 	return nil
+}
+
+// downloadClientsEqual compares two download clients to determine if they're equivalent
+func (a *Adapter) downloadClientsEqual(current, desired *irv1.DownloadClientIR) bool {
+	if current == nil || desired == nil {
+		return current == desired
+	}
+
+	// Compare key fields that matter for functionality
+	return current.Name == desired.Name &&
+		current.Implementation == desired.Implementation &&
+		current.Host == desired.Host &&
+		current.Port == desired.Port &&
+		current.UseTLS == desired.UseTLS &&
+		current.Category == desired.Category &&
+		current.Enable == desired.Enable &&
+		current.Priority == desired.Priority
 }
