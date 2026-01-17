@@ -163,6 +163,20 @@ func (a *Adapter) CurrentState(ctx context.Context, conn *irv1.ConnectionIR) (*i
 		}
 	}
 
+	// Get custom formats (all of them, since they don't have tags)
+	// This is needed to prevent "Must be unique" errors on re-reconcile
+	if customFormats, err := a.getManagedCustomFormats(ctx, c); err == nil && len(customFormats) > 0 {
+		if ir.Quality == nil {
+			ir.Quality = &irv1.QualityIR{
+				Video: &irv1.VideoQualityIR{},
+			}
+		}
+		if ir.Quality.Video == nil {
+			ir.Quality.Video = &irv1.VideoQualityIR{}
+		}
+		ir.Quality.Video.CustomFormats = customFormats
+	}
+
 	// Get download clients tagged with ownership tag
 	if clients, err := a.getManagedDownloadClients(ctx, c, tagID); err == nil {
 		ir.DownloadClients = clients

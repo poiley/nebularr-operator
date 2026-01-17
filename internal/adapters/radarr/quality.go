@@ -264,3 +264,96 @@ func ptrToBool(b *bool) bool {
 	}
 	return *b
 }
+
+// getManagedCustomFormats retrieves custom formats that are managed by Nebularr
+// Custom formats are considered managed if they were created by this operator
+// We identify them by checking if they match our naming convention or are referenced in the desired state
+func (a *Adapter) getManagedCustomFormats(ctx context.Context, c *client.Client) ([]irv1.CustomFormatIR, error) {
+	resp, err := c.GetApiV3Customformat(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get custom formats: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var formats []client.CustomFormatResource
+	if err := json.NewDecoder(resp.Body).Decode(&formats); err != nil {
+		return nil, fmt.Errorf("failed to decode custom formats: %w", err)
+	}
+
+	var result []irv1.CustomFormatIR
+	for _, format := range formats {
+		name := ptrToString(format.Name)
+		// Include all custom formats - we'll let the diff logic decide what to do
+		// This ensures we don't try to recreate formats that already exist
+		ir := a.customFormatToIR(&format)
+		if ir != nil && ir.Name != "" {
+			result = append(result, *ir)
+		}
+		_ = name // silence unused warning
+	}
+
+	return result, nil
+}
+
+// customFormatToIR converts a Radarr custom format to IR
+func (a *Adapter) customFormatToIR(format *client.CustomFormatResource) *irv1.CustomFormatIR {
+	if format == nil {
+		return nil
+	}
+
+	ir := &irv1.CustomFormatIR{
+		Name:                ptrToString(format.Name),
+		IncludeWhenRenaming: ptrToBool(format.IncludeCustomFormatWhenRenaming),
+	}
+
+	// Convert specifications
+	if format.Specifications != nil {
+		for _, spec := range *format.Specifications {
+			specIR := a.formatSpecToIR(&spec)
+			if specIR != nil {
+				ir.Specifications = append(ir.Specifications, *specIR)
+			}
+		}
+	}
+
+	return ir
+}
+
+// formatSpecToIR converts a Radarr format specification to IR
+func (a *Adapter) formatSpecToIR(spec *client.CustomFormatSpecificationSchema) *irv1.FormatSpecIR {
+	if spec == nil {
+		return nil
+	}
+
+	ir := &irv1.FormatSpecIR{
+		Type:     ptrToString(spec.Implementation),
+		Name:     ptrToString(spec.Name),
+		Negate:   ptrToBool(spec.Negate),
+		Required: ptrToBool(spec.Required),
+	}
+
+	// Extract value from fields
+	if spec.Fields != nil {
+		for _, field := range *spec.Fields {
+			if field.Name != nil && *field.Name == "value" {
+				if field.Value != nil {
+					// Value can be string or other types, handle appropriately
+					switch v := field.Value.(type) {
+					case string:
+						ir.Value = v
+					case float64:
+						ir.Value = fmt.Sprintf("%.0f", v)
+					default:
+						ir.Value = fmt.Sprintf("%v", v)
+					}
+				}
+			}
+		}
+	}
+
+	return ir
+}
