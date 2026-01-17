@@ -1,0 +1,363 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: bazarrconfigs.arr.rinzler.cloud
+spec:
+  group: arr.rinzler.cloud
+  names:
+    kind: BazarrConfig
+    listKind: BazarrConfigList
+    plural: bazarrconfigs
+    singular: bazarrconfig
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.sonarr.url
+      name: Sonarr
+      type: string
+    - jsonPath: .spec.radarr.url
+      name: Radarr
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: BazarrConfig is the configuration for Bazarr subtitle management
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired configuration for Bazarr.
+            properties:
+              authentication:
+                description: Authentication configures Bazarr authentication.
+                properties:
+                  authenticationRequired:
+                    default: enabled
+                    description: AuthenticationRequired specifies when authentication
+                      is required.
+                    enum:
+                    - enabled
+                    - disabledForLocalAddresses
+                    type: string
+                  method:
+                    default: none
+                    description: Method is the authentication method.
+                    enum:
+                    - none
+                    - forms
+                    - external
+                    type: string
+                  passwordSecretRef:
+                    description: PasswordSecretRef references the password Secret
+                      for forms authentication.
+                    properties:
+                      key:
+                        default: apiKey
+                        description: Key is the key within the Secret.
+                        type: string
+                      name:
+                        description: Name is the name of the Secret in the same namespace.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  username:
+                    description: Username for forms authentication.
+                    type: string
+                type: object
+              configMapRef:
+                description: |-
+                  ConfigMapRef references a ConfigMap to store the generated config.
+                  If specified, generates config to ConfigMap instead of file.
+                properties:
+                  name:
+                    description: Name is the name of the referenced object.
+                    type: string
+                required:
+                - name
+                type: object
+              languageProfiles:
+                description: LanguageProfiles defines language profiles for subtitle
+                  downloads.
+                items:
+                  description: BazarrLanguageProfile defines a language profile for
+                    Bazarr
+                  properties:
+                    defaultForMovies:
+                      description: DefaultForMovies makes this the default profile
+                        for movies.
+                      type: boolean
+                    defaultForSeries:
+                      description: DefaultForSeries makes this the default profile
+                        for series.
+                      type: boolean
+                    languages:
+                      description: Languages is the list of languages in order of
+                        preference.
+                      items:
+                        description: BazarrLanguage defines a language for subtitle
+                          downloads
+                        properties:
+                          code:
+                            description: Code is the ISO 639-1 language code (e.g.,
+                              "en", "es", "fr").
+                            pattern: ^[a-z]{2,3}$
+                            type: string
+                          forced:
+                            description: Forced indicates if forced subtitles should
+                              be used.
+                            type: boolean
+                          hearingImpaired:
+                            description: HearingImpaired indicates if hearing impaired
+                              subtitles should be used.
+                            type: boolean
+                        required:
+                        - code
+                        type: object
+                      minItems: 1
+                      type: array
+                    name:
+                      description: Name is the profile name.
+                      type: string
+                  required:
+                  - languages
+                  - name
+                  type: object
+                type: array
+              outputPath:
+                default: /config/config/config.yaml
+                description: |-
+                  OutputPath is where to write Bazarr's config.yaml.
+                  Used for init-container config generation.
+                type: string
+              providers:
+                description: Providers configures subtitle providers.
+                items:
+                  description: BazarrProvider defines a subtitle provider configuration
+                  properties:
+                    apiKeySecretRef:
+                      description: APIKeySecretRef for providers using API key authentication.
+                      properties:
+                        key:
+                          default: apiKey
+                          description: Key is the key within the Secret.
+                          type: string
+                        name:
+                          description: Name is the name of the Secret in the same
+                            namespace.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    name:
+                      description: Name is the provider name (e.g., "opensubtitles",
+                        "subscene", "podnapisi").
+                      type: string
+                    passwordSecretRef:
+                      description: PasswordSecretRef references the password Secret.
+                      properties:
+                        key:
+                          default: apiKey
+                          description: Key is the key within the Secret.
+                          type: string
+                        name:
+                          description: Name is the name of the Secret in the same
+                            namespace.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    username:
+                      description: Username for providers requiring authentication.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                type: array
+              radarr:
+                description: Radarr connection configuration.
+                properties:
+                  apiKeySecretRef:
+                    description: |-
+                      APIKeySecretRef references a Secret containing the API key.
+                      If not specified, auto-discovery from ConfigPath is attempted.
+                    properties:
+                      key:
+                        default: apiKey
+                        description: Key is the key within the Secret.
+                        type: string
+                      name:
+                        description: Name is the name of the Secret in the same namespace.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  configPath:
+                    description: |-
+                      ConfigPath is the path to config.xml for API key auto-discovery.
+                      Defaults to /{app}-config/config.xml
+                    type: string
+                  url:
+                    description: URL is the base URL (e.g., http://sonarr:8989).
+                    pattern: ^https?://
+                    type: string
+                required:
+                - url
+                type: object
+              reconciliation:
+                description: Reconciliation configures sync behavior.
+                properties:
+                  interval:
+                    default: 5m
+                    description: Interval between reconciliations.
+                    type: string
+                  suspend:
+                    description: Suspend pauses reconciliation.
+                    type: boolean
+                type: object
+              sonarr:
+                description: Sonarr connection configuration.
+                properties:
+                  apiKeySecretRef:
+                    description: |-
+                      APIKeySecretRef references a Secret containing the API key.
+                      If not specified, auto-discovery from ConfigPath is attempted.
+                    properties:
+                      key:
+                        default: apiKey
+                        description: Key is the key within the Secret.
+                        type: string
+                      name:
+                        description: Name is the name of the Secret in the same namespace.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  configPath:
+                    description: |-
+                      ConfigPath is the path to config.xml for API key auto-discovery.
+                      Defaults to /{app}-config/config.xml
+                    type: string
+                  url:
+                    description: URL is the base URL (e.g., http://sonarr:8989).
+                    pattern: ^https?://
+                    type: string
+                required:
+                - url
+                type: object
+            required:
+            - radarr
+            - sonarr
+            type: object
+          status:
+            description: Status defines the observed state of BazarrConfig.
+            properties:
+              conditions:
+                description: Conditions represent the latest observations of the BazarrConfig's
+                  state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              configGenerated:
+                description: ConfigGenerated indicates if the config.yaml was generated.
+                type: boolean
+              lastAppliedHash:
+                description: LastAppliedHash is the hash of the last applied spec.
+                type: string
+              lastReconcile:
+                description: LastReconcile is the timestamp of the last reconciliation.
+                format: date-time
+                type: string
+              radarrConnected:
+                description: RadarrConnected indicates whether Radarr is reachable.
+                type: boolean
+              sonarrConnected:
+                description: SonarrConnected indicates whether Sonarr is reachable.
+                type: boolean
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

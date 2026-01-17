@@ -97,6 +97,18 @@ type LidarrConfigSpec struct {
 	// +optional
 	RootFolders []LidarrRootFolder `json:"rootFolders,omitempty"`
 
+	// ImportLists configures automatic import lists (Spotify, Last.fm, etc.).
+	// +optional
+	ImportLists []ImportListSpec `json:"importLists,omitempty"`
+
+	// MediaManagement configures media management settings.
+	// +optional
+	MediaManagement *MediaManagementSpec `json:"mediaManagement,omitempty"`
+
+	// Authentication configures authentication settings.
+	// +optional
+	Authentication *AuthenticationSpec `json:"authentication,omitempty"`
+
 	// Reconciliation configures sync behavior.
 	// +optional
 	Reconciliation *ReconciliationSpec `json:"reconciliation,omitempty"`

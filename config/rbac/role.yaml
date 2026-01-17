@@ -7,6 +7,18 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
   - secrets
   verbs:
   - get
@@ -15,6 +27,7 @@ rules:
 - apiGroups:
   - arr.rinzler.cloud
   resources:
+  - bazarrconfigs
   - lidarrconfigs
   - prowlarrconfigs
   - radarrconfigs
@@ -30,6 +43,7 @@ rules:
 - apiGroups:
   - arr.rinzler.cloud
   resources:
+  - bazarrconfigs/finalizers
   - lidarrconfigs/finalizers
   - prowlarrconfigs/finalizers
   - radarrconfigs/finalizers
@@ -39,6 +53,7 @@ rules:
 - apiGroups:
   - arr.rinzler.cloud
   resources:
+  - bazarrconfigs/status
   - lidarrconfigs/status
   - prowlarrconfigs/status
   - radarrconfigs/status

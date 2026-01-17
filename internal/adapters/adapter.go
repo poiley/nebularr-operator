@@ -40,6 +40,15 @@ type Adapter interface {
 	Apply(ctx context.Context, conn *irv1.ConnectionIR, changes *ChangeSet) (*ApplyResult, error)
 }
 
+// DirectApplier is an optional interface for adapters that support direct apply
+// without going through the ChangeSet pattern. This is useful for resources like
+// import lists, media management, and authentication that handle their own diff logic.
+type DirectApplier interface {
+	// ApplyDirect applies configuration directly from IR (not via ChangeSet)
+	// This is used for resources that use a different sync pattern
+	ApplyDirect(ctx context.Context, conn *irv1.ConnectionIR, ir *irv1.IR) (*ApplyResult, error)
+}
+
 // ServiceInfo describes the connected service
 type ServiceInfo struct {
 	Version   string
@@ -134,4 +143,7 @@ const (
 	ResourceNamingConfig    = "NamingConfig"
 	ResourceMetadataProfile = "MetadataProfile" // Lidarr
 	ResourceApplication     = "Application"     // Prowlarr
+	ResourceImportList      = "ImportList"      // Radarr/Sonarr/Lidarr
+	ResourceMediaManagement = "MediaManagement" // All apps
+	ResourceAuthentication  = "Authentication"  // All apps
 )

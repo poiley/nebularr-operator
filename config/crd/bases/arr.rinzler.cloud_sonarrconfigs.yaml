@@ -52,6 +52,43 @@ spec:
           spec:
             description: Spec defines the desired configuration for Sonarr.
             properties:
+              authentication:
+                description: Authentication configures authentication settings.
+                properties:
+                  authenticationRequired:
+                    default: enabled
+                    description: AuthenticationRequired specifies when authentication
+                      is required.
+                    enum:
+                    - enabled
+                    - disabledForLocalAddresses
+                    type: string
+                  method:
+                    default: none
+                    description: Method is the authentication method.
+                    enum:
+                    - none
+                    - forms
+                    - external
+                    type: string
+                  passwordSecretRef:
+                    description: PasswordSecretRef references the password Secret
+                      for forms authentication.
+                    properties:
+                      key:
+                        default: apiKey
+                        description: Key is the key within the Secret.
+                        type: string
+                      name:
+                        description: Name is the name of the Secret in the same namespace.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  username:
+                    description: Username for forms authentication.
+                    type: string
+                type: object
               connection:
                 description: Connection specifies how to connect to Sonarr.
                 properties:
@@ -150,6 +187,125 @@ spec:
                   - url
                   type: object
                 type: array
+              importLists:
+                description: ImportLists configures automatic import lists (Trakt,
+                  Plex, IMDb, etc.).
+                items:
+                  description: ImportListSpec defines an import list configuration
+                    for Radarr/Sonarr/Lidarr
+                  properties:
+                    enableAuto:
+                      default: true
+                      description: EnableAuto automatically adds items from this list.
+                      type: boolean
+                    enabled:
+                      default: true
+                      description: Enabled enables/disables this import list.
+                      type: boolean
+                    minimumAvailability:
+                      default: announced
+                      description: MinimumAvailability specifies when the movie is
+                        considered available. Radarr only.
+                      enum:
+                      - tba
+                      - announced
+                      - inCinemas
+                      - released
+                      type: string
+                    monitor:
+                      default: movieOnly
+                      description: Monitor specifies what to monitor. Radarr only.
+                      enum:
+                      - movieOnly
+                      - movieAndCollection
+                      - none
+                      type: string
+                    name:
+                      description: Name is the display name for this import list.
+                      type: string
+                    qualityProfile:
+                      description: QualityProfile is the name of the quality profile
+                        to use.
+                      type: string
+                    rootFolder:
+                      description: RootFolder is the root folder path for items from
+                        this list.
+                      type: string
+                    searchOnAdd:
+                      default: true
+                      description: SearchOnAdd searches for items when added from
+                        this list.
+                      type: boolean
+                    seasonFolder:
+                      default: true
+                      description: SeasonFolder enables season folders. Sonarr only.
+                      type: boolean
+                    seriesType:
+                      default: standard
+                      description: SeriesType specifies the series type. Sonarr only.
+                      enum:
+                      - standard
+                      - daily
+                      - anime
+                      type: string
+                    settings:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        Settings contains type-specific configuration.
+                        Keys are camelCase API field names.
+                        Examples:
+                          IMDb: listId (e.g., "ls123456", "top250")
+                          Trakt: username, listname, accessToken, refreshToken
+                          Plex: accessToken, serverUrl
+                      type: object
+                    settingsSecretRef:
+                      description: |-
+                        SettingsSecretRef references a Secret containing sensitive settings.
+                        Secret keys should match the settings keys (e.g., accessToken).
+                        Values from this secret override Settings.
+                      properties:
+                        key:
+                          default: apiKey
+                          description: Key is the key within the Secret.
+                          type: string
+                        name:
+                          description: Name is the name of the Secret in the same
+                            namespace.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    shouldMonitor:
+                      default: all
+                      description: ShouldMonitor specifies what to monitor. Sonarr
+                        only.
+                      enum:
+                      - all
+                      - future
+                      - missing
+                      - existing
+                      - firstSeason
+                      - latestSeason
+                      - pilot
+                      - none
+                      type: string
+                    type:
+                      description: |-
+                        Type is the import list implementation type.
+                        For Radarr: IMDbListImport, TraktListImport, TraktPopularImport, TraktUserImport,
+                                    PlexImport, RadarrImport, TMDbListImport, TMDbPopularImport, etc.
+                        For Sonarr: SonarrImport, TraktListImport, TraktPopularImport, PlexImport,
+                                    ImdbImport, etc.
+                        For Lidarr: SpotifyFollowedArtists, SpotifyPlaylist, LastFmUser, etc.
+                      type: string
+                  required:
+                  - name
+                  - qualityProfile
+                  - rootFolder
+                  - type
+                  type: object
+                type: array
               indexers:
                 description: Indexers configures indexer sources.
                 properties:
@@ -235,6 +391,61 @@ spec:
                     required:
                     - name
                     type: object
+                type: object
+              mediaManagement:
+                description: MediaManagement configures media management settings.
+                properties:
+                  allowFingerprinting:
+                    description: AllowFingerprinting enables audio fingerprinting.
+                      Lidarr only.
+                    enum:
+                    - never
+                    - newFiles
+                    - always
+                    type: string
+                  chmodFolder:
+                    default: "755"
+                    description: ChmodFolder is the folder permission mode (e.g.,
+                      "755").
+                    type: string
+                  chownGroup:
+                    description: ChownGroup is the group to set for files (Linux only).
+                    type: string
+                  createEmptyFolders:
+                    default: false
+                    description: CreateEmptyFolders creates folders for artists/movies/series
+                      even when empty.
+                    type: boolean
+                  deleteEmptyFolders:
+                    default: false
+                    description: DeleteEmptyFolders removes empty folders after moving/deleting
+                      files.
+                    type: boolean
+                  recycleBin:
+                    description: |-
+                      RecycleBin is the path to the recycle bin folder.
+                      If empty, recycle bin is disabled.
+                    type: string
+                  recycleBinCleanupDays:
+                    default: 7
+                    description: RecycleBinCleanupDays is the number of days before
+                      items are removed from recycle bin.
+                    minimum: 0
+                    type: integer
+                  setPermissions:
+                    default: false
+                    description: SetPermissions enables setting file permissions on
+                      Linux.
+                    type: boolean
+                  useHardlinks:
+                    default: true
+                    description: UseHardlinks uses hardlinks instead of copy when
+                      possible.
+                    type: boolean
+                  watchLibraryForChanges:
+                    description: WatchLibraryForChanges monitors the library folder
+                      for changes. Lidarr only.
+                    type: boolean
                 type: object
               naming:
                 description: Naming configures file/folder naming.

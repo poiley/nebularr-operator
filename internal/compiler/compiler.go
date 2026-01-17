@@ -57,6 +57,15 @@ type CompileInput struct {
 	// Root folders
 	RootFolders []string
 
+	// Import lists
+	ImportLists []ImportListInput
+
+	// Media management
+	MediaManagement *MediaManagementInput
+
+	// Authentication
+	Authentication *AuthenticationInput
+
 	// Capabilities for pruning unsupported features
 	Capabilities *adapters.Capabilities
 
@@ -111,6 +120,45 @@ type IndexerInput struct {
 	EnableRss               bool
 	EnableAutomaticSearch   bool
 	EnableInteractiveSearch bool
+}
+
+// ImportListInput holds import list configuration
+type ImportListInput struct {
+	Name                string
+	Type                string
+	Enabled             bool
+	EnableAuto          bool
+	SearchOnAdd         bool
+	QualityProfileName  string
+	RootFolderPath      string
+	Monitor             string // Radarr: movieOnly, movieAndCollection, none
+	MinimumAvailability string // Radarr: tba, announced, inCinemas, released
+	SeriesType          string // Sonarr: standard, daily, anime
+	SeasonFolder        bool   // Sonarr
+	ShouldMonitor       string // Sonarr: all, future, missing, existing, firstSeason, latestSeason, pilot, none
+	Settings            map[string]string
+}
+
+// MediaManagementInput holds media management configuration
+type MediaManagementInput struct {
+	RecycleBin             string
+	RecycleBinCleanupDays  int
+	SetPermissions         bool
+	ChmodFolder            string
+	ChownGroup             string
+	DeleteEmptyFolders     bool
+	CreateEmptyFolders     bool
+	UseHardlinks           bool
+	WatchLibraryForChanges *bool  // Lidarr
+	AllowFingerprinting    string // Lidarr: never, newFiles, always
+}
+
+// AuthenticationInput holds authentication configuration
+type AuthenticationInput struct {
+	Method                 string // none, forms, external
+	Username               string
+	Password               string
+	AuthenticationRequired string // enabled, disabledForLocalAddresses
 }
 
 // Compile transforms CRD intent into IR
@@ -179,7 +227,16 @@ func (c *Compiler) Compile(ctx context.Context, input CompileInput) (*irv1.IR, e
 		ir.RootFolders = append(ir.RootFolders, irv1.RootFolderIR{Path: path})
 	}
 
-	// 7. Prune unsupported features based on capabilities
+	// 7. Compile import lists
+	ir.ImportLists = c.compileImportListsToIR(input.ImportLists)
+
+	// 8. Compile media management
+	ir.MediaManagement = c.compileMediaManagementToIR(input.MediaManagement)
+
+	// 9. Compile authentication
+	ir.Authentication = c.compileAuthenticationToIR(input.Authentication)
+
+	// 10. Prune unsupported features based on capabilities
 	if input.Capabilities != nil {
 		ir.Unrealized = c.pruneUnsupported(ir, input.Capabilities)
 	}
@@ -393,5 +450,70 @@ func normalizeImplementation(impl string) string {
 		return "NzbGet"
 	default:
 		return impl
+	}
+}
+
+// compileImportListsToIR converts import list inputs to IR
+func (c *Compiler) compileImportListsToIR(lists []ImportListInput) []irv1.ImportListIR {
+	if len(lists) == 0 {
+		return nil
+	}
+
+	result := make([]irv1.ImportListIR, 0, len(lists))
+	for _, list := range lists {
+		ir := irv1.ImportListIR{
+			Name:               list.Name,
+			Type:               list.Type,
+			Enabled:            list.Enabled,
+			EnableAuto:         list.EnableAuto,
+			SearchOnAdd:        list.SearchOnAdd,
+			QualityProfileName: list.QualityProfileName,
+			RootFolderPath:     list.RootFolderPath,
+			// Radarr-specific
+			Monitor:             list.Monitor,
+			MinimumAvailability: list.MinimumAvailability,
+			// Sonarr-specific
+			SeriesType:    list.SeriesType,
+			SeasonFolder:  list.SeasonFolder,
+			ShouldMonitor: list.ShouldMonitor,
+			// Type-specific settings
+			Settings: list.Settings,
+		}
+		result = append(result, ir)
+	}
+	return result
+}
+
+// compileMediaManagementToIR converts media management input to IR
+func (c *Compiler) compileMediaManagementToIR(input *MediaManagementInput) *irv1.MediaManagementIR {
+	if input == nil {
+		return nil
+	}
+
+	return &irv1.MediaManagementIR{
+		RecycleBin:             input.RecycleBin,
+		RecycleBinCleanupDays:  input.RecycleBinCleanupDays,
+		SetPermissions:         input.SetPermissions,
+		ChmodFolder:            input.ChmodFolder,
+		ChownGroup:             input.ChownGroup,
+		DeleteEmptyFolders:     input.DeleteEmptyFolders,
+		CreateEmptyFolders:     input.CreateEmptyFolders,
+		UseHardlinks:           input.UseHardlinks,
+		WatchLibraryForChanges: input.WatchLibraryForChanges,
+		AllowFingerprinting:    input.AllowFingerprinting,
+	}
+}
+
+// compileAuthenticationToIR converts authentication input to IR
+func (c *Compiler) compileAuthenticationToIR(input *AuthenticationInput) *irv1.AuthenticationIR {
+	if input == nil {
+		return nil
+	}
+
+	return &irv1.AuthenticationIR{
+		Method:                 input.Method,
+		Username:               input.Username,
+		Password:               input.Password,
+		AuthenticationRequired: input.AuthenticationRequired,
 	}
 }

@@ -123,6 +123,24 @@ func (r *SonarrConfigReconciler) reconcileNormal(ctx context.Context, config *ar
 		return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
 	}
 
+	// Resolve import list secrets
+	if err := r.Helper.ResolveImportListSecrets(ctx, config.Namespace, config.Spec.ImportLists, resolvedSecrets); err != nil {
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "SecretResolutionFailed", err.Error())
+		if statusErr := r.Status().Update(ctx, config); statusErr != nil {
+			log.Error(statusErr, "Failed to update status")
+		}
+		return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
+	}
+
+	// Resolve authentication secrets
+	if err := r.Helper.ResolveAuthenticationSecrets(ctx, config.Namespace, config.Spec.Authentication, resolvedSecrets); err != nil {
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "SecretResolutionFailed", err.Error())
+		if statusErr := r.Status().Update(ctx, config); statusErr != nil {
+			log.Error(statusErr, "Failed to update status")
+		}
+		return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
+	}
+
 	// Create connection IR
 	connIR := &irv1.ConnectionIR{
 		URL:    config.Spec.Connection.URL,
@@ -159,13 +177,20 @@ func (r *SonarrConfigReconciler) reconcileNormal(ctx context.Context, config *ar
 		return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
 	}
 
-	// Reconcile using helper
+	// Reconcile using helper (handles quality profiles, download clients, indexers, naming, root folders)
 	_, err = r.Helper.ReconcileConfig(ctx, adapters.AppSonarr, connIR, desiredIR, statusWrapper, config.Generation)
 	if err != nil {
 		if statusErr := r.Status().Update(ctx, config); statusErr != nil {
 			log.Error(statusErr, "Failed to update status")
 		}
 		return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
+	}
+
+	// Apply direct configuration (import lists, media management, authentication)
+	_, err = r.Helper.ApplyDirectConfig(ctx, adapters.AppSonarr, connIR, desiredIR, statusWrapper, config.Generation)
+	if err != nil {
+		log.Error(err, "Failed to apply direct configuration (non-fatal)")
+		// Don't fail reconciliation for direct config errors - they're supplementary
 	}
 
 	// Handle Prowlarr auto-registration if prowlarrRef is set

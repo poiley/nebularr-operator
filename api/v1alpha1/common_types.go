@@ -381,3 +381,180 @@ type PolicyStatus struct {
 	// +optional
 	Message string `json:"message,omitempty"`
 }
+
+// =============================================================================
+// Import List Types
+// =============================================================================
+
+// ImportListSpec defines an import list configuration for Radarr/Sonarr/Lidarr
+type ImportListSpec struct {
+	// Name is the display name for this import list.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Type is the import list implementation type.
+	// For Radarr: IMDbListImport, TraktListImport, TraktPopularImport, TraktUserImport,
+	//             PlexImport, RadarrImport, TMDbListImport, TMDbPopularImport, etc.
+	// For Sonarr: SonarrImport, TraktListImport, TraktPopularImport, PlexImport,
+	//             ImdbImport, etc.
+	// For Lidarr: SpotifyFollowedArtists, SpotifyPlaylist, LastFmUser, etc.
+	// +kubebuilder:validation:Required
+	Type string `json:"type"`
+
+	// Enabled enables/disables this import list.
+	// +optional
+	// +kubebuilder:default=true
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// EnableAuto automatically adds items from this list.
+	// +optional
+	// +kubebuilder:default=true
+	EnableAuto *bool `json:"enableAuto,omitempty"`
+
+	// SearchOnAdd searches for items when added from this list.
+	// +optional
+	// +kubebuilder:default=true
+	SearchOnAdd *bool `json:"searchOnAdd,omitempty"`
+
+	// QualityProfile is the name of the quality profile to use.
+	// +kubebuilder:validation:Required
+	QualityProfile string `json:"qualityProfile"`
+
+	// RootFolder is the root folder path for items from this list.
+	// +kubebuilder:validation:Required
+	RootFolder string `json:"rootFolder"`
+
+	// --- Radarr-specific fields ---
+
+	// Monitor specifies what to monitor. Radarr only.
+	// +optional
+	// +kubebuilder:validation:Enum=movieOnly;movieAndCollection;none
+	// +kubebuilder:default=movieOnly
+	Monitor string `json:"monitor,omitempty"`
+
+	// MinimumAvailability specifies when the movie is considered available. Radarr only.
+	// +optional
+	// +kubebuilder:validation:Enum=tba;announced;inCinemas;released
+	// +kubebuilder:default=announced
+	MinimumAvailability string `json:"minimumAvailability,omitempty"`
+
+	// --- Sonarr-specific fields ---
+
+	// SeriesType specifies the series type. Sonarr only.
+	// +optional
+	// +kubebuilder:validation:Enum=standard;daily;anime
+	// +kubebuilder:default=standard
+	SeriesType string `json:"seriesType,omitempty"`
+
+	// SeasonFolder enables season folders. Sonarr only.
+	// +optional
+	// +kubebuilder:default=true
+	SeasonFolder *bool `json:"seasonFolder,omitempty"`
+
+	// ShouldMonitor specifies what to monitor. Sonarr only.
+	// +optional
+	// +kubebuilder:validation:Enum=all;future;missing;existing;firstSeason;latestSeason;pilot;none
+	// +kubebuilder:default=all
+	ShouldMonitor string `json:"shouldMonitor,omitempty"`
+
+	// --- Type-specific settings ---
+
+	// Settings contains type-specific configuration.
+	// Keys are camelCase API field names.
+	// Examples:
+	//   IMDb: listId (e.g., "ls123456", "top250")
+	//   Trakt: username, listname, accessToken, refreshToken
+	//   Plex: accessToken, serverUrl
+	// +optional
+	Settings map[string]string `json:"settings,omitempty"`
+
+	// SettingsSecretRef references a Secret containing sensitive settings.
+	// Secret keys should match the settings keys (e.g., accessToken).
+	// Values from this secret override Settings.
+	// +optional
+	SettingsSecretRef *SecretKeySelector `json:"settingsSecretRef,omitempty"`
+}
+
+// =============================================================================
+// Media Management Types
+// =============================================================================
+
+// MediaManagementSpec defines media management configuration
+type MediaManagementSpec struct {
+	// RecycleBin is the path to the recycle bin folder.
+	// If empty, recycle bin is disabled.
+	// +optional
+	RecycleBin string `json:"recycleBin,omitempty"`
+
+	// RecycleBinCleanupDays is the number of days before items are removed from recycle bin.
+	// +optional
+	// +kubebuilder:default=7
+	// +kubebuilder:validation:Minimum=0
+	RecycleBinCleanupDays *int `json:"recycleBinCleanupDays,omitempty"`
+
+	// SetPermissions enables setting file permissions on Linux.
+	// +optional
+	// +kubebuilder:default=false
+	SetPermissions *bool `json:"setPermissions,omitempty"`
+
+	// ChmodFolder is the folder permission mode (e.g., "755").
+	// +optional
+	// +kubebuilder:default="755"
+	ChmodFolder string `json:"chmodFolder,omitempty"`
+
+	// ChownGroup is the group to set for files (Linux only).
+	// +optional
+	ChownGroup string `json:"chownGroup,omitempty"`
+
+	// DeleteEmptyFolders removes empty folders after moving/deleting files.
+	// +optional
+	// +kubebuilder:default=false
+	DeleteEmptyFolders *bool `json:"deleteEmptyFolders,omitempty"`
+
+	// CreateEmptyFolders creates folders for artists/movies/series even when empty.
+	// +optional
+	// +kubebuilder:default=false
+	CreateEmptyFolders *bool `json:"createEmptyFolders,omitempty"`
+
+	// UseHardlinks uses hardlinks instead of copy when possible.
+	// +optional
+	// +kubebuilder:default=true
+	UseHardlinks *bool `json:"useHardlinks,omitempty"`
+
+	// --- Lidarr-specific fields ---
+
+	// WatchLibraryForChanges monitors the library folder for changes. Lidarr only.
+	// +optional
+	WatchLibraryForChanges *bool `json:"watchLibraryForChanges,omitempty"`
+
+	// AllowFingerprinting enables audio fingerprinting. Lidarr only.
+	// +optional
+	// +kubebuilder:validation:Enum=never;newFiles;always
+	AllowFingerprinting string `json:"allowFingerprinting,omitempty"`
+}
+
+// =============================================================================
+// Authentication Types
+// =============================================================================
+
+// AuthenticationSpec defines authentication configuration
+type AuthenticationSpec struct {
+	// Method is the authentication method.
+	// +kubebuilder:validation:Enum=none;forms;external
+	// +kubebuilder:default=none
+	Method string `json:"method,omitempty"`
+
+	// Username for forms authentication.
+	// +optional
+	Username string `json:"username,omitempty"`
+
+	// PasswordSecretRef references the password Secret for forms authentication.
+	// +optional
+	PasswordSecretRef *SecretKeySelector `json:"passwordSecretRef,omitempty"`
+
+	// AuthenticationRequired specifies when authentication is required.
+	// +optional
+	// +kubebuilder:validation:Enum=enabled;disabledForLocalAddresses
+	// +kubebuilder:default=enabled
+	AuthenticationRequired string `json:"authenticationRequired,omitempty"`
+}

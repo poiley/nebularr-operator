@@ -187,6 +187,21 @@ func (a *Adapter) CurrentState(ctx context.Context, conn *irv1.ConnectionIR) (*i
 		}
 	}
 
+	// Get import lists tagged with ownership tag
+	if importLists, err := a.getManagedImportLists(ctx, c, tagID); err == nil {
+		ir.ImportLists = importLists
+	}
+
+	// Get media management config
+	if mediaManagement, err := a.getMediaManagementIR(ctx, c); err == nil {
+		ir.MediaManagement = mediaManagement
+	}
+
+	// Get authentication config
+	if auth, err := a.getAuthenticationIR(ctx, c); err == nil {
+		ir.Authentication = auth
+	}
+
 	return ir, nil
 }
 
@@ -278,6 +293,70 @@ func (a *Adapter) Apply(ctx context.Context, conn *irv1.ConnectionIR, changes *a
 			result.Failed++
 			result.Errors = append(result.Errors, adapters.ApplyError{
 				Change: change,
+				Error:  err,
+			})
+		} else {
+			result.Applied++
+		}
+	}
+
+	return result, nil
+}
+
+// ApplyDirect applies configuration directly from IR (not via ChangeSet)
+// This is used for resources like import lists, media management, and authentication
+// that use a different sync pattern (direct apply rather than diff-based)
+func (a *Adapter) ApplyDirect(ctx context.Context, conn *irv1.ConnectionIR, ir *irv1.IR) (*adapters.ApplyResult, error) {
+	c, err := a.newClient(conn)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create client: %w", err)
+	}
+
+	result := &adapters.ApplyResult{}
+
+	// Ensure ownership tag exists
+	tagID, err := a.ensureOwnershipTag(ctx, c)
+	if err != nil {
+		return nil, fmt.Errorf("failed to ensure ownership tag: %w", err)
+	}
+
+	// Apply import lists directly (they handle their own diff internally)
+	if len(ir.ImportLists) > 0 {
+		stats, err := a.applyImportLists(ctx, c, ir, tagID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to apply import lists: %w", err)
+		}
+
+		result.Applied += stats.Created + stats.Updated + stats.Deleted
+		result.Skipped += stats.Skipped
+		for _, e := range stats.Errors {
+			result.Failed++
+			result.Errors = append(result.Errors, adapters.ApplyError{
+				Change: adapters.Change{ResourceType: adapters.ResourceImportList},
+				Error:  e,
+			})
+		}
+	}
+
+	// Apply media management configuration
+	if ir.MediaManagement != nil {
+		if err := a.applyMediaManagement(ctx, c, ir.MediaManagement); err != nil {
+			result.Failed++
+			result.Errors = append(result.Errors, adapters.ApplyError{
+				Change: adapters.Change{ResourceType: adapters.ResourceMediaManagement},
+				Error:  err,
+			})
+		} else {
+			result.Applied++
+		}
+	}
+
+	// Apply authentication configuration
+	if ir.Authentication != nil {
+		if err := a.applyAuthentication(ctx, c, ir.Authentication); err != nil {
+			result.Failed++
+			result.Errors = append(result.Errors, adapters.ApplyError{
+				Change: adapters.Change{ResourceType: adapters.ResourceAuthentication},
 				Error:  err,
 			})
 		} else {

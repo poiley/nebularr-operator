@@ -55,6 +55,15 @@ func (c *Compiler) CompileRadarrConfig(ctx context.Context, config *arrv1alpha1.
 	// Root folders
 	input.RootFolders = config.Spec.RootFolders
 
+	// Import lists
+	input.ImportLists = convertImportLists(config.Spec.ImportLists, resolvedSecrets)
+
+	// Media management
+	input.MediaManagement = convertMediaManagement(config.Spec.MediaManagement)
+
+	// Authentication
+	input.Authentication = convertAuthentication(config.Spec.Authentication, resolvedSecrets)
+
 	return c.Compile(ctx, input)
 }
 
@@ -99,6 +108,15 @@ func (c *Compiler) CompileSonarrConfig(ctx context.Context, config *arrv1alpha1.
 
 	// Root folders
 	input.RootFolders = config.Spec.RootFolders
+
+	// Import lists
+	input.ImportLists = convertImportLists(config.Spec.ImportLists, resolvedSecrets)
+
+	// Media management
+	input.MediaManagement = convertMediaManagement(config.Spec.MediaManagement)
+
+	// Authentication
+	input.Authentication = convertAuthentication(config.Spec.Authentication, resolvedSecrets)
 
 	return c.Compile(ctx, input)
 }
@@ -145,6 +163,15 @@ func (c *Compiler) CompileLidarrConfig(ctx context.Context, config *arrv1alpha1.
 	for _, rf := range config.Spec.RootFolders {
 		input.RootFolders = append(input.RootFolders, rf.Path)
 	}
+
+	// Import lists
+	input.ImportLists = convertImportLists(config.Spec.ImportLists, resolvedSecrets)
+
+	// Media management
+	input.MediaManagement = convertMediaManagement(config.Spec.MediaManagement)
+
+	// Authentication
+	input.Authentication = convertAuthentication(config.Spec.Authentication, resolvedSecrets)
 
 	return c.Compile(ctx, input)
 }
@@ -396,4 +423,124 @@ func mapCategoryName(name string) int {
 	}
 
 	return categories[strings.ToLower(name)]
+}
+
+// convertImportLists converts CRD ImportListSpec to compiler input
+func convertImportLists(lists []arrv1alpha1.ImportListSpec, resolvedSecrets map[string]string) []ImportListInput {
+	if len(lists) == 0 {
+		return nil
+	}
+
+	result := make([]ImportListInput, 0, len(lists))
+	for _, list := range lists {
+		input := ImportListInput{
+			Name:               list.Name,
+			Type:               list.Type,
+			Enabled:            ptrBoolOrDefault(list.Enabled, true),
+			EnableAuto:         ptrBoolOrDefault(list.EnableAuto, true),
+			SearchOnAdd:        ptrBoolOrDefault(list.SearchOnAdd, true),
+			QualityProfileName: list.QualityProfile,
+			RootFolderPath:     list.RootFolder,
+			// Radarr-specific
+			Monitor:             defaultString(list.Monitor, "movieOnly"),
+			MinimumAvailability: defaultString(list.MinimumAvailability, "announced"),
+			// Sonarr-specific
+			SeriesType:    defaultString(list.SeriesType, "standard"),
+			SeasonFolder:  ptrBoolOrDefault(list.SeasonFolder, true),
+			ShouldMonitor: defaultString(list.ShouldMonitor, "all"),
+			// Copy settings
+			Settings: make(map[string]string),
+		}
+
+		// Copy settings from spec
+		for k, v := range list.Settings {
+			input.Settings[k] = v
+		}
+
+		// Resolve settings from secret if specified
+		if list.SettingsSecretRef != nil {
+			secretPrefix := list.SettingsSecretRef.Name + "/"
+			// Look for all resolved secrets with this prefix and add to settings
+			for key, value := range resolvedSecrets {
+				if strings.HasPrefix(key, secretPrefix) {
+					settingKey := strings.TrimPrefix(key, secretPrefix)
+					input.Settings[settingKey] = value
+				}
+			}
+		}
+
+		result = append(result, input)
+	}
+
+	return result
+}
+
+// convertMediaManagement converts CRD MediaManagementSpec to compiler input
+func convertMediaManagement(spec *arrv1alpha1.MediaManagementSpec) *MediaManagementInput {
+	if spec == nil {
+		return nil
+	}
+
+	return &MediaManagementInput{
+		RecycleBin:             spec.RecycleBin,
+		RecycleBinCleanupDays:  ptrIntOrDefault(spec.RecycleBinCleanupDays, 7),
+		SetPermissions:         ptrBoolOrDefault(spec.SetPermissions, false),
+		ChmodFolder:            defaultString(spec.ChmodFolder, "755"),
+		ChownGroup:             spec.ChownGroup,
+		DeleteEmptyFolders:     ptrBoolOrDefault(spec.DeleteEmptyFolders, false),
+		CreateEmptyFolders:     ptrBoolOrDefault(spec.CreateEmptyFolders, false),
+		UseHardlinks:           ptrBoolOrDefault(spec.UseHardlinks, true),
+		WatchLibraryForChanges: spec.WatchLibraryForChanges,
+		AllowFingerprinting:    spec.AllowFingerprinting,
+	}
+}
+
+// convertAuthentication converts CRD AuthenticationSpec to compiler input
+func convertAuthentication(spec *arrv1alpha1.AuthenticationSpec, resolvedSecrets map[string]string) *AuthenticationInput {
+	if spec == nil {
+		return nil
+	}
+
+	input := &AuthenticationInput{
+		Method:                 defaultString(spec.Method, "none"),
+		Username:               spec.Username,
+		AuthenticationRequired: defaultString(spec.AuthenticationRequired, "enabled"),
+	}
+
+	// Resolve password from secret if specified
+	if spec.PasswordSecretRef != nil {
+		keyName := spec.PasswordSecretRef.Key
+		if keyName == "" {
+			keyName = "password"
+		}
+		secretKey := spec.PasswordSecretRef.Name + "/" + keyName
+		if password, ok := resolvedSecrets[secretKey]; ok {
+			input.Password = password
+		}
+	}
+
+	return input
+}
+
+// Helper functions for handling pointers and defaults
+
+func ptrBoolOrDefault(ptr *bool, def bool) bool {
+	if ptr != nil {
+		return *ptr
+	}
+	return def
+}
+
+func ptrIntOrDefault(ptr *int, def int) int {
+	if ptr != nil {
+		return *ptr
+	}
+	return def
+}
+
+func defaultString(s string, def string) string {
+	if s == "" {
+		return def
+	}
+	return s
 }

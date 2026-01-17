@@ -31,6 +31,7 @@ import (
 	arrv1alpha1 "github.com/poiley/nebularr-operator/api/v1alpha1"
 	"github.com/poiley/nebularr-operator/internal/adapters"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
+	"github.com/poiley/nebularr-operator/internal/metrics"
 	"github.com/poiley/nebularr-operator/internal/prowlarr"
 )
 
@@ -75,12 +76,14 @@ func (h *ReconcileHelper) ReconcileConfig(
 	generation int64,
 ) (*adapters.ApplyResult, error) {
 	log := logf.FromContext(ctx)
+	startTime := time.Now()
 
 	// Get the adapter
 	adapter, ok := adapters.Get(appType)
 	if !ok {
 		err := fmt.Errorf("%s adapter not registered", appType)
 		h.SetCondition(status, generation, ConditionTypeReady, metav1.ConditionFalse, "AdapterNotFound", err.Error())
+		metrics.RecordSyncFailure(appType, "adapter_not_found", time.Since(startTime).Seconds())
 		return nil, err
 	}
 
@@ -91,12 +94,18 @@ func (h *ReconcileHelper) ReconcileConfig(
 		status.SetConnected(false)
 		h.SetCondition(status, generation, ConditionTypeConnected, metav1.ConditionFalse, "ConnectionFailed", err.Error())
 		h.SetCondition(status, generation, ConditionTypeReady, metav1.ConditionFalse, "ConnectionFailed", fmt.Sprintf("Cannot connect to %s", appType))
+		metrics.RecordConnectionStatus(appType, connIR.URL, false)
+		metrics.RecordSyncFailure(appType, "connection_failed", time.Since(startTime).Seconds())
 		return nil, err
 	}
 
 	status.SetConnected(true)
 	status.SetServiceVersion(serviceInfo.Version)
 	h.SetCondition(status, generation, ConditionTypeConnected, metav1.ConditionTrue, "Connected", fmt.Sprintf("Connected to %s %s", appType, serviceInfo.Version))
+
+	// Record connection success and service version
+	metrics.RecordConnectionStatus(appType, connIR.URL, true)
+	metrics.RecordServiceVersion(appType, connIR.URL, serviceInfo.Version)
 
 	// Discover capabilities
 	caps, err := adapter.Discover(ctx, connIR)
@@ -127,13 +136,33 @@ func (h *ReconcileHelper) ReconcileConfig(
 	if !changes.IsEmpty() {
 		log.Info("Applying changes", "creates", len(changes.Creates), "updates", len(changes.Updates), "deletes", len(changes.Deletes))
 
+		// Record drift detection
+		for _, change := range changes.Creates {
+			metrics.RecordConfigDrift(appType, change.ResourceType)
+		}
+		for _, change := range changes.Updates {
+			metrics.RecordConfigDrift(appType, change.ResourceType)
+		}
+
 		result, err = adapter.Apply(ctx, connIR, changes)
 		if err != nil {
 			log.Error(err, "Failed to apply changes")
 			h.SetCondition(status, generation, ConditionTypeSynced, metav1.ConditionFalse, "ApplyFailed", err.Error())
 			h.SetCondition(status, generation, ConditionTypeReady, metav1.ConditionFalse, "ApplyFailed",
 				fmt.Sprintf("Applied %d/%d changes", result.Applied, changes.TotalChanges()))
+			metrics.RecordSyncFailure(appType, "apply_failed", time.Since(startTime).Seconds())
 			return result, err
+		}
+
+		// Record applied changes
+		for _, change := range changes.Creates {
+			metrics.RecordApplyChange(appType, "create", change.ResourceType)
+		}
+		for _, change := range changes.Updates {
+			metrics.RecordApplyChange(appType, "update", change.ResourceType)
+		}
+		for _, change := range changes.Deletes {
+			metrics.RecordApplyChange(appType, "delete", change.ResourceType)
 		}
 
 		if !result.Success() {
@@ -156,6 +185,9 @@ func (h *ReconcileHelper) ReconcileConfig(
 	status.SetLastReconcile(&now)
 	status.SetLastAppliedHash(desiredIR.SourceHash)
 	h.SetCondition(status, generation, ConditionTypeReady, metav1.ConditionTrue, "Ready", "Configuration reconciled successfully")
+
+	// Record successful sync
+	metrics.RecordSyncSuccess(appType, time.Since(startTime).Seconds())
 
 	return result, nil
 }
@@ -367,6 +399,44 @@ func (h *ReconcileHelper) ResolveApplicationSecrets(ctx context.Context, namespa
 	return nil
 }
 
+// ResolveImportListSecrets resolves secrets for import lists
+// Each import list may have a SettingsSecretRef that contains sensitive settings.
+// All keys from the referenced secret are loaded with format "secretName/key".
+func (h *ReconcileHelper) ResolveImportListSecrets(ctx context.Context, namespace string, lists []arrv1alpha1.ImportListSpec, resolved map[string]string) error {
+	for _, list := range lists {
+		if list.SettingsSecretRef != nil {
+			secret := &corev1.Secret{}
+			if err := h.Client.Get(ctx, client.ObjectKey{Namespace: namespace, Name: list.SettingsSecretRef.Name}, secret); err != nil {
+				return fmt.Errorf("failed to get import list secret %s: %w", list.SettingsSecretRef.Name, err)
+			}
+			// Add all keys from the secret with prefix "secretName/"
+			for key, value := range secret.Data {
+				resolved[list.SettingsSecretRef.Name+"/"+key] = string(value)
+			}
+		}
+	}
+	return nil
+}
+
+// ResolveAuthenticationSecrets resolves password secrets for authentication
+func (h *ReconcileHelper) ResolveAuthenticationSecrets(ctx context.Context, namespace string, auth *arrv1alpha1.AuthenticationSpec, resolved map[string]string) error {
+	if auth == nil || auth.PasswordSecretRef == nil {
+		return nil
+	}
+
+	keyName := auth.PasswordSecretRef.Key
+	if keyName == "" {
+		keyName = "password"
+	}
+
+	password, err := h.ResolveSecretValue(ctx, namespace, auth.PasswordSecretRef.Name, keyName)
+	if err != nil {
+		return fmt.Errorf("failed to resolve authentication password: %w", err)
+	}
+	resolved[auth.PasswordSecretRef.Name+"/"+keyName] = password
+	return nil
+}
+
 // ProwlarrAutoRegistration holds info for auto-registering with Prowlarr
 type ProwlarrAutoRegistration struct {
 	// ProwlarrRef is the reference to the ProwlarrConfig
@@ -441,6 +511,69 @@ func (h *ReconcileHelper) HandleProwlarrRegistration(ctx context.Context, namesp
 
 	log.Info("Successfully registered with Prowlarr", "prowlarr", reg.ProwlarrRef.Name, "app", reg.AppName)
 	return nil
+}
+
+// ApplyDirectConfig applies configuration directly using ApplyDirect if the adapter supports it.
+// This handles resources like import lists, media management, and authentication that use
+// a different sync pattern than the diff-based approach.
+func (h *ReconcileHelper) ApplyDirectConfig(
+	ctx context.Context,
+	appType string,
+	connIR *irv1.ConnectionIR,
+	desiredIR *irv1.IR,
+	status ConfigStatus,
+	generation int64,
+) (*adapters.ApplyResult, error) {
+	log := logf.FromContext(ctx)
+
+	// Get the adapter
+	adapter, ok := adapters.Get(appType)
+	if !ok {
+		return nil, fmt.Errorf("%s adapter not registered", appType)
+	}
+
+	// Check if adapter supports DirectApplier interface
+	directApplier, ok := adapter.(adapters.DirectApplier)
+	if !ok {
+		log.V(1).Info("Adapter does not support DirectApplier, skipping", "app", appType)
+		return &adapters.ApplyResult{}, nil
+	}
+
+	// Check if there's anything to apply directly
+	hasDirectApplyWork := len(desiredIR.ImportLists) > 0 ||
+		desiredIR.MediaManagement != nil ||
+		desiredIR.Authentication != nil
+
+	if !hasDirectApplyWork {
+		log.V(1).Info("No direct apply work to do", "app", appType)
+		return &adapters.ApplyResult{}, nil
+	}
+
+	log.Info("Applying direct configuration",
+		"app", appType,
+		"importLists", len(desiredIR.ImportLists),
+		"hasMediaManagement", desiredIR.MediaManagement != nil,
+		"hasAuthentication", desiredIR.Authentication != nil)
+
+	result, err := directApplier.ApplyDirect(ctx, connIR, desiredIR)
+	if err != nil {
+		log.Error(err, "Failed to apply direct configuration", "app", appType)
+		return result, err
+	}
+
+	if result != nil && !result.Success() {
+		log.Info("Some direct configuration changes failed",
+			"app", appType,
+			"applied", result.Applied,
+			"failed", result.Failed,
+			"skipped", result.Skipped)
+	} else if result != nil && result.Applied > 0 {
+		log.Info("Direct configuration applied successfully",
+			"app", appType,
+			"applied", result.Applied)
+	}
+
+	return result, nil
 }
 
 // HandleProwlarrUnregistration removes this app from Prowlarr

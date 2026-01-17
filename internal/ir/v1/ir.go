@@ -38,6 +38,15 @@ type IR struct {
 	// RootFolders configuration
 	RootFolders []RootFolderIR `json:"rootFolders,omitempty"`
 
+	// ImportLists configuration - for Radarr/Sonarr/Lidarr
+	ImportLists []ImportListIR `json:"importLists,omitempty"`
+
+	// MediaManagement configuration
+	MediaManagement *MediaManagementIR `json:"mediaManagement,omitempty"`
+
+	// Authentication configuration
+	Authentication *AuthenticationIR `json:"authentication,omitempty"`
+
 	// Prowlarr-specific configuration (only populated when App == "prowlarr")
 	Prowlarr *ProwlarrIR `json:"prowlarr,omitempty"`
 
