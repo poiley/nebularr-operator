@@ -221,6 +221,15 @@ func (a *Adapter) irToQualityProfile(ctx context.Context, c *client.Client, ir *
 		profile.Cutoff = intPtr(cutoffID)
 	}
 
+	// Apply custom format scores if specified
+	if len(ir.FormatScores) > 0 {
+		formatItems, err := a.buildFormatItems(ctx, c, ir.FormatScores)
+		if err != nil {
+			return client.QualityProfileResource{}, fmt.Errorf("failed to build format items: %w", err)
+		}
+		profile.FormatItems = &formatItems
+	}
+
 	return profile, nil
 }
 
@@ -566,6 +575,52 @@ func (a *Adapter) resolutionToInt(res string) int {
 		return v
 	}
 	return 0
+}
+
+// buildFormatItems builds the format items array for a quality profile from format scores
+// It fetches all custom formats to get their IDs and maps the scores
+func (a *Adapter) buildFormatItems(ctx context.Context, c *client.Client, formatScores map[string]int) ([]client.ProfileFormatItemResource, error) {
+	// Fetch all custom formats to get their IDs
+	resp, err := c.GetApiV3Customformat(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get custom formats: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("unexpected status code: %d", resp.StatusCode)
+	}
+
+	var formats []client.CustomFormatResource
+	if err := json.NewDecoder(resp.Body).Decode(&formats); err != nil {
+		return nil, fmt.Errorf("failed to decode custom formats: %w", err)
+	}
+
+	// Build a map of format name to ID
+	formatIDByName := make(map[string]int32)
+	for _, f := range formats {
+		if f.Name != nil && f.Id != nil {
+			formatIDByName[*f.Name] = *f.Id
+		}
+	}
+
+	// Build format items with scores
+	items := make([]client.ProfileFormatItemResource, 0, len(formatScores))
+	for name, score := range formatScores {
+		formatID, ok := formatIDByName[name]
+		if !ok {
+			// Skip formats that don't exist yet - they may be created later
+			continue
+		}
+
+		items = append(items, client.ProfileFormatItemResource{
+			Format: &formatID,
+			Name:   stringPtr(name),
+			Score:  int32Ptr(int32(score)),
+		})
+	}
+
+	return items, nil
 }
 
 // Download Client operations

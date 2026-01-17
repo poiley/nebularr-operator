@@ -67,6 +67,12 @@ func (c *Compiler) CompileRadarrConfig(ctx context.Context, config *arrv1alpha1.
 	// Authentication
 	input.Authentication = convertAuthentication(config.Spec.Authentication, resolvedSecrets)
 
+	// Notifications
+	input.Notifications = convertNotifications(config.Spec.Notifications, resolvedSecrets)
+
+	// Custom formats
+	input.CustomFormats = convertCustomFormats(config.Spec.CustomFormats)
+
 	return c.Compile(ctx, input)
 }
 
@@ -123,6 +129,12 @@ func (c *Compiler) CompileSonarrConfig(ctx context.Context, config *arrv1alpha1.
 
 	// Authentication
 	input.Authentication = convertAuthentication(config.Spec.Authentication, resolvedSecrets)
+
+	// Notifications
+	input.Notifications = convertNotifications(config.Spec.Notifications, resolvedSecrets)
+
+	// Custom formats
+	input.CustomFormats = convertCustomFormats(config.Spec.CustomFormats)
 
 	return c.Compile(ctx, input)
 }
@@ -181,6 +193,9 @@ func (c *Compiler) CompileLidarrConfig(ctx context.Context, config *arrv1alpha1.
 
 	// Authentication
 	input.Authentication = convertAuthentication(config.Spec.Authentication, resolvedSecrets)
+
+	// Notifications
+	input.Notifications = convertNotifications(config.Spec.Notifications, resolvedSecrets)
 
 	return c.Compile(ctx, input)
 }
@@ -569,4 +584,108 @@ func defaultString(s string, def string) string {
 		return def
 	}
 	return s
+}
+
+// convertNotifications converts CRD NotificationSpec to compiler input
+func convertNotifications(notifications []arrv1alpha1.NotificationSpec, resolvedSecrets map[string]string) []NotificationInput {
+	if len(notifications) == 0 {
+		return nil
+	}
+
+	result := make([]NotificationInput, 0, len(notifications))
+	for _, n := range notifications {
+		input := NotificationInput{
+			Name:           n.Name,
+			Implementation: n.Type,
+
+			// Common event triggers
+			OnGrab:                      ptrBoolOrDefault(n.OnGrab, false),
+			OnDownload:                  ptrBoolOrDefault(n.OnDownload, false),
+			OnUpgrade:                   ptrBoolOrDefault(n.OnUpgrade, false),
+			OnRename:                    ptrBoolOrDefault(n.OnRename, false),
+			OnHealthIssue:               ptrBoolOrDefault(n.OnHealthIssue, false),
+			OnHealthRestored:            ptrBoolOrDefault(n.OnHealthRestored, false),
+			OnApplicationUpdate:         ptrBoolOrDefault(n.OnApplicationUpdate, false),
+			OnManualInteractionRequired: ptrBoolOrDefault(n.OnManualInteractionRequired, false),
+			IncludeHealthWarnings:       ptrBoolOrDefault(n.IncludeHealthWarnings, false),
+
+			// Radarr-specific events
+			OnMovieAdded:                ptrBoolOrDefault(n.OnMovieAdded, false),
+			OnMovieDelete:               ptrBoolOrDefault(n.OnMovieDelete, false),
+			OnMovieFileDelete:           ptrBoolOrDefault(n.OnMovieFileDelete, false),
+			OnMovieFileDeleteForUpgrade: ptrBoolOrDefault(n.OnMovieFileDeleteForUpgrade, false),
+
+			// Sonarr-specific events
+			OnSeriesAdd:                   ptrBoolOrDefault(n.OnSeriesAdd, false),
+			OnSeriesDelete:                ptrBoolOrDefault(n.OnSeriesDelete, false),
+			OnEpisodeFileDelete:           ptrBoolOrDefault(n.OnEpisodeFileDelete, false),
+			OnEpisodeFileDeleteForUpgrade: ptrBoolOrDefault(n.OnEpisodeFileDeleteForUpgrade, false),
+
+			// Lidarr-specific events
+			OnReleaseImport:   ptrBoolOrDefault(n.OnReleaseImport, false),
+			OnArtistAdd:       ptrBoolOrDefault(n.OnArtistAdd, false),
+			OnArtistDelete:    ptrBoolOrDefault(n.OnArtistDelete, false),
+			OnAlbumDelete:     ptrBoolOrDefault(n.OnAlbumDelete, false),
+			OnTrackRetag:      ptrBoolOrDefault(n.OnTrackRetag, false),
+			OnDownloadFailure: ptrBoolOrDefault(n.OnDownloadFailure, false),
+			OnImportFailure:   ptrBoolOrDefault(n.OnImportFailure, false),
+
+			// Tags
+			Tags: n.Tags,
+
+			// Fields from settings
+			Fields: make(map[string]interface{}),
+		}
+
+		// Copy settings to fields
+		for k, v := range n.Settings {
+			input.Fields[k] = v
+		}
+
+		// Resolve settings from secret if specified
+		if n.SettingsSecretRef != nil {
+			secretPrefix := n.SettingsSecretRef.Name + "/"
+			for key, value := range resolvedSecrets {
+				if strings.HasPrefix(key, secretPrefix) {
+					settingKey := strings.TrimPrefix(key, secretPrefix)
+					input.Fields[settingKey] = value
+				}
+			}
+		}
+
+		result = append(result, input)
+	}
+
+	return result
+}
+
+// convertCustomFormats converts CRD CustomFormatSpec to compiler input
+func convertCustomFormats(customFormats []arrv1alpha1.CustomFormatSpec) []CustomFormatInput {
+	if len(customFormats) == 0 {
+		return nil
+	}
+
+	result := make([]CustomFormatInput, 0, len(customFormats))
+	for _, cf := range customFormats {
+		input := CustomFormatInput{
+			Name:                cf.Name,
+			IncludeWhenRenaming: ptrBoolOrDefault(cf.IncludeWhenRenaming, false),
+			Score:               cf.Score,
+			Specifications:      make([]CustomFormatSpecInput, 0, len(cf.Specifications)),
+		}
+
+		for _, spec := range cf.Specifications {
+			input.Specifications = append(input.Specifications, CustomFormatSpecInput{
+				Name:     spec.Name,
+				Type:     spec.Type,
+				Negate:   ptrBoolOrDefault(spec.Negate, false),
+				Required: ptrBoolOrDefault(spec.Required, false),
+				Value:    spec.Value,
+			})
+		}
+
+		result = append(result, input)
+	}
+
+	return result
 }

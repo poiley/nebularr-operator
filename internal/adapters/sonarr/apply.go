@@ -92,15 +92,21 @@ func (a *Adapter) createQualityProfile(ctx context.Context, c *httpClient, profi
 	// Use schema items and mark appropriate ones as allowed
 	items, cutoffID := a.processSchemaItems(schema.Items, allowedQualities, profile.Cutoff)
 
+	// Build format items with scores from IR
+	formatItems, err := a.buildFormatItems(ctx, c, profile.FormatScores, schema.FormatItems)
+	if err != nil {
+		return fmt.Errorf("failed to build format items: %w", err)
+	}
+
 	resource := QualityProfileResource{
 		Name:                  profile.ProfileName,
 		UpgradeAllowed:        profile.UpgradeAllowed,
 		Cutoff:                cutoffID,
 		Items:                 items,
-		FormatItems:           schema.FormatItems,
-		MinFormatScore:        schema.MinFormatScore,
+		FormatItems:           formatItems,
+		MinFormatScore:        profile.MinimumCustomFormatScore,
 		MinUpgradeFormatScore: schema.MinUpgradeFormatScore,
-		CutoffFormatScore:     schema.CutoffFormatScore,
+		CutoffFormatScore:     profile.UpgradeUntilCustomFormatScore,
 	}
 
 	return c.post(ctx, "/api/v3/qualityprofile", resource, nil)
@@ -120,16 +126,22 @@ func (a *Adapter) updateQualityProfile(ctx context.Context, c *httpClient, id in
 	// Use schema items and mark appropriate ones as allowed
 	items, cutoffID := a.processSchemaItems(schema.Items, allowedQualities, profile.Cutoff)
 
+	// Build format items with scores from IR
+	formatItems, err := a.buildFormatItems(ctx, c, profile.FormatScores, schema.FormatItems)
+	if err != nil {
+		return fmt.Errorf("failed to build format items: %w", err)
+	}
+
 	resource := QualityProfileResource{
 		ID:                    id,
 		Name:                  profile.ProfileName,
 		UpgradeAllowed:        profile.UpgradeAllowed,
 		Cutoff:                cutoffID,
 		Items:                 items,
-		FormatItems:           schema.FormatItems,
-		MinFormatScore:        schema.MinFormatScore,
+		FormatItems:           formatItems,
+		MinFormatScore:        profile.MinimumCustomFormatScore,
 		MinUpgradeFormatScore: schema.MinUpgradeFormatScore,
-		CutoffFormatScore:     schema.CutoffFormatScore,
+		CutoffFormatScore:     profile.UpgradeUntilCustomFormatScore,
 	}
 
 	return c.put(ctx, fmt.Sprintf("/api/v3/qualityprofile/%d", id), resource, nil)
@@ -262,6 +274,63 @@ func mapSonarrSource(source string) string {
 	default:
 		return source
 	}
+}
+
+// buildFormatItems builds the format items array for a quality profile
+// It takes the desired format scores and merges them with the schema's format items
+func (a *Adapter) buildFormatItems(ctx context.Context, c *httpClient, formatScores map[string]int, schemaItems []ProfileFormatItem) ([]ProfileFormatItem, error) {
+	// If no format scores specified, return schema items as-is (all scores = 0)
+	if len(formatScores) == 0 {
+		return schemaItems, nil
+	}
+
+	// Fetch all custom formats to get their IDs and names
+	var formats []CustomFormatResource
+	if err := c.get(ctx, "/api/v3/customformat", &formats); err != nil {
+		return nil, fmt.Errorf("failed to get custom formats: %w", err)
+	}
+
+	// Build a map of format name to ID
+	formatIDByName := make(map[string]int)
+	formatNameByID := make(map[int]string)
+	for _, f := range formats {
+		formatIDByName[f.Name] = f.ID
+		formatNameByID[f.ID] = f.Name
+	}
+
+	// Start with schema items and update scores based on our format scores
+	result := make([]ProfileFormatItem, len(schemaItems))
+	for i, item := range schemaItems {
+		result[i] = item
+		// Look up the format name by ID
+		if name, ok := formatNameByID[item.Format]; ok {
+			// Check if we have a score for this format
+			if score, hasScore := formatScores[name]; hasScore {
+				result[i].Score = score
+			}
+		}
+	}
+
+	// Add any format scores for formats that aren't in the schema yet
+	// (This handles newly created custom formats)
+	schemaFormatIDs := make(map[int]bool)
+	for _, item := range schemaItems {
+		schemaFormatIDs[item.Format] = true
+	}
+
+	for name, score := range formatScores {
+		if formatID, ok := formatIDByName[name]; ok {
+			if !schemaFormatIDs[formatID] {
+				// This format isn't in the schema, add it
+				result = append(result, ProfileFormatItem{
+					Format: formatID,
+					Score:  score,
+				})
+			}
+		}
+	}
+
+	return result, nil
 }
 
 // createDownloadClient creates a download client

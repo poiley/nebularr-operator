@@ -338,6 +338,11 @@ func (c *Compiler) Compile(ctx context.Context, input CompileInput) (*irv1.IR, e
 	// 12. Compile custom formats (Radarr/Sonarr only)
 	if input.App == adapters.AppRadarr || input.App == adapters.AppSonarr {
 		ir.CustomFormats = c.compileCustomFormatsToIR(input.CustomFormats, input.ConfigName)
+
+		// Populate format scores in quality profile from custom format scores
+		if ir.Quality != nil && ir.Quality.Video != nil && len(input.CustomFormats) > 0 {
+			ir.Quality.Video.FormatScores = c.compileFormatScores(input.CustomFormats, input.ConfigName)
+		}
 	}
 
 	// 13. Prune unsupported features based on capabilities
@@ -727,4 +732,27 @@ func (c *Compiler) compileCustomFormatsToIR(formats []CustomFormatInput, configN
 		result = append(result, ir)
 	}
 	return result
+}
+
+// compileFormatScores extracts format scores from custom format inputs
+// This maps custom format names to their scores for use in quality profiles
+func (c *Compiler) compileFormatScores(formats []CustomFormatInput, configName string) map[string]int {
+	if len(formats) == 0 {
+		return nil
+	}
+
+	scores := make(map[string]int)
+	for _, cf := range formats {
+		// Only include formats with non-zero scores
+		if cf.Score != 0 {
+			// Use the full name (with nebularr prefix) to match the custom format name
+			fullName := fmt.Sprintf("nebularr-%s-%s", configName, cf.Name)
+			scores[fullName] = cf.Score
+		}
+	}
+
+	if len(scores) == 0 {
+		return nil
+	}
+	return scores
 }

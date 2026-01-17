@@ -358,6 +358,179 @@ type NamingSpec struct {
 }
 ```
 
+### 2.7 CustomFormatSpec
+
+Custom formats allow fine-grained control over release quality preferences through pattern matching.
+Used by Radarr and Sonarr only (not Lidarr).
+
+```go
+// CustomFormatSpec defines a custom format for release matching
+type CustomFormatSpec struct {
+    // Name is the display name for this custom format.
+    // +kubebuilder:validation:Required
+    Name string `json:"name"`
+
+    // IncludeWhenRenaming includes this format in renamed file names.
+    // +optional
+    // +kubebuilder:default=false
+    IncludeWhenRenaming *bool `json:"includeWhenRenaming,omitempty"`
+
+    // Score is the score to assign in quality profiles.
+    // Positive scores prefer releases matching this format.
+    // Negative scores reject releases matching this format.
+    // +optional
+    // +kubebuilder:default=0
+    Score int `json:"score,omitempty"`
+
+    // Specifications define the matching rules.
+    // All specifications must match for the format to apply (AND logic).
+    // +kubebuilder:validation:Required
+    // +kubebuilder:validation:MinItems=1
+    Specifications []CustomFormatSpecificationSpec `json:"specifications"`
+}
+
+// CustomFormatSpecificationSpec defines a single matching rule
+type CustomFormatSpecificationSpec struct {
+    // Name is the display name for this specification.
+    // +kubebuilder:validation:Required
+    Name string `json:"name"`
+
+    // Type is the specification implementation type.
+    // Common types:
+    //   - ReleaseTitleSpecification: Match release title with regex
+    //   - SourceSpecification: Match source type (bluray, webdl, etc.)
+    //   - ResolutionSpecification: Match resolution (2160p, 1080p, etc.)
+    //   - ReleaseGroupSpecification: Match release group with regex
+    //   - QualityModifierSpecification: Match quality modifier (remux, etc.)
+    // +kubebuilder:validation:Required
+    Type string `json:"type"`
+
+    // Negate inverts the match logic.
+    // +optional
+    // +kubebuilder:default=false
+    Negate *bool `json:"negate,omitempty"`
+
+    // Required makes this specification mandatory.
+    // +optional
+    // +kubebuilder:default=false
+    Required *bool `json:"required,omitempty"`
+
+    // Value is the specification value. Interpretation depends on Type:
+    //   - ReleaseTitleSpecification: Regular expression pattern
+    //   - SourceSpecification: Source name (bluray, webdl, webrip, hdtv, dvd)
+    //   - ResolutionSpecification: Resolution (r2160p, r1080p, r720p, r480p)
+    // +kubebuilder:validation:Required
+    Value string `json:"value"`
+}
+```
+
+#### Example: Custom Formats for 4K HDR
+
+```yaml
+apiVersion: arr.rinzler.cloud/v1alpha1
+kind: RadarrConfig
+metadata:
+  name: radarr-4k
+  namespace: media
+spec:
+  connection:
+    url: http://radarr:7878
+  
+  quality:
+    preset: "uhd-hdr"
+  
+  customFormats:
+    # Prefer Dolby Vision releases
+    - name: DV
+      score: 1500
+      specifications:
+        - name: Dolby Vision
+          type: ReleaseTitleSpecification
+          value: "\\b(dv|dovi|dolby[ .]?vision)\\b"
+          required: true
+    
+    # Prefer HDR10+ releases
+    - name: HDR10Plus
+      score: 800
+      specifications:
+        - name: HDR10+
+          type: ReleaseTitleSpecification
+          value: "\\bHDR10(\\+|Plus)\\b"
+          required: true
+    
+    # Prefer HEVC/x265 (smaller files)
+    - name: x265
+      score: 100
+      specifications:
+        - name: x265/HEVC
+          type: ReleaseTitleSpecification
+          value: "[xh]\\.?265|hevc"
+          required: true
+        - name: Not 2160p
+          type: ResolutionSpecification
+          value: "r2160p"
+          negate: true
+    
+    # Reject 3D releases
+    - name: 3D
+      score: -10000
+      specifications:
+        - name: 3D
+          type: ReleaseTitleSpecification
+          value: "\\b3D\\b"
+          required: true
+    
+    # Reject CAM/TS releases
+    - name: LowQuality
+      score: -10000
+      specifications:
+        - name: CAM/TS
+          type: ReleaseTitleSpecification
+          value: "\\b(CAM|HDCAM|TS|TELESYNC|TELECINE)\\b"
+          required: true
+```
+
+#### Example: Custom Formats for TV Shows
+
+```yaml
+apiVersion: arr.rinzler.cloud/v1alpha1
+kind: SonarrConfig
+metadata:
+  name: sonarr
+  namespace: media
+spec:
+  connection:
+    url: http://sonarr:8989
+  
+  customFormats:
+    # Prefer WEB-DL over WEBRip
+    - name: WEB-DL
+      score: 100
+      specifications:
+        - name: WEB-DL
+          type: SourceSpecification
+          value: "webdl"
+          required: true
+    
+    # Prefer scene releases
+    - name: Scene
+      score: 50
+      includeWhenRenaming: true
+      specifications:
+        - name: Scene Groups
+          type: ReleaseGroupSpecification
+          value: "\\b(NTb|NTG|KiNGS|FLUX|EDITH)\\b"
+    
+    # Prefer AMZN releases
+    - name: AMZN
+      score: 75
+      specifications:
+        - name: Amazon
+          type: ReleaseTitleSpecification
+          value: "\\bAMZN\\b"
+          required: true
+```
+
 ---
 
 ## 3. Bundled Configs
