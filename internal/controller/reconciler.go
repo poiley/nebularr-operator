@@ -167,6 +167,12 @@ func (h *ReconcileHelper) ReconcileConfig(
 
 		if !result.Success() {
 			log.Info("Some changes failed to apply", "applied", result.Applied, "failed", result.Failed)
+			// Log each individual error for debugging
+			for _, applyErr := range result.Errors {
+				log.Error(applyErr.Error, "Failed to apply change",
+					"resourceType", applyErr.Change.ResourceType,
+					"resourceName", applyErr.Change.Name)
+			}
 			h.SetCondition(status, generation, ConditionTypeSynced, metav1.ConditionFalse, "PartiallyApplied",
 				fmt.Sprintf("Applied %d changes, %d failed", result.Applied, result.Failed))
 		} else {
