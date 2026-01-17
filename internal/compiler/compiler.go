@@ -374,18 +374,23 @@ func (c *Compiler) Compile(ctx context.Context, input CompileInput) (*irv1.IR, e
 	// 11. Compile notifications
 	ir.Notifications = c.compileNotificationsToIR(input.Notifications, input.ConfigName)
 
-	// 12. Compile custom formats (Radarr/Sonarr only)
-	if input.App == adapters.AppRadarr || input.App == adapters.AppSonarr {
+	// 12. Compile custom formats (Radarr/Sonarr/Lidarr)
+	if input.App == adapters.AppRadarr || input.App == adapters.AppSonarr || input.App == adapters.AppLidarr {
 		ir.CustomFormats = c.compileCustomFormatsToIR(input.CustomFormats, input.ConfigName)
 
 		// Populate format scores in quality profile from custom format scores
-		if ir.Quality != nil && ir.Quality.Video != nil && len(input.CustomFormats) > 0 {
-			ir.Quality.Video.FormatScores = c.compileFormatScores(input.CustomFormats, input.ConfigName)
+		if ir.Quality != nil && len(input.CustomFormats) > 0 {
+			if ir.Quality.Video != nil {
+				ir.Quality.Video.FormatScores = c.compileFormatScores(input.CustomFormats, input.ConfigName)
+			}
+			if ir.Quality.Audio != nil {
+				ir.Quality.Audio.FormatScores = c.compileFormatScores(input.CustomFormats, input.ConfigName)
+			}
 		}
 	}
 
-	// 13. Compile delay profiles (Radarr/Sonarr only)
-	if input.App == adapters.AppRadarr || input.App == adapters.AppSonarr {
+	// 13. Compile delay profiles (Radarr/Sonarr/Lidarr)
+	if input.App == adapters.AppRadarr || input.App == adapters.AppSonarr || input.App == adapters.AppLidarr {
 		ir.DelayProfiles = c.compileDelayProfilesToIR(input.DelayProfiles)
 	}
 

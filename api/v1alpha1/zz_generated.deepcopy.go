@@ -1054,6 +1054,20 @@ func (in *LidarrConfigSpec) DeepCopyInto(out *LidarrConfigSpec) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.CustomFormats != nil {
+		in, out := &in.CustomFormats, &out.CustomFormats
+		*out = make([]CustomFormatSpec, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.DelayProfiles != nil {
+		in, out := &in.DelayProfiles, &out.DelayProfiles
+		*out = make([]DelayProfileSpec, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.Reconciliation != nil {
 		in, out := &in.Reconciliation, &out.Reconciliation
 		*out = new(ReconciliationSpec)

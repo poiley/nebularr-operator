@@ -137,3 +137,35 @@ type NotificationResource struct {
 	OnApplicationUpdate   bool    `json:"onApplicationUpdate"`
 	IncludeHealthWarnings bool    `json:"includeHealthWarnings"`
 }
+
+// CustomFormatResource represents a Lidarr custom format (v2.0+)
+type CustomFormatResource struct {
+	ID                              int                         `json:"id,omitempty"`
+	Name                            string                      `json:"name"`
+	IncludeCustomFormatWhenRenaming bool                        `json:"includeCustomFormatWhenRenaming"`
+	Specifications                  []CustomFormatSpecification `json:"specifications"`
+}
+
+// CustomFormatSpecification represents a spec within a custom format
+type CustomFormatSpecification struct {
+	Name           string  `json:"name"`
+	Implementation string  `json:"implementation"`
+	Negate         bool    `json:"negate"`
+	Required       bool    `json:"required"`
+	Fields         []Field `json:"fields"`
+}
+
+// DelayProfileResource represents a Lidarr delay profile
+type DelayProfileResource struct {
+	ID                             int    `json:"id,omitempty"`
+	Order                          int    `json:"order"`
+	PreferredProtocol              string `json:"preferredProtocol"`
+	UsenetDelay                    int    `json:"usenetDelay"`
+	TorrentDelay                   int    `json:"torrentDelay"`
+	EnableUsenet                   bool   `json:"enableUsenet"`
+	EnableTorrent                  bool   `json:"enableTorrent"`
+	BypassIfHighestQuality         bool   `json:"bypassIfHighestQuality"`
+	BypassIfAboveCustomFormatScore bool   `json:"bypassIfAboveCustomFormatScore"`
+	MinimumCustomFormatScore       int    `json:"minimumCustomFormatScore"`
+	Tags                           []int  `json:"tags"`
+}

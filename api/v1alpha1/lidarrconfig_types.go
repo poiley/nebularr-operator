@@ -118,6 +118,19 @@ type LidarrConfigSpec struct {
 	// +optional
 	Notifications []NotificationSpec `json:"notifications,omitempty"`
 
+	// CustomFormats defines custom formats for fine-grained release quality control.
+	// Custom formats allow matching releases based on title patterns, sources, etc.
+	// and assigning scores that affect quality profile decisions.
+	// Note: Requires Lidarr v2.0+
+	// +optional
+	CustomFormats []CustomFormatSpec `json:"customFormats,omitempty"`
+
+	// DelayProfiles configures download delays for better release selection.
+	// Delay profiles allow waiting for preferred releases before downloading,
+	// with different delays for Usenet vs torrents and bypass conditions.
+	// +optional
+	DelayProfiles []DelayProfileSpec `json:"delayProfiles,omitempty"`
+
 	// Reconciliation configures sync behavior.
 	// +optional
 	Reconciliation *ReconciliationSpec `json:"reconciliation,omitempty"`

@@ -168,6 +168,17 @@ func (a *Adapter) CurrentState(ctx context.Context, conn *irv1.ConnectionIR) (*i
 		ir.Authentication = auth
 	}
 
+	// Get custom formats (all of them, since they don't have tags)
+	// Note: Requires Lidarr v2.0+
+	if customFormats, err := a.getAllCustomFormats(ctx, c); err == nil {
+		ir.CustomFormats = customFormats
+	}
+
+	// Get delay profiles (all of them, not just tagged)
+	if delayProfiles, err := a.getManagedDelayProfiles(ctx, c); err == nil {
+		ir.DelayProfiles = delayProfiles
+	}
+
 	return ir, nil
 }
 
@@ -212,6 +223,16 @@ func (a *Adapter) Diff(current, desired *irv1.IR, caps *adapters.Capabilities) (
 	// Diff naming config
 	if err := a.diffNaming(current, desired, changes); err != nil {
 		return nil, fmt.Errorf("failed to diff naming: %w", err)
+	}
+
+	// Diff custom formats
+	if err := a.diffCustomFormats(current, desired, changes); err != nil {
+		return nil, fmt.Errorf("failed to diff custom formats: %w", err)
+	}
+
+	// Diff delay profiles
+	if err := a.diffDelayProfiles(current, desired, changes); err != nil {
+		return nil, fmt.Errorf("failed to diff delay profiles: %w", err)
 	}
 
 	return changes, nil

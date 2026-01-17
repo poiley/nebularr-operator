@@ -23,6 +23,10 @@ func (a *Adapter) applyCreate(ctx context.Context, c *httpClient, change adapter
 		return a.createRemotePathMapping(ctx, c, change.Payload.(*irv1.RemotePathMappingIR))
 	case adapters.ResourceNotification:
 		return a.createNotification(ctx, c, change.Payload.(*irv1.NotificationIR), tagID)
+	case adapters.ResourceCustomFormat:
+		return a.createCustomFormat(ctx, c, change.Payload.(*irv1.CustomFormatIR))
+	case adapters.ResourceDelayProfile:
+		return a.createDelayProfile(ctx, c, change.Payload.(*irv1.DelayProfileIR), tagID)
 	default:
 		return fmt.Errorf("unsupported resource type for create: %s", change.ResourceType)
 	}
@@ -43,6 +47,10 @@ func (a *Adapter) applyUpdate(ctx context.Context, c *httpClient, change adapter
 		return a.updateRemotePathMapping(ctx, c, change.Payload.(*irv1.RemotePathMappingIR))
 	case adapters.ResourceNotification:
 		return a.updateNotification(ctx, c, change.Payload.(*irv1.NotificationIR), tagID)
+	case adapters.ResourceCustomFormat:
+		return a.updateCustomFormat(ctx, c, change.Payload.(*irv1.CustomFormatIR))
+	case adapters.ResourceDelayProfile:
+		return a.updateDelayProfile(ctx, c, change.Payload.(*irv1.DelayProfileIR), tagID)
 	default:
 		return fmt.Errorf("unsupported resource type for update: %s", change.ResourceType)
 	}
@@ -67,6 +75,10 @@ func (a *Adapter) applyDelete(ctx context.Context, c *httpClient, change adapter
 		return a.deleteRemotePathMapping(ctx, c, *change.ID)
 	case adapters.ResourceNotification:
 		return a.deleteNotification(ctx, c, *change.ID)
+	case adapters.ResourceCustomFormat:
+		return a.deleteCustomFormat(ctx, c, *change.ID)
+	case adapters.ResourceDelayProfile:
+		return a.deleteDelayProfile(ctx, c, *change.ID)
 	default:
 		return fmt.Errorf("unsupported resource type for delete: %s", change.ResourceType)
 	}

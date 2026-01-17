@@ -76,6 +76,15 @@ type AudioQualityIR struct {
 
 	// ReleaseProfile for Lidarr release filtering
 	ReleaseProfile *ReleaseProfileIR `json:"releaseProfile,omitempty"`
+
+	// FormatScores maps format names to scores (Lidarr v2+)
+	FormatScores map[string]int `json:"formatScores,omitempty"`
+
+	// MinimumCustomFormatScore for acceptance
+	MinimumCustomFormatScore int `json:"minimumCustomFormatScore,omitempty"`
+
+	// UpgradeUntilCustomFormatScore stops upgrades at this score
+	UpgradeUntilCustomFormatScore int `json:"upgradeUntilCustomFormatScore,omitempty"`
 }
 
 // AudioQualityTierIR represents an audio quality tier
