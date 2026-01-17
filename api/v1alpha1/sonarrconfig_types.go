@@ -84,6 +84,12 @@ type SonarrConfigSpec struct {
 	// +optional
 	Notifications []NotificationSpec `json:"notifications,omitempty"`
 
+	// CustomFormats defines custom formats for fine-grained release quality control.
+	// Custom formats allow matching releases based on title patterns, sources, resolutions, etc.
+	// and assigning scores that affect quality profile decisions.
+	// +optional
+	CustomFormats []CustomFormatSpec `json:"customFormats,omitempty"`
+
 	// Reconciliation configures sync behavior.
 	// +optional
 	Reconciliation *ReconciliationSpec `json:"reconciliation,omitempty"`

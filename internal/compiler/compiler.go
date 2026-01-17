@@ -72,6 +72,9 @@ type CompileInput struct {
 	// Notifications
 	Notifications []NotificationInput
 
+	// CustomFormats (Radarr/Sonarr only)
+	CustomFormats []CustomFormatInput
+
 	// Capabilities for pruning unsupported features
 	Capabilities *adapters.Capabilities
 
@@ -218,6 +221,39 @@ type NotificationInput struct {
 	Tags []string
 }
 
+// CustomFormatInput holds custom format configuration
+type CustomFormatInput struct {
+	// Name is the display name for this custom format
+	Name string
+
+	// IncludeWhenRenaming includes this format in renamed file names
+	IncludeWhenRenaming bool
+
+	// Score is the score to assign in quality profiles
+	Score int
+
+	// Specifications define the matching rules
+	Specifications []CustomFormatSpecInput
+}
+
+// CustomFormatSpecInput holds a single custom format specification
+type CustomFormatSpecInput struct {
+	// Name is the display name
+	Name string
+
+	// Type is the specification implementation type
+	Type string
+
+	// Negate inverts the match logic
+	Negate bool
+
+	// Required makes this specification mandatory
+	Required bool
+
+	// Value is the specification value (interpretation depends on Type)
+	Value string
+}
+
 // Compile transforms CRD intent into IR
 func (c *Compiler) Compile(ctx context.Context, input CompileInput) (*irv1.IR, error) {
 	ir := &irv1.IR{
@@ -299,12 +335,17 @@ func (c *Compiler) Compile(ctx context.Context, input CompileInput) (*irv1.IR, e
 	// 11. Compile notifications
 	ir.Notifications = c.compileNotificationsToIR(input.Notifications, input.ConfigName)
 
-	// 12. Prune unsupported features based on capabilities
+	// 12. Compile custom formats (Radarr/Sonarr only)
+	if input.App == adapters.AppRadarr || input.App == adapters.AppSonarr {
+		ir.CustomFormats = c.compileCustomFormatsToIR(input.CustomFormats, input.ConfigName)
+	}
+
+	// 13. Prune unsupported features based on capabilities
 	if input.Capabilities != nil {
 		ir.Unrealized = c.pruneUnsupported(ir, input.Capabilities)
 	}
 
-	// 13. Generate source hash for drift detection
+	// 14. Generate source hash for drift detection
 	ir.SourceHash = c.hashInput(input)
 
 	return ir, nil
@@ -483,6 +524,7 @@ func (c *Compiler) hashInput(input CompileInput) string {
 		Indexers           *IndexersInput
 		RootFolders        []string
 		Notifications      []NotificationInput
+		CustomFormats      []CustomFormatInput
 	}{
 		App:                input.App,
 		ConfigName:         input.ConfigName,
@@ -494,6 +536,7 @@ func (c *Compiler) hashInput(input CompileInput) string {
 		Indexers:           input.Indexers,
 		RootFolders:        input.RootFolders,
 		Notifications:      input.Notifications,
+		CustomFormats:      input.CustomFormats,
 	}
 
 	data, err := json.Marshal(hashable)
@@ -652,6 +695,35 @@ func (c *Compiler) compileNotificationsToIR(notifications []NotificationInput, c
 			// Type-specific settings
 			Fields: n.Fields,
 		}
+		result = append(result, ir)
+	}
+	return result
+}
+
+// compileCustomFormatsToIR converts custom format inputs to IR
+func (c *Compiler) compileCustomFormatsToIR(formats []CustomFormatInput, configName string) []irv1.CustomFormatIR {
+	if len(formats) == 0 {
+		return nil
+	}
+
+	result := make([]irv1.CustomFormatIR, 0, len(formats))
+	for _, cf := range formats {
+		ir := irv1.CustomFormatIR{
+			Name:                fmt.Sprintf("nebularr-%s-%s", configName, cf.Name),
+			IncludeWhenRenaming: cf.IncludeWhenRenaming,
+			Specifications:      make([]irv1.FormatSpecIR, 0, len(cf.Specifications)),
+		}
+
+		for _, spec := range cf.Specifications {
+			ir.Specifications = append(ir.Specifications, irv1.FormatSpecIR{
+				Type:     spec.Type,
+				Name:     spec.Name,
+				Negate:   spec.Negate,
+				Required: spec.Required,
+				Value:    spec.Value,
+			})
+		}
+
 		result = append(result, ir)
 	}
 	return result

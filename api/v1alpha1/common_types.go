@@ -664,6 +664,83 @@ type AuthenticationSpec struct {
 }
 
 // =============================================================================
+// Custom Format Types
+// =============================================================================
+
+// CustomFormatSpec defines a custom format for release matching.
+// Custom formats allow fine-grained control over release quality preferences
+// through pattern matching on release titles and other attributes.
+type CustomFormatSpec struct {
+	// Name is the display name for this custom format.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// IncludeWhenRenaming includes this format in renamed file names.
+	// +optional
+	// +kubebuilder:default=false
+	IncludeWhenRenaming *bool `json:"includeWhenRenaming,omitempty"`
+
+	// Score is the score to assign to this custom format in quality profiles.
+	// Positive scores prefer releases matching this format.
+	// Negative scores reject releases matching this format.
+	// Zero means no preference (useful for informational formats).
+	// +optional
+	// +kubebuilder:default=0
+	Score int `json:"score,omitempty"`
+
+	// Specifications define the rules that must match for this format to apply.
+	// All specifications must match for the format to be assigned (AND logic).
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:MinItems=1
+	Specifications []CustomFormatSpecificationSpec `json:"specifications"`
+}
+
+// CustomFormatSpecificationSpec defines a single matching rule within a custom format.
+// Each specification tests one aspect of a release (title, source, resolution, etc.).
+type CustomFormatSpecificationSpec struct {
+	// Name is the display name for this specification.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Type is the specification implementation type.
+	// Common types:
+	//   - ReleaseTitleSpecification: Match release title with regex
+	//   - SourceSpecification: Match source type (bluray, webdl, webrip, hdtv, etc.)
+	//   - ResolutionSpecification: Match resolution (2160p, 1080p, 720p, 480p)
+	//   - QualityModifierSpecification: Match quality modifier (remux, brdisk, etc.)
+	//   - IndexerFlagSpecification: Match indexer flags
+	//   - ReleaseGroupSpecification: Match release group with regex
+	//   - EditionSpecification: Match edition info with regex (Radarr only)
+	//   - LanguageSpecification: Match language
+	// Use the /api/v3/customformat/schema endpoint to discover all available types.
+	// +kubebuilder:validation:Required
+	Type string `json:"type"`
+
+	// Negate inverts the match logic. If true, the specification matches when
+	// the condition is NOT met.
+	// +optional
+	// +kubebuilder:default=false
+	Negate *bool `json:"negate,omitempty"`
+
+	// Required makes this specification mandatory. If true, the custom format
+	// only applies when this specification matches. If false, this is an
+	// optional enhancement.
+	// +optional
+	// +kubebuilder:default=false
+	Required *bool `json:"required,omitempty"`
+
+	// Value is the specification value. Interpretation depends on Type:
+	//   - ReleaseTitleSpecification: Regular expression pattern
+	//   - SourceSpecification: Source name (cam, telesync, telecine, workprint, dvd, tv, webdl, webrip, bluray)
+	//   - ResolutionSpecification: Resolution (r360p, r480p, r576p, r720p, r1080p, r2160p)
+	//   - ReleaseGroupSpecification: Regular expression pattern
+	//   - EditionSpecification: Regular expression pattern
+	//   - LanguageSpecification: Language ID or name
+	// +kubebuilder:validation:Required
+	Value string `json:"value"`
+}
+
+// =============================================================================
 // Notification Types
 // =============================================================================
 

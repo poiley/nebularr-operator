@@ -169,6 +169,12 @@ func (a *Adapter) CurrentState(ctx context.Context, conn *irv1.ConnectionIR) (*i
 		ir.Notifications = notifications
 	}
 
+	// Get custom formats (all of them, since they don't have tags)
+	// Custom formats are identified by naming convention in the diff
+	if customFormats, err := a.getAllCustomFormats(ctx, c); err == nil {
+		ir.CustomFormats = customFormats
+	}
+
 	return ir, nil
 }
 
@@ -213,6 +219,11 @@ func (a *Adapter) Diff(current, desired *irv1.IR, caps *adapters.Capabilities) (
 	// Diff notifications
 	if err := a.diffNotifications(current, desired, changes); err != nil {
 		return nil, fmt.Errorf("failed to diff notifications: %w", err)
+	}
+
+	// Diff custom formats
+	if err := a.diffCustomFormats(current, desired, changes); err != nil {
+		return nil, fmt.Errorf("failed to diff custom formats: %w", err)
 	}
 
 	return changes, nil

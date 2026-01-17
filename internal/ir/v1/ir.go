@@ -47,6 +47,9 @@ type IR struct {
 	// Notifications configuration - for Radarr/Sonarr/Lidarr
 	Notifications []NotificationIR `json:"notifications,omitempty"`
 
+	// CustomFormats configuration - for Radarr/Sonarr only
+	CustomFormats []CustomFormatIR `json:"customFormats,omitempty"`
+
 	// MediaManagement configuration
 	MediaManagement *MediaManagementIR `json:"mediaManagement,omitempty"`
 

@@ -45,6 +45,7 @@ type VideoQualityTierIR struct {
 
 // CustomFormatIR represents a custom format definition
 type CustomFormatIR struct {
+	ID                  int            `json:"id,omitempty"`
 	Name                string         `json:"name"`
 	IncludeWhenRenaming bool           `json:"includeWhenRenaming,omitempty"`
 	Specifications      []FormatSpecIR `json:"specifications"`

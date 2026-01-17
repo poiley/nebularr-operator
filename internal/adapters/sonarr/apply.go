@@ -13,6 +13,8 @@ func (a *Adapter) applyCreate(ctx context.Context, c *httpClient, change adapter
 	switch change.ResourceType {
 	case adapters.ResourceQualityProfile:
 		return a.createQualityProfile(ctx, c, change.Payload.(*irv1.VideoQualityIR))
+	case adapters.ResourceCustomFormat:
+		return a.createCustomFormat(ctx, c, change.Payload.(*irv1.CustomFormatIR))
 	case adapters.ResourceDownloadClient:
 		return a.createDownloadClient(ctx, c, change.Payload.(irv1.DownloadClientIR), tagID)
 	case adapters.ResourceIndexer:
@@ -33,6 +35,8 @@ func (a *Adapter) applyUpdate(ctx context.Context, c *httpClient, change adapter
 	switch change.ResourceType {
 	case adapters.ResourceQualityProfile:
 		return a.updateQualityProfile(ctx, c, *change.ID, change.Payload.(*irv1.VideoQualityIR))
+	case adapters.ResourceCustomFormat:
+		return a.updateCustomFormat(ctx, c, change.Payload.(*irv1.CustomFormatIR))
 	case adapters.ResourceDownloadClient:
 		return a.updateDownloadClient(ctx, c, *change.ID, change.Payload.(irv1.DownloadClientIR), tagID)
 	case adapters.ResourceIndexer:
@@ -57,6 +61,8 @@ func (a *Adapter) applyDelete(ctx context.Context, c *httpClient, change adapter
 	switch change.ResourceType {
 	case adapters.ResourceQualityProfile:
 		return c.delete(ctx, fmt.Sprintf("/api/v3/qualityprofile/%d", *change.ID))
+	case adapters.ResourceCustomFormat:
+		return a.deleteCustomFormat(ctx, c, *change.ID)
 	case adapters.ResourceDownloadClient:
 		return c.delete(ctx, fmt.Sprintf("/api/v3/downloadclient/%d", *change.ID))
 	case adapters.ResourceIndexer:
