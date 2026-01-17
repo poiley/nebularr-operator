@@ -75,10 +75,14 @@ func (a *Adapter) createQualityProfile(ctx context.Context, c *httpClient, profi
 	items, cutoffID := a.processSchemaItems(schema.Items, allowedQualities, profile.Cutoff)
 
 	resource := QualityProfileResource{
-		Name:           profile.ProfileName,
-		UpgradeAllowed: profile.UpgradeAllowed,
-		Cutoff:         cutoffID,
-		Items:          items,
+		Name:                  profile.ProfileName,
+		UpgradeAllowed:        profile.UpgradeAllowed,
+		Cutoff:                cutoffID,
+		Items:                 items,
+		FormatItems:           schema.FormatItems,
+		MinFormatScore:        schema.MinFormatScore,
+		MinUpgradeFormatScore: schema.MinUpgradeFormatScore,
+		CutoffFormatScore:     schema.CutoffFormatScore,
 	}
 
 	return c.post(ctx, "/api/v3/qualityprofile", resource, nil)
@@ -99,11 +103,15 @@ func (a *Adapter) updateQualityProfile(ctx context.Context, c *httpClient, id in
 	items, cutoffID := a.processSchemaItems(schema.Items, allowedQualities, profile.Cutoff)
 
 	resource := QualityProfileResource{
-		ID:             id,
-		Name:           profile.ProfileName,
-		UpgradeAllowed: profile.UpgradeAllowed,
-		Cutoff:         cutoffID,
-		Items:          items,
+		ID:                    id,
+		Name:                  profile.ProfileName,
+		UpgradeAllowed:        profile.UpgradeAllowed,
+		Cutoff:                cutoffID,
+		Items:                 items,
+		FormatItems:           schema.FormatItems,
+		MinFormatScore:        schema.MinFormatScore,
+		MinUpgradeFormatScore: schema.MinUpgradeFormatScore,
+		CutoffFormatScore:     schema.CutoffFormatScore,
 	}
 
 	return c.put(ctx, fmt.Sprintf("/api/v3/qualityprofile/%d", id), resource, nil)

@@ -16,14 +16,15 @@ type TagResource struct {
 
 // QualityProfileResource represents a Sonarr quality profile
 type QualityProfileResource struct {
-	ID                int                  `json:"id,omitempty"`
-	Name              string               `json:"name"`
-	UpgradeAllowed    bool                 `json:"upgradeAllowed"`
-	Cutoff            int                  `json:"cutoff"`
-	Items             []QualityProfileItem `json:"items"`
-	FormatItems       []ProfileFormatItem  `json:"formatItems,omitempty"`
-	MinFormatScore    int                  `json:"minFormatScore"`
-	CutoffFormatScore int                  `json:"cutoffFormatScore"`
+	ID                    int                  `json:"id,omitempty"`
+	Name                  string               `json:"name"`
+	UpgradeAllowed        bool                 `json:"upgradeAllowed"`
+	Cutoff                int                  `json:"cutoff"`
+	Items                 []QualityProfileItem `json:"items"`
+	FormatItems           []ProfileFormatItem  `json:"formatItems"`
+	MinFormatScore        int                  `json:"minFormatScore"`
+	MinUpgradeFormatScore int                  `json:"minUpgradeFormatScore"`
+	CutoffFormatScore     int                  `json:"cutoffFormatScore"`
 }
 
 // QualityProfileItem represents a quality in a profile
