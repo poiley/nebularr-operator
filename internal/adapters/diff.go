@@ -319,7 +319,7 @@ func DiffRootFolders(
 			changes.Creates = append(changes.Creates, Change{
 				ResourceType: ResourceRootFolder,
 				Name:         folder.Path,
-				Payload:      &irv1.RootFolderIR{Path: folder.Path},
+				Payload:      irv1.RootFolderIR{Path: folder.Path},
 			})
 		}
 	}
