@@ -152,6 +152,10 @@ type ProwlarrConfigSpec struct {
 	// +optional
 	DownloadClients []DownloadClientSpec `json:"downloadClients,omitempty"`
 
+	// Authentication configures authentication settings.
+	// +optional
+	Authentication *AuthenticationSpec `json:"authentication,omitempty"`
+
 	// Reconciliation configures sync behavior.
 	// +optional
 	Reconciliation *ReconciliationSpec `json:"reconciliation,omitempty"`

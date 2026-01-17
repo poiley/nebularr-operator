@@ -168,3 +168,33 @@ func (w *BazarrStatusWrapper) SetLastReconcile(t *metav1.Time) {
 func (w *BazarrStatusWrapper) SetLastAppliedHash(hash string) {
 	w.Status.LastAppliedHash = hash
 }
+
+// DownloadStackStatusWrapper implements ConfigStatus for DownloadStackConfig
+type DownloadStackStatusWrapper struct {
+	Status *arrv1alpha1.DownloadStackConfigStatus
+}
+
+func (w *DownloadStackStatusWrapper) GetConditions() []metav1.Condition {
+	return w.Status.Conditions
+}
+
+func (w *DownloadStackStatusWrapper) SetConditions(conditions []metav1.Condition) {
+	w.Status.Conditions = conditions
+}
+
+func (w *DownloadStackStatusWrapper) SetConnected(connected bool) {
+	// DownloadStack uses TransmissionConnected instead
+	w.Status.TransmissionConnected = connected
+}
+
+func (w *DownloadStackStatusWrapper) SetServiceVersion(version string) {
+	w.Status.TransmissionVersion = version
+}
+
+func (w *DownloadStackStatusWrapper) SetLastReconcile(t *metav1.Time) {
+	w.Status.LastReconcile = t
+}
+
+func (w *DownloadStackStatusWrapper) SetLastAppliedHash(hash string) {
+	w.Status.GluetunConfigHash = hash
+}
