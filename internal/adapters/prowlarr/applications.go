@@ -169,9 +169,11 @@ func applicationsEqual(a, b irv1.ProwlarrApplicationIR) bool {
 
 // createApplication creates an application in Prowlarr
 func (a *Adapter) createApplication(ctx context.Context, c *httpClient, app irv1.ProwlarrApplicationIR, tagID int) error {
+	impl := appTypeToImpl(app.Type)
 	resource := ApplicationResource{
 		Name:           app.Name,
-		Implementation: appTypeToImpl(app.Type),
+		Implementation: impl,
+		ConfigContract: impl + "Settings", // Required by Prowlarr API
 		SyncLevel:      app.SyncLevel,
 		Tags:           []int{tagID},
 	}
@@ -212,10 +214,12 @@ func (a *Adapter) updateApplication(ctx context.Context, c *httpClient, app irv1
 		}
 	}
 
+	impl := appTypeToImpl(app.Type)
 	resource := ApplicationResource{
 		ID:             id,
 		Name:           app.Name,
-		Implementation: appTypeToImpl(app.Type),
+		Implementation: impl,
+		ConfigContract: impl + "Settings", // Required by Prowlarr API
 		SyncLevel:      app.SyncLevel,
 		Tags:           []int{tagID},
 	}
