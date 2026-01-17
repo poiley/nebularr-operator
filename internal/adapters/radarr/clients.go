@@ -107,41 +107,37 @@ func (a *Adapter) inferProtocol(impl string) string {
 
 // diffDownloadClients computes changes needed for download clients
 func (a *Adapter) diffDownloadClients(current, desired *irv1.IR, changes *adapters.ChangeSet) error {
-	// Build maps for comparison
-	currentClients := make(map[string]*irv1.DownloadClientIR)
-	desiredClients := make(map[string]*irv1.DownloadClientIR)
-
-	for i := range current.DownloadClients {
-		dc := &current.DownloadClients[i]
-		currentClients[dc.Name] = dc
+	currentMap := make(map[string]irv1.DownloadClientIR)
+	for _, dc := range current.DownloadClients {
+		currentMap[dc.Name] = dc
 	}
 
-	for i := range desired.DownloadClients {
-		dc := &desired.DownloadClients[i]
-		desiredClients[dc.Name] = dc
+	desiredMap := make(map[string]irv1.DownloadClientIR)
+	for _, dc := range desired.DownloadClients {
+		desiredMap[dc.Name] = dc
 	}
 
 	// Find creates and updates
-	for name, desiredDC := range desiredClients {
-		if currentDC, exists := currentClients[name]; !exists {
+	for name, desiredDC := range desiredMap {
+		currentDC, exists := currentMap[name]
+		if !exists {
 			changes.Creates = append(changes.Creates, adapters.Change{
 				ResourceType: adapters.ResourceDownloadClient,
 				Name:         name,
-				Payload:      desiredDC,
+				Payload:      &desiredDC,
 			})
-		} else if !a.downloadClientsEqual(currentDC, desiredDC) {
+		} else if !adapters.DownloadClientsEqual(currentDC, desiredDC) {
 			changes.Updates = append(changes.Updates, adapters.Change{
 				ResourceType: adapters.ResourceDownloadClient,
 				Name:         name,
-				Payload:      desiredDC,
+				Payload:      &desiredDC,
 			})
 		}
-		// If equal, no change needed
 	}
 
 	// Find deletes
-	for name := range currentClients {
-		if _, exists := desiredClients[name]; !exists {
+	for name := range currentMap {
+		if _, exists := desiredMap[name]; !exists {
 			changes.Deletes = append(changes.Deletes, adapters.Change{
 				ResourceType: adapters.ResourceDownloadClient,
 				Name:         name,
@@ -150,21 +146,4 @@ func (a *Adapter) diffDownloadClients(current, desired *irv1.IR, changes *adapte
 	}
 
 	return nil
-}
-
-// downloadClientsEqual compares two download clients to determine if they're equivalent
-func (a *Adapter) downloadClientsEqual(current, desired *irv1.DownloadClientIR) bool {
-	if current == nil || desired == nil {
-		return current == desired
-	}
-
-	// Compare key fields that matter for functionality
-	return current.Name == desired.Name &&
-		current.Implementation == desired.Implementation &&
-		current.Host == desired.Host &&
-		current.Port == desired.Port &&
-		current.UseTLS == desired.UseTLS &&
-		current.Category == desired.Category &&
-		current.Enable == desired.Enable &&
-		current.Priority == desired.Priority
 }

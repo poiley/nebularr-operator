@@ -160,7 +160,6 @@ func (a *Adapter) qualityToSource(q *client.Quality) string {
 
 // diffQualityProfiles computes changes needed for quality profiles
 func (a *Adapter) diffQualityProfiles(current, desired *irv1.IR, changes *adapters.ChangeSet) error {
-	// Get current and desired quality profiles
 	var currentProfile *irv1.VideoQualityIR
 	var desiredProfile *irv1.VideoQualityIR
 
@@ -171,83 +170,24 @@ func (a *Adapter) diffQualityProfiles(current, desired *irv1.IR, changes *adapte
 		desiredProfile = desired.Quality.Video
 	}
 
-	// No desired profile - delete current if exists
-	if desiredProfile == nil {
-		if currentProfile != nil {
-			changes.Deletes = append(changes.Deletes, adapters.Change{
-				ResourceType: adapters.ResourceQualityProfile,
-				Name:         currentProfile.ProfileName,
-			})
-		}
-		return nil
-	}
-
-	// No current profile - create
-	if currentProfile == nil {
-		changes.Creates = append(changes.Creates, adapters.Change{
-			ResourceType: adapters.ResourceQualityProfile,
-			Name:         desiredProfile.ProfileName,
-			Payload:      desiredProfile,
-		})
-		return nil
-	}
-
-	// Both exist - check if update needed
-	// For now, we skip updates since quality profiles are complex to compare
-	// and re-applying the same profile is idempotent but noisy
-	// TODO: Implement proper field comparison if needed
-
+	// Use shared diff logic
+	adapters.DiffQualityProfiles(currentProfile, desiredProfile, nil, changes)
 	return nil
 }
 
 // diffCustomFormats computes changes needed for custom formats
 func (a *Adapter) diffCustomFormats(current, desired *irv1.IR, changes *adapters.ChangeSet) error {
-	// Build maps for comparison
-	currentFormats := make(map[string]*irv1.CustomFormatIR)
-	desiredFormats := make(map[string]*irv1.CustomFormatIR)
+	var currentFormats, desiredFormats []irv1.CustomFormatIR
 
 	if current.Quality != nil && current.Quality.Video != nil {
-		for i := range current.Quality.Video.CustomFormats {
-			cf := &current.Quality.Video.CustomFormats[i]
-			currentFormats[cf.Name] = cf
-		}
+		currentFormats = current.Quality.Video.CustomFormats
 	}
-
 	if desired.Quality != nil && desired.Quality.Video != nil {
-		for i := range desired.Quality.Video.CustomFormats {
-			cf := &desired.Quality.Video.CustomFormats[i]
-			desiredFormats[cf.Name] = cf
-		}
+		desiredFormats = desired.Quality.Video.CustomFormats
 	}
 
-	// Find creates and updates
-	for name, desiredCF := range desiredFormats {
-		if currentCF, exists := currentFormats[name]; !exists {
-			changes.Creates = append(changes.Creates, adapters.Change{
-				ResourceType: adapters.ResourceCustomFormat,
-				Name:         name,
-				Payload:      desiredCF,
-			})
-		} else if !a.customFormatsEqual(currentCF, desiredCF) {
-			changes.Updates = append(changes.Updates, adapters.Change{
-				ResourceType: adapters.ResourceCustomFormat,
-				Name:         name,
-				Payload:      desiredCF,
-			})
-		}
-		// If equal, no change needed
-	}
-
-	// Find deletes
-	for name := range currentFormats {
-		if _, exists := desiredFormats[name]; !exists {
-			changes.Deletes = append(changes.Deletes, adapters.Change{
-				ResourceType: adapters.ResourceCustomFormat,
-				Name:         name,
-			})
-		}
-	}
-
+	// Use shared diff logic
+	adapters.DiffCustomFormats(currentFormats, desiredFormats, changes)
 	return nil
 }
 
@@ -256,56 +196,6 @@ func ptrToBool(b *bool) bool {
 		return false
 	}
 	return *b
-}
-
-// customFormatsEqual compares two custom formats to determine if they're equivalent
-func (a *Adapter) customFormatsEqual(current, desired *irv1.CustomFormatIR) bool {
-	if current == nil || desired == nil {
-		return current == desired
-	}
-
-	// Compare name (should always match since we key by name)
-	if current.Name != desired.Name {
-		return false
-	}
-
-	// Compare IncludeWhenRenaming
-	if current.IncludeWhenRenaming != desired.IncludeWhenRenaming {
-		return false
-	}
-
-	// Compare specifications count
-	if len(current.Specifications) != len(desired.Specifications) {
-		return false
-	}
-
-	// Build a map of current specs by name for comparison
-	currentSpecs := make(map[string]irv1.FormatSpecIR)
-	for _, spec := range current.Specifications {
-		currentSpecs[spec.Name] = spec
-	}
-
-	// Check if all desired specs exist and match
-	for _, desiredSpec := range desired.Specifications {
-		currentSpec, exists := currentSpecs[desiredSpec.Name]
-		if !exists {
-			return false
-		}
-		if !a.formatSpecsEqual(currentSpec, desiredSpec) {
-			return false
-		}
-	}
-
-	return true
-}
-
-// formatSpecsEqual compares two format specifications
-func (a *Adapter) formatSpecsEqual(current, desired irv1.FormatSpecIR) bool {
-	return current.Type == desired.Type &&
-		current.Name == desired.Name &&
-		current.Negate == desired.Negate &&
-		current.Required == desired.Required &&
-		current.Value == desired.Value
 }
 
 // getManagedCustomFormats retrieves custom formats that are managed by Nebularr

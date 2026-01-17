@@ -63,32 +63,8 @@ func (a *Adapter) diffQualityProfiles(current, desired *irv1.IR, changes *adapte
 		desiredProfile = desired.Quality.Video
 	}
 
-	// No desired profile - delete current if exists
-	if desiredProfile == nil {
-		if currentProfile != nil && managedProfileID != nil {
-			changes.Deletes = append(changes.Deletes, adapters.Change{
-				ResourceType: adapters.ResourceQualityProfile,
-				Name:         currentProfile.ProfileName,
-				ID:           managedProfileID,
-			})
-		}
-		return nil
-	}
-
-	// No current profile - create new
-	if currentProfile == nil {
-		changes.Creates = append(changes.Creates, adapters.Change{
-			ResourceType: adapters.ResourceQualityProfile,
-			Name:         desiredProfile.ProfileName,
-			Payload:      desiredProfile,
-		})
-		return nil
-	}
-
-	// Both exist - skip update since quality profiles are complex to compare
-	// and re-applying the same profile is idempotent but noisy
-	// TODO: Implement proper field comparison if needed
-
+	// Use shared diff logic
+	adapters.DiffQualityProfiles(currentProfile, desiredProfile, managedProfileID, changes)
 	return nil
 }
 
