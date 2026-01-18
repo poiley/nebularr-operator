@@ -121,9 +121,10 @@ const (
 
 // Application implementation constants
 const (
-	AppImplRadarr = "Radarr"
-	AppImplSonarr = "Sonarr"
-	AppImplLidarr = "Lidarr"
+	AppImplRadarr  = "Radarr"
+	AppImplSonarr  = "Sonarr"
+	AppImplLidarr  = "Lidarr"
+	AppImplReadarr = "Readarr"
 )
 
 // SyncLevel constants

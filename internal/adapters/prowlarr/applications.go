@@ -76,6 +76,8 @@ func implToAppType(impl string) string {
 		return irv1.AppTypeSonarr
 	case AppImplLidarr:
 		return irv1.AppTypeLidarr
+	case AppImplReadarr:
+		return irv1.AppTypeReadarr
 	default:
 		return impl
 	}
@@ -90,6 +92,8 @@ func appTypeToImpl(appType string) string {
 		return AppImplSonarr
 	case irv1.AppTypeLidarr:
 		return AppImplLidarr
+	case irv1.AppTypeReadarr:
+		return AppImplReadarr
 	default:
 		return appType
 	}

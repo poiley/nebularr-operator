@@ -118,9 +118,10 @@ const (
 
 // Application type constants
 const (
-	AppTypeRadarr = "radarr"
-	AppTypeSonarr = "sonarr"
-	AppTypeLidarr = "lidarr"
+	AppTypeRadarr  = "radarr"
+	AppTypeSonarr  = "sonarr"
+	AppTypeLidarr  = "lidarr"
+	AppTypeReadarr = "readarr"
 )
 
 // Sync level constants
@@ -132,7 +133,8 @@ const (
 
 // Default Newznab categories by app type
 var DefaultSyncCategories = map[string][]int{
-	AppTypeRadarr: {2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060}, // Movies
-	AppTypeSonarr: {5000, 5010, 5020, 5030, 5040, 5045, 5050},       // TV
-	AppTypeLidarr: {3000, 3010, 3020, 3030, 3040},                   // Audio
+	AppTypeRadarr:  {2000, 2010, 2020, 2030, 2040, 2045, 2050, 2060}, // Movies
+	AppTypeSonarr:  {5000, 5010, 5020, 5030, 5040, 5045, 5050},       // TV
+	AppTypeLidarr:  {3000, 3010, 3020, 3030, 3040},                   // Audio
+	AppTypeReadarr: {7000, 7010, 7020, 7030, 8000, 8010},             // Books, EBooks, Audiobooks
 }

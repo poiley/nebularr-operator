@@ -169,6 +169,8 @@ func (s *RegistrationService) getImplementationForType(appType string) (string, 
 		return "Sonarr", "SonarrSettings"
 	case irv1.AppTypeLidarr:
 		return "Lidarr", "LidarrSettings"
+	case irv1.AppTypeReadarr:
+		return "Readarr", "ReadarrSettings"
 	default:
 		return appType, ""
 	}

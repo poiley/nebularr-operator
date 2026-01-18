@@ -52,6 +52,8 @@ type ProwlarrCoordinatorReconciler struct {
 // +kubebuilder:rbac:groups=arr.rinzler.cloud,resources=sonarrconfigs/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=arr.rinzler.cloud,resources=lidarrconfigs,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=arr.rinzler.cloud,resources=lidarrconfigs/status,verbs=get;update;patch
+// +kubebuilder:rbac:groups=arr.rinzler.cloud,resources=readarrconfigs,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=arr.rinzler.cloud,resources=readarrconfigs/status,verbs=get;update;patch
 
 // Reconcile handles coordination between ProwlarrConfig and *arr configs
 func (r *ProwlarrCoordinatorReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -158,6 +160,26 @@ func (r *ProwlarrCoordinatorReconciler) Reconcile(ctx context.Context, req ctrl.
 			// Always update status (even on error, the registration field may have been set with error details)
 			if err := r.Status().Update(ctx, config); err != nil {
 				log.Error(err, "Failed to update LidarrConfig status", "name", config.Name)
+			}
+		}
+	}
+
+	// Process ReadarrConfigs
+	readarrList := &arrv1alpha1.ReadarrConfigList{}
+	if err := r.List(ctx, readarrList, client.InNamespace(req.Namespace)); err != nil {
+		log.Error(err, "Failed to list ReadarrConfigs")
+	} else {
+		for i := range readarrList.Items {
+			config := &readarrList.Items[i]
+			if err := r.processAppConfig(ctx, prowlarrConfig, prowlarrConn, pushModelApps,
+				config.Name, config.Namespace, irv1.AppTypeReadarr,
+				config.Spec.Indexers, config.Spec.Connection.URL,
+				&config.Status.ProwlarrRegistration); err != nil {
+				errs = append(errs, err)
+			}
+			// Always update status (even on error, the registration field may have been set with error details)
+			if err := r.Status().Update(ctx, config); err != nil {
+				log.Error(err, "Failed to update ReadarrConfig status", "name", config.Name)
 			}
 		}
 	}
@@ -330,6 +352,10 @@ func (r *ProwlarrCoordinatorReconciler) SetupWithManager(mgr ctrl.Manager) error
 			if config.Spec.Indexers != nil && config.Spec.Indexers.ProwlarrRef != nil {
 				prowlarrRefName = config.Spec.Indexers.ProwlarrRef.Name
 			}
+		case *arrv1alpha1.ReadarrConfig:
+			if config.Spec.Indexers != nil && config.Spec.Indexers.ProwlarrRef != nil {
+				prowlarrRefName = config.Spec.Indexers.ProwlarrRef.Name
+			}
 		}
 
 		if prowlarrRefName != "" {
@@ -356,6 +382,10 @@ func (r *ProwlarrCoordinatorReconciler) SetupWithManager(mgr ctrl.Manager) error
 		).
 		Watches(
 			&arrv1alpha1.LidarrConfig{},
+			handler.EnqueueRequestsFromMapFunc(mapAppConfigToProwlarr),
+		).
+		Watches(
+			&arrv1alpha1.ReadarrConfig{},
 			handler.EnqueueRequestsFromMapFunc(mapAppConfigToProwlarr),
 		).
 		Named("prowlarrcoordinator").

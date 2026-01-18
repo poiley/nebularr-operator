@@ -35,6 +35,7 @@ rules:
   - lidarrconfigs
   - prowlarrconfigs
   - radarrconfigs
+  - readarrconfigs
   - sonarrconfigs
   verbs:
   - create
@@ -52,6 +53,7 @@ rules:
   - lidarrconfigs/finalizers
   - prowlarrconfigs/finalizers
   - radarrconfigs/finalizers
+  - readarrconfigs/finalizers
   - sonarrconfigs/finalizers
   verbs:
   - update
@@ -63,6 +65,7 @@ rules:
   - lidarrconfigs/status
   - prowlarrconfigs/status
   - radarrconfigs/status
+  - readarrconfigs/status
   - sonarrconfigs/status
   verbs:
   - get
