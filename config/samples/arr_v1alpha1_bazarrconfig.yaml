@@ -1,0 +1,193 @@
+# Example 1: FILE MODE (default) - Generates config.yaml to ConfigMap
+# Use this when Bazarr is deployed as a new instance and you want
+# the operator to generate the initial configuration file.
+apiVersion: arr.rinzler.cloud/v1alpha1
+kind: BazarrConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: nebularr
+    app.kubernetes.io/managed-by: kustomize
+  name: bazarrconfig-file-mode
+spec:
+  # File mode is the default - generates config.yaml to ConfigMap
+  configMode: file
+
+  # Connection to Sonarr instance
+  sonarr:
+    url: http://sonarr.media.svc.cluster.local:8989
+    apiKeySecretRef:
+      name: sonarr-credentials
+      key: apiKey
+
+  # Connection to Radarr instance
+  radarr:
+    url: http://radarr.media.svc.cluster.local:7878
+    apiKeySecretRef:
+      name: radarr-credentials
+      key: apiKey
+
+  # Language profiles for subtitle downloads
+  languageProfiles:
+    - name: english-primary
+      languages:
+        - code: en
+          forced: false
+          hearingImpaired: false
+      defaultForSeries: true
+      defaultForMovies: true
+
+    - name: multilingual
+      languages:
+        - code: en
+          forced: false
+          hearingImpaired: false
+        - code: es
+          forced: false
+          hearingImpaired: false
+
+  # Subtitle providers
+  providers:
+    - name: opensubtitles
+      username: your-username
+      passwordSecretRef:
+        name: bazarr-providers
+        key: opensubtitles-password
+
+    - name: subscene
+
+  # Authentication for Bazarr UI (file mode only)
+  authentication:
+    method: basic
+    username: admin
+    passwordSecretRef:
+      name: bazarr-credentials
+      key: password
+
+  # ConfigMap to store generated config
+  configMapRef:
+    name: bazarr-config
+
+  reconciliation:
+    interval: 5m
+    suspend: false
+---
+# Example 2: API MODE - Configures Bazarr at runtime via REST API
+# Use this when Bazarr is already running and you want the operator
+# to manage its configuration via the API.
+apiVersion: arr.rinzler.cloud/v1alpha1
+kind: BazarrConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: nebularr
+    app.kubernetes.io/managed-by: kustomize
+  name: bazarrconfig-api-mode
+spec:
+  # API mode - configures Bazarr via REST API at runtime
+  configMode: api
+
+  # Connection to Bazarr's own API (required for API mode)
+  connection:
+    url: http://bazarr.media.svc.cluster.local:6767
+    apiKeySecretRef:
+      name: bazarr-credentials
+      key: apiKey
+
+  # Connection to Sonarr instance (used by Bazarr)
+  sonarr:
+    url: http://sonarr.media.svc.cluster.local:8989
+    apiKeySecretRef:
+      name: sonarr-credentials
+      key: apiKey
+
+  # Connection to Radarr instance (used by Bazarr)
+  radarr:
+    url: http://radarr.media.svc.cluster.local:7878
+    apiKeySecretRef:
+      name: radarr-credentials
+      key: apiKey
+
+  # Language profiles - synced via API
+  languageProfiles:
+    - name: english-default
+      languages:
+        - code: en
+          forced: false
+          hearingImpaired: false
+      defaultForSeries: true
+      defaultForMovies: true
+
+    - name: hearing-impaired
+      languages:
+        - code: en
+          forced: false
+          hearingImpaired: true
+
+    - name: multi-language
+      languages:
+        - code: en
+          forced: false
+          hearingImpaired: false
+        - code: es
+          forced: false
+          hearingImpaired: false
+        - code: fr
+          forced: false
+          hearingImpaired: false
+
+  # Providers - synced via API
+  providers:
+    - name: opensubtitlescom
+      username: myuser
+      passwordSecretRef:
+        name: bazarr-providers
+        key: opensubtitlescom-password
+
+    - name: subscene
+
+    - name: podnapisi
+
+    - name: addic7ed
+      username: myuser
+      passwordSecretRef:
+        name: bazarr-providers
+        key: addic7ed-password
+
+  reconciliation:
+    interval: 5m
+    suspend: false
+---
+# Example secrets (DO NOT use in production - use sealed-secrets or external-secrets)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sonarr-credentials
+type: Opaque
+stringData:
+  apiKey: "your-sonarr-api-key"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: radarr-credentials
+type: Opaque
+stringData:
+  apiKey: "your-radarr-api-key"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bazarr-credentials
+type: Opaque
+stringData:
+  apiKey: "your-bazarr-api-key"
+  password: "your-bazarr-password"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: bazarr-providers
+type: Opaque
+stringData:
+  opensubtitles-password: "your-opensubtitles-password"
+  opensubtitlescom-password: "your-opensubtitlescom-password"
+  addic7ed-password: "your-addic7ed-password"

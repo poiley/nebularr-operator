@@ -5,4 +5,6 @@ resources:
 - arr_v1alpha1_lidarrconfig.yaml
 - arr_v1alpha1_readarrconfig.yaml
 - arr_v1alpha1_prowlarrconfig.yaml
+- arr_v1alpha1_bazarrconfig.yaml
+- arr_v1alpha1_downloadstackconfig.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

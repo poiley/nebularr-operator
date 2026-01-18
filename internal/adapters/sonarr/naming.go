@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -11,9 +12,9 @@ import (
 var namingConfigID = 1
 
 // getNamingConfig retrieves the naming configuration
-func (a *Adapter) getNamingConfig(ctx context.Context, c *httpClient) (*irv1.SonarrNamingIR, error) {
+func (a *Adapter) getNamingConfig(ctx context.Context, c *httpclient.Client) (*irv1.SonarrNamingIR, error) {
 	var naming NamingConfigResource
-	if err := c.get(ctx, "/api/v3/config/naming", &naming); err != nil {
+	if err := c.Get(ctx, "/api/v3/config/naming", &naming); err != nil {
 		return nil, err
 	}
 

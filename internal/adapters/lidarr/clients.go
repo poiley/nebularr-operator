@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -11,9 +12,9 @@ import (
 var downloadClientIDMap = make(map[string]int)
 
 // getManagedDownloadClients retrieves download clients managed by Nebularr
-func (a *Adapter) getManagedDownloadClients(ctx context.Context, c *httpClient, tagID int) ([]irv1.DownloadClientIR, error) {
+func (a *Adapter) getManagedDownloadClients(ctx context.Context, c *httpclient.Client, tagID int) ([]irv1.DownloadClientIR, error) {
 	var clients []DownloadClientResource
-	if err := c.get(ctx, "/api/v1/downloadclient", &clients); err != nil {
+	if err := c.Get(ctx, "/api/v1/downloadclient", &clients); err != nil {
 		return nil, err
 	}
 

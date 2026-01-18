@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -12,9 +13,9 @@ import (
 var proxyIDCache = make(map[string]int) // "baseURL:name" -> ID
 
 // getManagedProxies retrieves proxies tagged with ownership tag
-func (a *Adapter) getManagedProxies(ctx context.Context, c *httpClient, tagID int) ([]irv1.IndexerProxyIR, error) {
+func (a *Adapter) getManagedProxies(ctx context.Context, c *httpclient.Client, tagID int) ([]irv1.IndexerProxyIR, error) {
 	var proxies []IndexerProxyResource
-	if err := c.get(ctx, "/api/v1/indexerproxy", &proxies); err != nil {
+	if err := c.Get(ctx, "/api/v1/indexerproxy", &proxies); err != nil {
 		return nil, fmt.Errorf("failed to get proxies: %w", err)
 	}
 
@@ -25,7 +26,7 @@ func (a *Adapter) getManagedProxies(ctx context.Context, c *httpClient, tagID in
 		}
 
 		// Cache the ID
-		cacheKey := fmt.Sprintf("%s:%s", c.baseURL, proxy.Name)
+		cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), proxy.Name)
 		proxyIDCache[cacheKey] = proxy.ID
 
 		// Convert to IR
@@ -154,7 +155,7 @@ func proxiesEqual(a, b irv1.IndexerProxyIR) bool {
 }
 
 // createProxy creates a proxy in Prowlarr
-func (a *Adapter) createProxy(ctx context.Context, c *httpClient, proxy irv1.IndexerProxyIR, tagID int) error {
+func (a *Adapter) createProxy(ctx context.Context, c *httpclient.Client, proxy irv1.IndexerProxyIR, tagID int) error {
 	resource := IndexerProxyResource{
 		Name:           proxy.Name,
 		Implementation: proxyTypeToImpl(proxy.Type),
@@ -165,24 +166,24 @@ func (a *Adapter) createProxy(ctx context.Context, c *httpClient, proxy irv1.Ind
 	resource.Fields = buildProxyFields(proxy)
 
 	var created IndexerProxyResource
-	if err := c.post(ctx, "/api/v1/indexerproxy", resource, &created); err != nil {
+	if err := c.Post(ctx, "/api/v1/indexerproxy", resource, &created); err != nil {
 		return fmt.Errorf("failed to create proxy %s: %w", proxy.Name, err)
 	}
 
 	// Cache the ID
-	cacheKey := fmt.Sprintf("%s:%s", c.baseURL, proxy.Name)
+	cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), proxy.Name)
 	proxyIDCache[cacheKey] = created.ID
 
 	return nil
 }
 
 // updateProxy updates an existing proxy
-func (a *Adapter) updateProxy(ctx context.Context, c *httpClient, proxy irv1.IndexerProxyIR, tagID int) error {
-	cacheKey := fmt.Sprintf("%s:%s", c.baseURL, proxy.Name)
+func (a *Adapter) updateProxy(ctx context.Context, c *httpclient.Client, proxy irv1.IndexerProxyIR, tagID int) error {
+	cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), proxy.Name)
 	id, ok := proxyIDCache[cacheKey]
 	if !ok {
 		var proxies []IndexerProxyResource
-		if err := c.get(ctx, "/api/v1/indexerproxy", &proxies); err != nil {
+		if err := c.Get(ctx, "/api/v1/indexerproxy", &proxies); err != nil {
 			return fmt.Errorf("failed to get proxies: %w", err)
 		}
 		for _, existing := range proxies {
@@ -207,7 +208,7 @@ func (a *Adapter) updateProxy(ctx context.Context, c *httpClient, proxy irv1.Ind
 	resource.Fields = buildProxyFields(proxy)
 
 	path := fmt.Sprintf("/api/v1/indexerproxy/%d", id)
-	if err := c.put(ctx, path, resource, nil); err != nil {
+	if err := c.Put(ctx, path, resource, nil); err != nil {
 		return fmt.Errorf("failed to update proxy %s: %w", proxy.Name, err)
 	}
 
@@ -215,12 +216,12 @@ func (a *Adapter) updateProxy(ctx context.Context, c *httpClient, proxy irv1.Ind
 }
 
 // deleteProxy deletes a proxy
-func (a *Adapter) deleteProxy(ctx context.Context, c *httpClient, name string) error {
-	cacheKey := fmt.Sprintf("%s:%s", c.baseURL, name)
+func (a *Adapter) deleteProxy(ctx context.Context, c *httpclient.Client, name string) error {
+	cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), name)
 	id, ok := proxyIDCache[cacheKey]
 	if !ok {
 		var proxies []IndexerProxyResource
-		if err := c.get(ctx, "/api/v1/indexerproxy", &proxies); err != nil {
+		if err := c.Get(ctx, "/api/v1/indexerproxy", &proxies); err != nil {
 			return fmt.Errorf("failed to get proxies: %w", err)
 		}
 		for _, existing := range proxies {
@@ -235,7 +236,7 @@ func (a *Adapter) deleteProxy(ctx context.Context, c *httpClient, name string) e
 	}
 
 	path := fmt.Sprintf("/api/v1/indexerproxy/%d", id)
-	if err := c.delete(ctx, path); err != nil {
+	if err := c.Delete(ctx, path); err != nil {
 		return fmt.Errorf("failed to delete proxy %s: %w", name, err)
 	}
 

@@ -5,14 +5,15 @@ import (
 	"fmt"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
 // getManagedMetadataProfiles retrieves metadata profiles that are managed by Nebularr.
 // Metadata profiles in Readarr don't have tags, so we identify managed profiles by name prefix.
-func (a *Adapter) getManagedMetadataProfiles(ctx context.Context, c *httpClient) ([]*irv1.MetadataProfileIR, error) {
+func (a *Adapter) getManagedMetadataProfiles(ctx context.Context, c *httpclient.Client) ([]*irv1.MetadataProfileIR, error) {
 	var profiles []MetadataProfileResource
-	if err := c.get(ctx, "/api/v1/metadataprofile", &profiles); err != nil {
+	if err := c.Get(ctx, "/api/v1/metadataprofile", &profiles); err != nil {
 		return nil, fmt.Errorf("failed to get metadata profiles: %w", err)
 	}
 
@@ -107,7 +108,7 @@ func metadataProfilesEqual(current, desired *irv1.MetadataProfileIR) bool {
 }
 
 // createMetadataProfile creates a new metadata profile in Readarr
-func (a *Adapter) createMetadataProfile(ctx context.Context, c *httpClient, ir *irv1.MetadataProfileIR) error {
+func (a *Adapter) createMetadataProfile(ctx context.Context, c *httpclient.Client, ir *irv1.MetadataProfileIR) error {
 	profile := MetadataProfileResource{
 		Name:                ir.Name,
 		MinPopularity:       ir.MinPopularity,
@@ -119,11 +120,11 @@ func (a *Adapter) createMetadataProfile(ctx context.Context, c *httpClient, ir *
 	}
 
 	var result MetadataProfileResource
-	return c.post(ctx, "/api/v1/metadataprofile", profile, &result)
+	return c.Post(ctx, "/api/v1/metadataprofile", profile, &result)
 }
 
 // updateMetadataProfile updates an existing metadata profile
-func (a *Adapter) updateMetadataProfile(ctx context.Context, c *httpClient, ir *irv1.MetadataProfileIR, profileID int) error {
+func (a *Adapter) updateMetadataProfile(ctx context.Context, c *httpclient.Client, ir *irv1.MetadataProfileIR, profileID int) error {
 	profile := MetadataProfileResource{
 		ID:                  profileID,
 		Name:                ir.Name,
@@ -136,19 +137,19 @@ func (a *Adapter) updateMetadataProfile(ctx context.Context, c *httpClient, ir *
 	}
 
 	var result MetadataProfileResource
-	return c.put(ctx, fmt.Sprintf("/api/v1/metadataprofile/%d", profileID), profile, &result)
+	return c.Put(ctx, fmt.Sprintf("/api/v1/metadataprofile/%d", profileID), profile, &result)
 }
 
 // deleteMetadataProfileByName deletes a metadata profile by name
-func (a *Adapter) deleteMetadataProfileByName(ctx context.Context, c *httpClient, name string) error {
+func (a *Adapter) deleteMetadataProfileByName(ctx context.Context, c *httpclient.Client, name string) error {
 	var profiles []MetadataProfileResource
-	if err := c.get(ctx, "/api/v1/metadataprofile", &profiles); err != nil {
+	if err := c.Get(ctx, "/api/v1/metadataprofile", &profiles); err != nil {
 		return err
 	}
 
 	for _, profile := range profiles {
 		if profile.Name == name {
-			return c.delete(ctx, fmt.Sprintf("/api/v1/metadataprofile/%d", profile.ID))
+			return c.Delete(ctx, fmt.Sprintf("/api/v1/metadataprofile/%d", profile.ID))
 		}
 	}
 

@@ -1,20 +1,18 @@
 package prowlarr
 
-import "time"
+import (
+	"github.com/poiley/nebularr-operator/internal/adapters/shared"
+)
 
-// SystemResource represents Prowlarr system status
-type SystemResource struct {
-	Version   string     `json:"version"`
-	StartTime *time.Time `json:"startTime,omitempty"`
-}
-
-// TagResource represents a Prowlarr tag
-type TagResource struct {
-	ID    int    `json:"id,omitempty"`
-	Label string `json:"label"`
-}
+// Type aliases for shared types - provides backwards compatibility
+type (
+	SystemResource = shared.SystemResource
+	TagResource    = shared.TagResource
+	HealthResource = shared.HealthResource
+)
 
 // IndexerResource represents a Prowlarr indexer
+// Prowlarr-specific with additional fields like DefinitionName, AppProfileID, Capabilities
 type IndexerResource struct {
 	ID             int            `json:"id,omitempty"`
 	Name           string         `json:"name"`
@@ -31,6 +29,7 @@ type IndexerResource struct {
 }
 
 // IndexerField represents a configuration field for an indexer
+// Prowlarr fields have additional metadata (Type, Label, Advanced)
 type IndexerField struct {
 	Name     string      `json:"name"`
 	Value    interface{} `json:"value"`
@@ -61,6 +60,7 @@ type IndexerProxyResource struct {
 }
 
 // IndexerProxyField represents a configuration field for a proxy
+// Prowlarr fields have additional metadata (Type, Label, Advanced)
 type IndexerProxyField struct {
 	Name     string      `json:"name"`
 	Value    interface{} `json:"value"`
@@ -81,6 +81,7 @@ type ApplicationResource struct {
 }
 
 // ApplicationField represents a configuration field for an application
+// Prowlarr fields have additional metadata (Type, Label, Advanced)
 type ApplicationField struct {
 	Name     string      `json:"name"`
 	Value    interface{} `json:"value"`
@@ -103,6 +104,7 @@ type DownloadClientResource struct {
 }
 
 // DownloadClientField represents a configuration field for a download client
+// Prowlarr fields have additional metadata (Type, Label, Advanced)
 type DownloadClientField struct {
 	Name     string      `json:"name"`
 	Value    interface{} `json:"value"`

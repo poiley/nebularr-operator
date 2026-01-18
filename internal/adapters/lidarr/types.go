@@ -1,18 +1,18 @@
 package lidarr
 
-import "time"
+import (
+	"github.com/poiley/nebularr-operator/internal/adapters/shared"
+)
 
-// SystemResource represents Lidarr system status
-type SystemResource struct {
-	Version   string     `json:"version"`
-	StartTime *time.Time `json:"startTime"`
-}
-
-// TagResource represents a Lidarr tag
-type TagResource struct {
-	ID    int    `json:"id"`
-	Label string `json:"label"`
-}
+// Type aliases for shared types - provides backwards compatibility
+type (
+	SystemResource            = shared.SystemResource
+	TagResource               = shared.TagResource
+	Field                     = shared.Field
+	RemotePathMappingResource = shared.RemotePathMappingResource
+	HealthResource            = shared.HealthResource
+	CustomFormatSpecification = shared.CustomFormatSpecification
+)
 
 // QualityProfileResource represents a Lidarr quality profile
 type QualityProfileResource struct {
@@ -42,35 +42,16 @@ type Quality struct {
 }
 
 // DownloadClientResource represents a Lidarr download client
+// Embeds BaseDownloadClientResource and adds Lidarr-specific fields
 type DownloadClientResource struct {
-	ID                       int     `json:"id,omitempty"`
-	Name                     string  `json:"name"`
-	Implementation           string  `json:"implementation"`
-	ConfigContract           string  `json:"configContract"`
-	Protocol                 string  `json:"protocol"`
-	Enable                   bool    `json:"enable"`
-	Priority                 int     `json:"priority"`
-	Tags                     []int   `json:"tags"`
-	Fields                   []Field `json:"fields"`
-	RemoveCompletedDownloads bool    `json:"removeCompletedDownloads"`
-	RemoveFailedDownloads    bool    `json:"removeFailedDownloads"`
+	shared.BaseDownloadClientResource
+	RemoveCompletedDownloads bool `json:"removeCompletedDownloads"`
+	RemoveFailedDownloads    bool `json:"removeFailedDownloads"`
 }
 
 // IndexerResource represents a Lidarr indexer
-type IndexerResource struct {
-	ID                      int     `json:"id,omitempty"`
-	Name                    string  `json:"name"`
-	Implementation          string  `json:"implementation"`
-	ConfigContract          string  `json:"configContract"`
-	Protocol                string  `json:"protocol"`
-	Enable                  bool    `json:"enable"`
-	Priority                int     `json:"priority"`
-	Tags                    []int   `json:"tags"`
-	Fields                  []Field `json:"fields"`
-	EnableRss               bool    `json:"enableRss"`
-	EnableAutomaticSearch   bool    `json:"enableAutomaticSearch"`
-	EnableInteractiveSearch bool    `json:"enableInteractiveSearch"`
-}
+// Type alias to shared base type (Lidarr uses all base fields)
+type IndexerResource = shared.BaseIndexerResource
 
 // RootFolderResource represents a Lidarr root folder
 type RootFolderResource struct {
@@ -100,20 +81,6 @@ type MetadataProfileResource struct {
 	Name string `json:"name"`
 }
 
-// Field represents a dynamic field in resources
-type Field struct {
-	Name  string      `json:"name"`
-	Value interface{} `json:"value"`
-}
-
-// RemotePathMappingResource represents a Lidarr remote path mapping
-type RemotePathMappingResource struct {
-	ID         int    `json:"id,omitempty"`
-	Host       string `json:"host"`
-	RemotePath string `json:"remotePath"`
-	LocalPath  string `json:"localPath"`
-}
-
 // NotificationResource represents a Lidarr notification
 type NotificationResource struct {
 	ID                    int     `json:"id,omitempty"`
@@ -139,33 +106,11 @@ type NotificationResource struct {
 }
 
 // CustomFormatResource represents a Lidarr custom format (v2.0+)
+// Embeds BaseCustomFormatResource for shared fields
 type CustomFormatResource struct {
-	ID                              int                         `json:"id,omitempty"`
-	Name                            string                      `json:"name"`
-	IncludeCustomFormatWhenRenaming bool                        `json:"includeCustomFormatWhenRenaming"`
-	Specifications                  []CustomFormatSpecification `json:"specifications"`
-}
-
-// CustomFormatSpecification represents a spec within a custom format
-type CustomFormatSpecification struct {
-	Name           string  `json:"name"`
-	Implementation string  `json:"implementation"`
-	Negate         bool    `json:"negate"`
-	Required       bool    `json:"required"`
-	Fields         []Field `json:"fields"`
+	shared.BaseCustomFormatResource
 }
 
 // DelayProfileResource represents a Lidarr delay profile
-type DelayProfileResource struct {
-	ID                             int    `json:"id,omitempty"`
-	Order                          int    `json:"order"`
-	PreferredProtocol              string `json:"preferredProtocol"`
-	UsenetDelay                    int    `json:"usenetDelay"`
-	TorrentDelay                   int    `json:"torrentDelay"`
-	EnableUsenet                   bool   `json:"enableUsenet"`
-	EnableTorrent                  bool   `json:"enableTorrent"`
-	BypassIfHighestQuality         bool   `json:"bypassIfHighestQuality"`
-	BypassIfAboveCustomFormatScore bool   `json:"bypassIfAboveCustomFormatScore"`
-	MinimumCustomFormatScore       int    `json:"minimumCustomFormatScore"`
-	Tags                           []int  `json:"tags"`
-}
+// Type alias to shared base type
+type DelayProfileResource = shared.BaseDelayProfileResource

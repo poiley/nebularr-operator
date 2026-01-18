@@ -1,18 +1,18 @@
 package sonarr
 
-import "time"
+import (
+	"github.com/poiley/nebularr-operator/internal/adapters/shared"
+)
 
-// SystemResource represents Sonarr system status
-type SystemResource struct {
-	Version   string     `json:"version"`
-	StartTime *time.Time `json:"startTime"`
-}
-
-// TagResource represents a Sonarr tag
-type TagResource struct {
-	ID    int    `json:"id"`
-	Label string `json:"label"`
-}
+// Type aliases for shared types - provides backwards compatibility
+type (
+	SystemResource            = shared.SystemResource
+	TagResource               = shared.TagResource
+	Field                     = shared.Field
+	RemotePathMappingResource = shared.RemotePathMappingResource
+	HealthResource            = shared.HealthResource
+	CustomFormatSpecification = shared.CustomFormatSpecification
+)
 
 // QualityProfileResource represents a Sonarr quality profile
 type QualityProfileResource struct {
@@ -51,35 +51,18 @@ type ProfileFormatItem struct {
 }
 
 // DownloadClientResource represents a Sonarr download client
+// Embeds BaseDownloadClientResource and adds Sonarr-specific fields
 type DownloadClientResource struct {
-	ID                       int     `json:"id,omitempty"`
-	Name                     string  `json:"name"`
-	Implementation           string  `json:"implementation"`
-	ConfigContract           string  `json:"configContract"`
-	Protocol                 string  `json:"protocol"`
-	Enable                   bool    `json:"enable"`
-	Priority                 int     `json:"priority"`
-	Tags                     []int   `json:"tags"`
-	Fields                   []Field `json:"fields"`
-	RemoveCompletedDownloads bool    `json:"removeCompletedDownloads"`
-	RemoveFailedDownloads    bool    `json:"removeFailedDownloads"`
+	shared.BaseDownloadClientResource
+	RemoveCompletedDownloads bool `json:"removeCompletedDownloads"`
+	RemoveFailedDownloads    bool `json:"removeFailedDownloads"`
 }
 
 // IndexerResource represents a Sonarr indexer
+// Embeds BaseIndexerResource and adds Sonarr-specific fields
 type IndexerResource struct {
-	ID                                  int     `json:"id,omitempty"`
-	Name                                string  `json:"name"`
-	Implementation                      string  `json:"implementation"`
-	ConfigContract                      string  `json:"configContract"`
-	Protocol                            string  `json:"protocol"`
-	Enable                              bool    `json:"enable"`
-	Priority                            int     `json:"priority"`
-	Tags                                []int   `json:"tags"`
-	Fields                              []Field `json:"fields"`
-	EnableRss                           bool    `json:"enableRss"`
-	EnableAutomaticSearch               bool    `json:"enableAutomaticSearch"`
-	EnableInteractiveSearch             bool    `json:"enableInteractiveSearch"`
-	SeasonSearchMaximumSingleEpisodeAge int     `json:"seasonSearchMaximumSingleEpisodeAge"`
+	shared.BaseIndexerResource
+	SeasonSearchMaximumSingleEpisodeAge int `json:"seasonSearchMaximumSingleEpisodeAge"`
 }
 
 // RootFolderResource represents a Sonarr root folder
@@ -102,35 +85,10 @@ type NamingConfigResource struct {
 	MultiEpisodeStyle        int    `json:"multiEpisodeStyle"`
 }
 
-// Field represents a dynamic field in resources
-type Field struct {
-	Name  string      `json:"name"`
-	Value interface{} `json:"value"`
-}
-
 // CustomFormatResource represents a Sonarr custom format
+// Embeds BaseCustomFormatResource for shared fields
 type CustomFormatResource struct {
-	ID                              int                         `json:"id,omitempty"`
-	Name                            string                      `json:"name"`
-	IncludeCustomFormatWhenRenaming bool                        `json:"includeCustomFormatWhenRenaming"`
-	Specifications                  []CustomFormatSpecification `json:"specifications"`
-}
-
-// CustomFormatSpecification represents a spec within a custom format
-type CustomFormatSpecification struct {
-	Name           string  `json:"name"`
-	Implementation string  `json:"implementation"`
-	Negate         bool    `json:"negate"`
-	Required       bool    `json:"required"`
-	Fields         []Field `json:"fields"`
-}
-
-// RemotePathMappingResource represents a Sonarr remote path mapping
-type RemotePathMappingResource struct {
-	ID         int    `json:"id,omitempty"`
-	Host       string `json:"host"`
-	RemotePath string `json:"remotePath"`
-	LocalPath  string `json:"localPath"`
+	shared.BaseCustomFormatResource
 }
 
 // NotificationResource represents a Sonarr notification
@@ -157,16 +115,5 @@ type NotificationResource struct {
 }
 
 // DelayProfileResource represents a Sonarr delay profile
-type DelayProfileResource struct {
-	ID                             int    `json:"id,omitempty"`
-	Order                          int    `json:"order"`
-	PreferredProtocol              string `json:"preferredProtocol"`
-	UsenetDelay                    int    `json:"usenetDelay"`
-	TorrentDelay                   int    `json:"torrentDelay"`
-	EnableUsenet                   bool   `json:"enableUsenet"`
-	EnableTorrent                  bool   `json:"enableTorrent"`
-	BypassIfHighestQuality         bool   `json:"bypassIfHighestQuality"`
-	BypassIfAboveCustomFormatScore bool   `json:"bypassIfAboveCustomFormatScore"`
-	MinimumCustomFormatScore       int    `json:"minimumCustomFormatScore"`
-	Tags                           []int  `json:"tags"`
-}
+// Type alias to shared base type
+type DelayProfileResource = shared.BaseDelayProfileResource

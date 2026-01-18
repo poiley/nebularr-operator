@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -13,9 +14,9 @@ import (
 var downloadClientIDCache = make(map[string]int) // "baseURL:name" -> ID
 
 // getManagedDownloadClients retrieves download clients tagged with ownership tag
-func (a *Adapter) getManagedDownloadClients(ctx context.Context, c *httpClient, tagID int) ([]irv1.DownloadClientIR, error) {
+func (a *Adapter) getManagedDownloadClients(ctx context.Context, c *httpclient.Client, tagID int) ([]irv1.DownloadClientIR, error) {
 	var clients []DownloadClientResource
-	if err := c.get(ctx, "/api/v1/downloadclient", &clients); err != nil {
+	if err := c.Get(ctx, "/api/v1/downloadclient", &clients); err != nil {
 		return nil, fmt.Errorf("failed to get download clients: %w", err)
 	}
 
@@ -26,7 +27,7 @@ func (a *Adapter) getManagedDownloadClients(ctx context.Context, c *httpClient, 
 		}
 
 		// Cache the ID
-		cacheKey := fmt.Sprintf("%s:%s", c.baseURL, client.Name)
+		cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), client.Name)
 		downloadClientIDCache[cacheKey] = client.ID
 
 		// Convert to IR
@@ -139,7 +140,7 @@ func downloadClientsEqual(a, b irv1.DownloadClientIR) bool {
 }
 
 // createDownloadClient creates a download client in Prowlarr
-func (a *Adapter) createDownloadClient(ctx context.Context, c *httpClient, client irv1.DownloadClientIR, tagID int) error {
+func (a *Adapter) createDownloadClient(ctx context.Context, c *httpclient.Client, client irv1.DownloadClientIR, tagID int) error {
 	resource := DownloadClientResource{
 		Name:           client.Name,
 		Implementation: implFromClientType(client.Implementation),
@@ -153,24 +154,24 @@ func (a *Adapter) createDownloadClient(ctx context.Context, c *httpClient, clien
 	resource.Fields = buildDownloadClientFields(client)
 
 	var created DownloadClientResource
-	if err := c.post(ctx, "/api/v1/downloadclient", resource, &created); err != nil {
+	if err := c.Post(ctx, "/api/v1/downloadclient", resource, &created); err != nil {
 		return fmt.Errorf("failed to create download client %s: %w", client.Name, err)
 	}
 
 	// Cache the ID
-	cacheKey := fmt.Sprintf("%s:%s", c.baseURL, client.Name)
+	cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), client.Name)
 	downloadClientIDCache[cacheKey] = created.ID
 
 	return nil
 }
 
 // updateDownloadClient updates an existing download client
-func (a *Adapter) updateDownloadClient(ctx context.Context, c *httpClient, client irv1.DownloadClientIR, tagID int) error {
-	cacheKey := fmt.Sprintf("%s:%s", c.baseURL, client.Name)
+func (a *Adapter) updateDownloadClient(ctx context.Context, c *httpclient.Client, client irv1.DownloadClientIR, tagID int) error {
+	cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), client.Name)
 	id, ok := downloadClientIDCache[cacheKey]
 	if !ok {
 		var clients []DownloadClientResource
-		if err := c.get(ctx, "/api/v1/downloadclient", &clients); err != nil {
+		if err := c.Get(ctx, "/api/v1/downloadclient", &clients); err != nil {
 			return fmt.Errorf("failed to get download clients: %w", err)
 		}
 		for _, existing := range clients {
@@ -198,7 +199,7 @@ func (a *Adapter) updateDownloadClient(ctx context.Context, c *httpClient, clien
 	resource.Fields = buildDownloadClientFields(client)
 
 	path := fmt.Sprintf("/api/v1/downloadclient/%d", id)
-	if err := c.put(ctx, path, resource, nil); err != nil {
+	if err := c.Put(ctx, path, resource, nil); err != nil {
 		return fmt.Errorf("failed to update download client %s: %w", client.Name, err)
 	}
 
@@ -206,12 +207,12 @@ func (a *Adapter) updateDownloadClient(ctx context.Context, c *httpClient, clien
 }
 
 // deleteDownloadClient deletes a download client
-func (a *Adapter) deleteDownloadClient(ctx context.Context, c *httpClient, name string) error {
-	cacheKey := fmt.Sprintf("%s:%s", c.baseURL, name)
+func (a *Adapter) deleteDownloadClient(ctx context.Context, c *httpclient.Client, name string) error {
+	cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), name)
 	id, ok := downloadClientIDCache[cacheKey]
 	if !ok {
 		var clients []DownloadClientResource
-		if err := c.get(ctx, "/api/v1/downloadclient", &clients); err != nil {
+		if err := c.Get(ctx, "/api/v1/downloadclient", &clients); err != nil {
 			return fmt.Errorf("failed to get download clients: %w", err)
 		}
 		for _, existing := range clients {
@@ -226,7 +227,7 @@ func (a *Adapter) deleteDownloadClient(ctx context.Context, c *httpClient, name 
 	}
 
 	path := fmt.Sprintf("/api/v1/downloadclient/%d", id)
-	if err := c.delete(ctx, path); err != nil {
+	if err := c.Delete(ctx, path); err != nil {
 		return fmt.Errorf("failed to delete download client %s: %w", name, err)
 	}
 

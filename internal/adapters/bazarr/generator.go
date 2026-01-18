@@ -15,12 +15,12 @@ import (
 
 // Config represents the Bazarr config.yaml structure
 type Config struct {
-	Sonarr    SonarrConfig           `yaml:"sonarr"`
-	Radarr    RadarrConfig           `yaml:"radarr"`
-	General   GeneralConfig          `yaml:"general"`
-	Languages []LanguageProfile      `yaml:"languages,omitempty"`
-	Auth      *AuthConfig            `yaml:"auth,omitempty"`
-	Providers map[string]interface{} `yaml:",inline"`
+	Sonarr    SonarrConfig            `yaml:"sonarr"`
+	Radarr    RadarrConfig            `yaml:"radarr"`
+	General   GeneralConfig           `yaml:"general"`
+	Languages []ConfigLanguageProfile `yaml:"languages,omitempty"`
+	Auth      *AuthConfig             `yaml:"auth,omitempty"`
+	Providers map[string]interface{}  `yaml:",inline"`
 }
 
 // SonarrConfig represents Sonarr connection settings in Bazarr
@@ -53,16 +53,16 @@ type GeneralConfig struct {
 	MovieDefaultProfile int      `yaml:"movie_default_profile"`
 }
 
-// LanguageProfile represents a Bazarr language profile
-type LanguageProfile struct {
-	Name      string         `yaml:"name"`
-	ProfileID int            `yaml:"profileId"`
-	Cutoff    interface{}    `yaml:"cutoff"`
-	Items     []LanguageItem `yaml:"items"`
+// ConfigLanguageProfile represents a Bazarr language profile for config.yaml generation
+type ConfigLanguageProfile struct {
+	Name      string               `yaml:"name"`
+	ProfileID int                  `yaml:"profileId"`
+	Cutoff    interface{}          `yaml:"cutoff"`
+	Items     []ConfigLanguageItem `yaml:"items"`
 }
 
-// LanguageItem represents a language within a profile
-type LanguageItem struct {
+// ConfigLanguageItem represents a language within a profile for config.yaml generation
+type ConfigLanguageItem struct {
 	ID           int    `yaml:"id"`
 	Language     string `yaml:"language"`
 	Forced       bool   `yaml:"forced"`
@@ -232,13 +232,13 @@ func buildGeneralConfig(spec *arrv1alpha1.BazarrConfigSpec) GeneralConfig {
 }
 
 // buildLanguageProfiles builds the language profiles section
-func buildLanguageProfiles(profiles []arrv1alpha1.BazarrLanguageProfile) []LanguageProfile {
-	result := make([]LanguageProfile, 0, len(profiles))
+func buildLanguageProfiles(profiles []arrv1alpha1.BazarrLanguageProfile) []ConfigLanguageProfile {
+	result := make([]ConfigLanguageProfile, 0, len(profiles))
 
 	for idx, profile := range profiles {
-		items := make([]LanguageItem, 0, len(profile.Languages))
+		items := make([]ConfigLanguageItem, 0, len(profile.Languages))
 		for langIdx, lang := range profile.Languages {
-			items = append(items, LanguageItem{
+			items = append(items, ConfigLanguageItem{
 				ID:           langIdx + 1,
 				Language:     lang.Code,
 				Forced:       lang.Forced,
@@ -247,7 +247,7 @@ func buildLanguageProfiles(profiles []arrv1alpha1.BazarrLanguageProfile) []Langu
 			})
 		}
 
-		result = append(result, LanguageProfile{
+		result = append(result, ConfigLanguageProfile{
 			Name:      profile.Name,
 			ProfileID: idx + 1,
 			Cutoff:    nil,

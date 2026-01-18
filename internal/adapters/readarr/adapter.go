@@ -4,22 +4,14 @@
 package readarr
 
 import (
-	"bytes"
 	"context"
-	"crypto/tls"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"time"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
+	"github.com/poiley/nebularr-operator/internal/adapters/shared"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
-)
-
-const (
-	// OwnershipTagName is the tag name used to identify Nebularr-managed resources
-	OwnershipTagName = "nebularr-managed"
 )
 
 // Adapter implements the adapters.Adapter interface for Readarr
@@ -43,7 +35,7 @@ func (a *Adapter) Connect(ctx context.Context, conn *irv1.ConnectionIR) (*adapte
 	c := a.newClient(conn)
 
 	var status SystemResource
-	if err := c.get(ctx, "/api/v1/system/status", &status); err != nil {
+	if err := c.Get(ctx, "/api/v1/system/status", &status); err != nil {
 		return nil, fmt.Errorf("failed to connect to Readarr: %w", err)
 	}
 
@@ -68,7 +60,7 @@ func (a *Adapter) Discover(ctx context.Context, conn *irv1.ConnectionIR) (*adapt
 
 	// Discover download client types
 	var dcSchemas []DownloadClientResource
-	if err := c.get(ctx, "/api/v1/downloadclient/schema", &dcSchemas); err == nil {
+	if err := c.Get(ctx, "/api/v1/downloadclient/schema", &dcSchemas); err == nil {
 		seen := make(map[string]bool)
 		for _, schema := range dcSchemas {
 			if schema.Implementation != "" && !seen[schema.Implementation] {
@@ -80,7 +72,7 @@ func (a *Adapter) Discover(ctx context.Context, conn *irv1.ConnectionIR) (*adapt
 
 	// Discover indexer types
 	var idxSchemas []IndexerResource
-	if err := c.get(ctx, "/api/v1/indexer/schema", &idxSchemas); err == nil {
+	if err := c.Get(ctx, "/api/v1/indexer/schema", &idxSchemas); err == nil {
 		seen := make(map[string]bool)
 		for _, schema := range idxSchemas {
 			if schema.Implementation != "" && !seen[schema.Implementation] {
@@ -324,7 +316,7 @@ func (a *Adapter) diffRootFolders(current, desired *irv1.IR, changes *adapters.C
 }
 
 // applyCreate handles creation of a resource
-func (a *Adapter) applyCreate(ctx context.Context, c *httpClient, change adapters.Change, tagID int) error {
+func (a *Adapter) applyCreate(ctx context.Context, c *httpclient.Client, change adapters.Change, tagID int) error {
 	switch change.ResourceType {
 	case adapters.ResourceQualityProfile:
 		return a.createQualityProfile(ctx, c, change.Payload.(*irv1.BookQualityIR), tagID)
@@ -342,7 +334,7 @@ func (a *Adapter) applyCreate(ctx context.Context, c *httpClient, change adapter
 }
 
 // applyUpdate handles updating a resource
-func (a *Adapter) applyUpdate(ctx context.Context, c *httpClient, change adapters.Change, tagID int) error {
+func (a *Adapter) applyUpdate(ctx context.Context, c *httpclient.Client, change adapters.Change, tagID int) error {
 	switch change.ResourceType {
 	case adapters.ResourceQualityProfile:
 		if change.ID != nil {
@@ -361,7 +353,7 @@ func (a *Adapter) applyUpdate(ctx context.Context, c *httpClient, change adapter
 }
 
 // applyDelete handles deletion of a resource
-func (a *Adapter) applyDelete(ctx context.Context, c *httpClient, change adapters.Change) error {
+func (a *Adapter) applyDelete(ctx context.Context, c *httpclient.Client, change adapters.Change) error {
 	switch change.ResourceType {
 	case adapters.ResourceQualityProfile:
 		return a.deleteQualityProfileByName(ctx, c, change.Name)
@@ -377,7 +369,7 @@ func (a *Adapter) applyDelete(ctx context.Context, c *httpClient, change adapter
 }
 
 // createDownloadClient creates a new download client
-func (a *Adapter) createDownloadClient(ctx context.Context, c *httpClient, dc irv1.DownloadClientIR, tagID int) error {
+func (a *Adapter) createDownloadClient(ctx context.Context, c *httpclient.Client, dc irv1.DownloadClientIR, tagID int) error {
 	// Build the resource from IR
 	resource := DownloadClientResource{
 		Name:           dc.Name,
@@ -400,11 +392,11 @@ func (a *Adapter) createDownloadClient(ctx context.Context, c *httpClient, dc ir
 	}
 
 	var result DownloadClientResource
-	return c.post(ctx, "/api/v1/downloadclient", resource, &result)
+	return c.Post(ctx, "/api/v1/downloadclient", resource, &result)
 }
 
 // createIndexer creates a new indexer
-func (a *Adapter) createIndexer(ctx context.Context, c *httpClient, idx irv1.IndexerIR, tagID int) error {
+func (a *Adapter) createIndexer(ctx context.Context, c *httpclient.Client, idx irv1.IndexerIR, tagID int) error {
 	resource := IndexerResource{
 		Name:           idx.Name,
 		Implementation: idx.Implementation,
@@ -423,30 +415,30 @@ func (a *Adapter) createIndexer(ctx context.Context, c *httpClient, idx irv1.Ind
 	}
 
 	var result IndexerResource
-	return c.post(ctx, "/api/v1/indexer", resource, &result)
+	return c.Post(ctx, "/api/v1/indexer", resource, &result)
 }
 
 // createRootFolder creates a new root folder
-func (a *Adapter) createRootFolder(ctx context.Context, c *httpClient, rf irv1.RootFolderIR) error {
+func (a *Adapter) createRootFolder(ctx context.Context, c *httpclient.Client, rf irv1.RootFolderIR) error {
 	resource := RootFolderResource{
 		Path: rf.Path,
 		Name: rf.Name,
 	}
 
 	var result RootFolderResource
-	return c.post(ctx, "/api/v1/rootfolder", resource, &result)
+	return c.Post(ctx, "/api/v1/rootfolder", resource, &result)
 }
 
 // deleteDownloadClientByName finds and deletes a download client by name
-func (a *Adapter) deleteDownloadClientByName(ctx context.Context, c *httpClient, name string) error {
+func (a *Adapter) deleteDownloadClientByName(ctx context.Context, c *httpclient.Client, name string) error {
 	var clients []DownloadClientResource
-	if err := c.get(ctx, "/api/v1/downloadclient", &clients); err != nil {
+	if err := c.Get(ctx, "/api/v1/downloadclient", &clients); err != nil {
 		return err
 	}
 
 	for _, client := range clients {
 		if client.Name == name {
-			return c.delete(ctx, fmt.Sprintf("/api/v1/downloadclient/%d", client.ID))
+			return c.Delete(ctx, fmt.Sprintf("/api/v1/downloadclient/%d", client.ID))
 		}
 	}
 
@@ -454,201 +446,46 @@ func (a *Adapter) deleteDownloadClientByName(ctx context.Context, c *httpClient,
 }
 
 // deleteIndexerByName finds and deletes an indexer by name
-func (a *Adapter) deleteIndexerByName(ctx context.Context, c *httpClient, name string) error {
+func (a *Adapter) deleteIndexerByName(ctx context.Context, c *httpclient.Client, name string) error {
 	var indexers []IndexerResource
-	if err := c.get(ctx, "/api/v1/indexer", &indexers); err != nil {
+	if err := c.Get(ctx, "/api/v1/indexer", &indexers); err != nil {
 		return err
 	}
 
 	for _, indexer := range indexers {
 		if indexer.Name == name {
-			return c.delete(ctx, fmt.Sprintf("/api/v1/indexer/%d", indexer.ID))
+			return c.Delete(ctx, fmt.Sprintf("/api/v1/indexer/%d", indexer.ID))
 		}
 	}
 
 	return nil // Not found is not an error
 }
 
-// httpClient is a simple HTTP client for Readarr API
-type httpClient struct {
-	baseURL    string
-	apiKey     string
-	httpClient *http.Client
+// newClient creates a new HTTP client for Readarr API communication
+func (a *Adapter) newClient(conn *irv1.ConnectionIR) *httpclient.Client {
+	return httpclient.New(httpclient.Config{
+		BaseURL:            conn.URL,
+		APIKey:             conn.APIKey,
+		InsecureSkipVerify: conn.InsecureSkipVerify,
+	})
 }
 
-func (a *Adapter) newClient(conn *irv1.ConnectionIR) *httpClient {
-	hc := &http.Client{
-		Timeout: 30 * time.Second,
-	}
-
-	if conn.InsecureSkipVerify {
-		hc.Transport = &http.Transport{
-			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // User explicitly requested insecure
-		}
-	}
-
-	return &httpClient{
-		baseURL:    conn.URL,
-		apiKey:     conn.APIKey,
-		httpClient: hc,
-	}
-}
-
-func (c *httpClient) get(ctx context.Context, path string, result interface{}) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("X-Api-Key", c.apiKey)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
-	}
-
-	return json.NewDecoder(resp.Body).Decode(result)
-}
-
-func (c *httpClient) post(ctx context.Context, path string, body, result interface{}) error {
-	var bodyReader io.Reader
-	if body != nil {
-		data, err := json.Marshal(body)
-		if err != nil {
-			return err
-		}
-		bodyReader = bytes.NewReader(data)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bodyReader)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("X-Api-Key", c.apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
-	}
-
-	if result != nil {
-		return json.NewDecoder(resp.Body).Decode(result)
-	}
-	return nil
-}
-
-func (c *httpClient) put(ctx context.Context, path string, body, result interface{}) error {
-	var bodyReader io.Reader
-	if body != nil {
-		data, err := json.Marshal(body)
-		if err != nil {
-			return err
-		}
-		bodyReader = bytes.NewReader(data)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, c.baseURL+path, bodyReader)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("X-Api-Key", c.apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
-	}
-
-	if result != nil {
-		return json.NewDecoder(resp.Body).Decode(result)
-	}
-	return nil
-}
-
-func (c *httpClient) delete(ctx context.Context, path string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+path, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("X-Api-Key", c.apiKey)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
-	}
-
-	return nil
-}
-
-// HealthResource represents a health check from Readarr API
-type HealthResource struct {
-	Source  string `json:"source"`
-	Type    string `json:"type"` // error, warning, notice
-	Message string `json:"message"`
-	WikiURL string `json:"wikiUrl"`
-}
+// Note: HealthResource is now defined as a type alias in types.go
 
 // getOwnershipTagID finds or returns -1 if the ownership tag doesn't exist
-func (a *Adapter) getOwnershipTagID(ctx context.Context, c *httpClient) (int, error) {
-	var tags []TagResource
-	if err := c.get(ctx, "/api/v1/tag", &tags); err != nil {
-		return -1, err
-	}
-
-	for _, tag := range tags {
-		if tag.Label == OwnershipTagName {
-			return tag.ID, nil
-		}
-	}
-
-	return -1, fmt.Errorf("ownership tag not found")
+func (a *Adapter) getOwnershipTagID(ctx context.Context, c *httpclient.Client) (int, error) {
+	return shared.GetOwnershipTagID(ctx, c, "v1")
 }
 
 // ensureOwnershipTag creates the ownership tag if it doesn't exist and returns its ID
-func (a *Adapter) ensureOwnershipTag(ctx context.Context, c *httpClient) (int, error) {
-	tagID, err := a.getOwnershipTagID(ctx, c)
-	if err == nil {
-		return tagID, nil
-	}
-
-	// Create the tag
-	newTag := TagResource{Label: OwnershipTagName}
-	var result TagResource
-	if err := c.post(ctx, "/api/v1/tag", newTag, &result); err != nil {
-		return -1, fmt.Errorf("failed to create ownership tag: %w", err)
-	}
-
-	return result.ID, nil
+func (a *Adapter) ensureOwnershipTag(ctx context.Context, c *httpclient.Client) (int, error) {
+	return shared.EnsureOwnershipTag(ctx, c, "v1")
 }
 
 // getManagedDownloadClients retrieves download clients tagged with the ownership tag
-func (a *Adapter) getManagedDownloadClients(ctx context.Context, c *httpClient, tagID int) ([]irv1.DownloadClientIR, error) {
+func (a *Adapter) getManagedDownloadClients(ctx context.Context, c *httpclient.Client, tagID int) ([]irv1.DownloadClientIR, error) {
 	var clients []DownloadClientResource
-	if err := c.get(ctx, "/api/v1/downloadclient", &clients); err != nil {
+	if err := c.Get(ctx, "/api/v1/downloadclient", &clients); err != nil {
 		return nil, err
 	}
 
@@ -663,9 +500,9 @@ func (a *Adapter) getManagedDownloadClients(ctx context.Context, c *httpClient, 
 }
 
 // getManagedIndexers retrieves indexers tagged with the ownership tag
-func (a *Adapter) getManagedIndexers(ctx context.Context, c *httpClient, tagID int) ([]irv1.IndexerIR, error) {
+func (a *Adapter) getManagedIndexers(ctx context.Context, c *httpclient.Client, tagID int) ([]irv1.IndexerIR, error) {
 	var indexers []IndexerResource
-	if err := c.get(ctx, "/api/v1/indexer", &indexers); err != nil {
+	if err := c.Get(ctx, "/api/v1/indexer", &indexers); err != nil {
 		return nil, err
 	}
 
@@ -680,9 +517,9 @@ func (a *Adapter) getManagedIndexers(ctx context.Context, c *httpClient, tagID i
 }
 
 // getRootFolders retrieves all root folders
-func (a *Adapter) getRootFolders(ctx context.Context, c *httpClient) ([]irv1.RootFolderIR, error) {
+func (a *Adapter) getRootFolders(ctx context.Context, c *httpclient.Client) ([]irv1.RootFolderIR, error) {
 	var folders []RootFolderResource
-	if err := c.get(ctx, "/api/v1/rootfolder", &folders); err != nil {
+	if err := c.Get(ctx, "/api/v1/rootfolder", &folders); err != nil {
 		return nil, err
 	}
 
@@ -780,12 +617,7 @@ func (a *Adapter) indexerToIR(idx *IndexerResource) irv1.IndexerIR {
 
 // containsTag checks if a slice of tag IDs contains a specific tag
 func containsTag(tags []int, tagID int) bool {
-	for _, t := range tags {
-		if t == tagID {
-			return true
-		}
-	}
-	return false
+	return shared.HasTag(tags, tagID)
 }
 
 // Ensure Adapter implements HealthChecker
@@ -796,7 +628,7 @@ func (a *Adapter) GetHealth(ctx context.Context, conn *irv1.ConnectionIR) (*irv1
 	c := a.newClient(conn)
 
 	var healthChecks []HealthResource
-	if err := c.get(ctx, "/api/v1/health", &healthChecks); err != nil {
+	if err := c.Get(ctx, "/api/v1/health", &healthChecks); err != nil {
 		return nil, fmt.Errorf("failed to get health: %w", err)
 	}
 

@@ -5,11 +5,12 @@ import (
 	"fmt"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
 // applyCreate handles creation of a resource
-func (a *Adapter) applyCreate(ctx context.Context, c *httpClient, change adapters.Change, tagID int) error {
+func (a *Adapter) applyCreate(ctx context.Context, c *httpclient.Client, change adapters.Change, tagID int) error {
 	switch change.ResourceType {
 	case adapters.ResourceIndexer:
 		idx, ok := change.Payload.(irv1.ProwlarrIndexerIR)
@@ -45,7 +46,7 @@ func (a *Adapter) applyCreate(ctx context.Context, c *httpClient, change adapter
 }
 
 // applyUpdate handles updating a resource
-func (a *Adapter) applyUpdate(ctx context.Context, c *httpClient, change adapters.Change, tagID int) error {
+func (a *Adapter) applyUpdate(ctx context.Context, c *httpclient.Client, change adapters.Change, tagID int) error {
 	switch change.ResourceType {
 	case adapters.ResourceIndexer:
 		idx, ok := change.Payload.(irv1.ProwlarrIndexerIR)
@@ -81,7 +82,7 @@ func (a *Adapter) applyUpdate(ctx context.Context, c *httpClient, change adapter
 }
 
 // applyDelete handles deletion of a resource
-func (a *Adapter) applyDelete(ctx context.Context, c *httpClient, change adapters.Change) error {
+func (a *Adapter) applyDelete(ctx context.Context, c *httpclient.Client, change adapters.Change) error {
 	switch change.ResourceType {
 	case adapters.ResourceIndexer:
 		return a.deleteIndexer(ctx, c, change.Name)

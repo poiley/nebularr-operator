@@ -5,14 +5,16 @@ import (
 	"fmt"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
+	"github.com/poiley/nebularr-operator/internal/adapters/shared"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
 // getAllCustomFormats retrieves all custom formats from Sonarr
 // This is used by CurrentState to get the current state for diffing
-func (a *Adapter) getAllCustomFormats(ctx context.Context, c *httpClient) ([]irv1.CustomFormatIR, error) {
+func (a *Adapter) getAllCustomFormats(ctx context.Context, c *httpclient.Client) ([]irv1.CustomFormatIR, error) {
 	var customFormats []CustomFormatResource
-	if err := c.get(ctx, "/api/v3/customformat", &customFormats); err != nil {
+	if err := c.Get(ctx, "/api/v3/customformat", &customFormats); err != nil {
 		return nil, fmt.Errorf("failed to get custom formats: %w", err)
 	}
 
@@ -63,10 +65,12 @@ func (a *Adapter) customFormatToIR(cf *CustomFormatResource) irv1.CustomFormatIR
 // irToCustomFormat converts IR to a Sonarr custom format resource
 func (a *Adapter) irToCustomFormat(ir *irv1.CustomFormatIR) CustomFormatResource {
 	cf := CustomFormatResource{
-		ID:                              ir.ID,
-		Name:                            ir.Name,
-		IncludeCustomFormatWhenRenaming: ir.IncludeWhenRenaming,
-		Specifications:                  make([]CustomFormatSpecification, 0, len(ir.Specifications)),
+		BaseCustomFormatResource: shared.BaseCustomFormatResource{
+			ID:                              ir.ID,
+			Name:                            ir.Name,
+			IncludeCustomFormatWhenRenaming: ir.IncludeWhenRenaming,
+			Specifications:                  make([]CustomFormatSpecification, 0, len(ir.Specifications)),
+		},
 	}
 
 	for _, spec := range ir.Specifications {
@@ -217,11 +221,11 @@ func customFormatsEqual(a, b irv1.CustomFormatIR) bool {
 }
 
 // createCustomFormat creates a custom format in Sonarr
-func (a *Adapter) createCustomFormat(ctx context.Context, c *httpClient, ir *irv1.CustomFormatIR) error {
+func (a *Adapter) createCustomFormat(ctx context.Context, c *httpclient.Client, ir *irv1.CustomFormatIR) error {
 	customFormat := a.irToCustomFormat(ir)
 
 	var created CustomFormatResource
-	if err := c.post(ctx, "/api/v3/customformat", customFormat, &created); err != nil {
+	if err := c.Post(ctx, "/api/v3/customformat", customFormat, &created); err != nil {
 		return fmt.Errorf("failed to create custom format: %w", err)
 	}
 
@@ -229,12 +233,12 @@ func (a *Adapter) createCustomFormat(ctx context.Context, c *httpClient, ir *irv
 }
 
 // updateCustomFormat updates a custom format in Sonarr
-func (a *Adapter) updateCustomFormat(ctx context.Context, c *httpClient, ir *irv1.CustomFormatIR) error {
+func (a *Adapter) updateCustomFormat(ctx context.Context, c *httpclient.Client, ir *irv1.CustomFormatIR) error {
 	customFormat := a.irToCustomFormat(ir)
 
 	endpoint := fmt.Sprintf("/api/v3/customformat/%d", ir.ID)
 	var updated CustomFormatResource
-	if err := c.put(ctx, endpoint, customFormat, &updated); err != nil {
+	if err := c.Put(ctx, endpoint, customFormat, &updated); err != nil {
 		return fmt.Errorf("failed to update custom format: %w", err)
 	}
 
@@ -242,9 +246,9 @@ func (a *Adapter) updateCustomFormat(ctx context.Context, c *httpClient, ir *irv
 }
 
 // deleteCustomFormat deletes a custom format from Sonarr
-func (a *Adapter) deleteCustomFormat(ctx context.Context, c *httpClient, id int) error {
+func (a *Adapter) deleteCustomFormat(ctx context.Context, c *httpclient.Client, id int) error {
 	endpoint := fmt.Sprintf("/api/v3/customformat/%d", id)
-	if err := c.delete(ctx, endpoint); err != nil {
+	if err := c.Delete(ctx, endpoint); err != nil {
 		return fmt.Errorf("failed to delete custom format: %w", err)
 	}
 

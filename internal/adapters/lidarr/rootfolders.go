@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -11,9 +12,9 @@ import (
 var rootFolderIDMap = make(map[string]int)
 
 // getRootFolders retrieves all root folders
-func (a *Adapter) getRootFolders(ctx context.Context, c *httpClient) ([]irv1.RootFolderIR, error) {
+func (a *Adapter) getRootFolders(ctx context.Context, c *httpclient.Client) ([]irv1.RootFolderIR, error) {
 	var folders []RootFolderResource
-	if err := c.get(ctx, "/api/v1/rootfolder", &folders); err != nil {
+	if err := c.Get(ctx, "/api/v1/rootfolder", &folders); err != nil {
 		return nil, err
 	}
 

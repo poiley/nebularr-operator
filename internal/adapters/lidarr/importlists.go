@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -27,18 +28,18 @@ type ImportListResource struct {
 }
 
 // getImportLists fetches all import lists from Lidarr
-func (a *Adapter) getImportLists(ctx context.Context, c *httpClient) ([]ImportListResource, error) {
+func (a *Adapter) getImportLists(ctx context.Context, c *httpclient.Client) ([]ImportListResource, error) {
 	var lists []ImportListResource
-	if err := c.get(ctx, "/api/v1/importlist", &lists); err != nil {
+	if err := c.Get(ctx, "/api/v1/importlist", &lists); err != nil {
 		return nil, fmt.Errorf("failed to get import lists: %w", err)
 	}
 	return lists, nil
 }
 
 // getImportListSchemas fetches available import list schemas
-func (a *Adapter) getImportListSchemas(ctx context.Context, c *httpClient) ([]ImportListResource, error) {
+func (a *Adapter) getImportListSchemas(ctx context.Context, c *httpclient.Client) ([]ImportListResource, error) {
 	var schemas []ImportListResource
-	if err := c.get(ctx, "/api/v1/importlist/schema", &schemas); err != nil {
+	if err := c.Get(ctx, "/api/v1/importlist/schema", &schemas); err != nil {
 		return nil, fmt.Errorf("failed to get import list schemas: %w", err)
 	}
 	return schemas, nil
@@ -85,7 +86,7 @@ type ImportListApplyStats struct {
 // applyImportLists applies import list changes directly to Lidarr
 func (a *Adapter) applyImportLists(
 	ctx context.Context,
-	c *httpClient,
+	c *httpclient.Client,
 	ir *irv1.IR,
 	tagID int,
 ) (*ImportListApplyStats, error) {
@@ -192,26 +193,26 @@ func (a *Adapter) irToImportList(ir *irv1.ImportListIR, schema *ImportListResour
 }
 
 // createImportList creates a new import list
-func (a *Adapter) createImportList(ctx context.Context, c *httpClient, payload ImportListResource) error {
+func (a *Adapter) createImportList(ctx context.Context, c *httpclient.Client, payload ImportListResource) error {
 	var result ImportListResource
-	return c.post(ctx, "/api/v1/importlist", payload, &result)
+	return c.Post(ctx, "/api/v1/importlist", payload, &result)
 }
 
 // updateImportList updates an existing import list
-func (a *Adapter) updateImportList(ctx context.Context, c *httpClient, payload ImportListResource) error {
+func (a *Adapter) updateImportList(ctx context.Context, c *httpclient.Client, payload ImportListResource) error {
 	path := fmt.Sprintf("/api/v1/importlist/%d", payload.ID)
 	var result ImportListResource
-	return c.put(ctx, path, payload, &result)
+	return c.Put(ctx, path, payload, &result)
 }
 
 // deleteImportList deletes an import list
-func (a *Adapter) deleteImportList(ctx context.Context, c *httpClient, id int) error {
+func (a *Adapter) deleteImportList(ctx context.Context, c *httpclient.Client, id int) error {
 	path := fmt.Sprintf("/api/v1/importlist/%d", id)
-	return c.delete(ctx, path)
+	return c.Delete(ctx, path)
 }
 
 // getManagedImportLists retrieves import lists managed by Nebularr (tagged)
-func (a *Adapter) getManagedImportLists(ctx context.Context, c *httpClient, tagID int) ([]irv1.ImportListIR, error) {
+func (a *Adapter) getManagedImportLists(ctx context.Context, c *httpclient.Client, tagID int) ([]irv1.ImportListIR, error) {
 	lists, err := a.getImportLists(ctx, c)
 	if err != nil {
 		return nil, err

@@ -18,6 +18,7 @@ package controller
 
 import (
 	"context"
+	"fmt"
 
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
@@ -82,16 +83,30 @@ func (r *BazarrConfigReconciler) Reconcile(ctx context.Context, req ctrl.Request
 		return ctrl.Result{Requeue: true}, nil
 	}
 
-	// Reconcile the configuration
-	return r.reconcileNormal(ctx, config)
+	// Reconcile based on mode
+	mode := config.Spec.ConfigMode
+	if mode == "" {
+		mode = arrv1alpha1.BazarrConfigModeFile // default
+	}
+
+	switch mode {
+	case arrv1alpha1.BazarrConfigModeFile:
+		return r.reconcileFileMode(ctx, config)
+	case arrv1alpha1.BazarrConfigModeAPI:
+		return r.reconcileAPIMode(ctx, config)
+	default:
+		log.Error(fmt.Errorf("unknown config mode: %s", mode), "Invalid config mode")
+		return ctrl.Result{}, fmt.Errorf("unknown config mode: %s", mode)
+	}
 }
 
-// reconcileNormal handles the normal reconciliation flow
-func (r *BazarrConfigReconciler) reconcileNormal(ctx context.Context, config *arrv1alpha1.BazarrConfig) (ctrl.Result, error) {
+// reconcileFileMode handles file-based configuration (config.yaml to ConfigMap)
+func (r *BazarrConfigReconciler) reconcileFileMode(ctx context.Context, config *arrv1alpha1.BazarrConfig) (ctrl.Result, error) {
 	log := logf.FromContext(ctx)
-	log.Info("Reconciling BazarrConfig", "name", config.Name)
+	log.Info("Reconciling BazarrConfig in FILE mode", "name", config.Name)
 
 	statusWrapper := &BazarrStatusWrapper{Status: &config.Status}
+	config.Status.ActiveMode = arrv1alpha1.BazarrConfigModeFile
 
 	// Resolve Sonarr API key
 	sonarrAPIKey, err := r.resolveConnectionAPIKey(ctx, config.Namespace, &config.Spec.Sonarr)
@@ -188,9 +203,13 @@ func (r *BazarrConfigReconciler) reconcileNormal(ctx context.Context, config *ar
 
 	// Update status
 	config.Status.ConfigGenerated = true
+	config.Status.BazarrConnected = false // Not applicable in file mode
+	config.Status.BazarrVersion = ""
+	config.Status.LanguageProfilesSynced = false
+	config.Status.ProvidersSynced = false
 	now := metav1.Now()
 	config.Status.LastReconcile = &now
-	r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionTrue, "Ready", "Bazarr configuration generated successfully")
+	r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionTrue, "Ready", "Bazarr configuration generated successfully (file mode)")
 
 	if err := r.Status().Update(ctx, config); err != nil {
 		log.Error(err, "Failed to update status")
@@ -203,8 +222,234 @@ func (r *BazarrConfigReconciler) reconcileNormal(ctx context.Context, config *ar
 		requeueAfter = config.Spec.Reconciliation.Interval.Duration
 	}
 
-	log.Info("Successfully reconciled BazarrConfig", "name", config.Name)
+	log.Info("Successfully reconciled BazarrConfig (file mode)", "name", config.Name)
 	return ctrl.Result{RequeueAfter: requeueAfter}, nil
+}
+
+// reconcileAPIMode handles API-based configuration (runtime via Bazarr REST API)
+func (r *BazarrConfigReconciler) reconcileAPIMode(ctx context.Context, config *arrv1alpha1.BazarrConfig) (ctrl.Result, error) {
+	log := logf.FromContext(ctx)
+	log.Info("Reconciling BazarrConfig in API mode", "name", config.Name)
+
+	statusWrapper := &BazarrStatusWrapper{Status: &config.Status}
+	config.Status.ActiveMode = arrv1alpha1.BazarrConfigModeAPI
+
+	// Validate API mode requirements
+	if config.Spec.Connection == nil {
+		err := fmt.Errorf("connection is required for API mode")
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "ConnectionMissing", err.Error())
+		if statusErr := r.Status().Update(ctx, config); statusErr != nil {
+			log.Error(statusErr, "Failed to update status")
+		}
+		return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
+	}
+
+	// Resolve Bazarr API key
+	bazarrAPIKey, err := r.Helper.ResolveSecretValue(ctx, config.Namespace,
+		config.Spec.Connection.APIKeySecretRef.Name,
+		config.Spec.Connection.APIKeySecretRef.Key)
+	if err != nil {
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "BazarrSecretResolutionFailed", err.Error())
+		config.Status.BazarrConnected = false
+		if statusErr := r.Status().Update(ctx, config); statusErr != nil {
+			log.Error(statusErr, "Failed to update status")
+		}
+		return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
+	}
+
+	// Create Bazarr client
+	bazarrClient := bazarr.NewClient(config.Spec.Connection.URL, bazarrAPIKey)
+
+	// Test connection and get version
+	version, err := bazarrClient.GetVersion(ctx)
+	if err != nil {
+		log.Error(err, "Failed to connect to Bazarr")
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "BazarrConnectionFailed", err.Error())
+		config.Status.BazarrConnected = false
+		if statusErr := r.Status().Update(ctx, config); statusErr != nil {
+			log.Error(statusErr, "Failed to update status")
+		}
+		return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
+	}
+	config.Status.BazarrConnected = true
+	config.Status.BazarrVersion = version
+
+	// Check Bazarr's connection to Sonarr/Radarr via health endpoint
+	health, err := bazarrClient.GetHealth(ctx)
+	if err != nil {
+		log.V(1).Info("Failed to get health status, continuing anyway", "error", err)
+	} else {
+		if health.Data.Sonarr != nil {
+			config.Status.SonarrConnected = health.Data.Sonarr.Status == "True"
+		}
+		if health.Data.Radarr != nil {
+			config.Status.RadarrConnected = health.Data.Radarr.Status == "True"
+		}
+	}
+
+	// Sync language profiles
+	if err := r.syncLanguageProfiles(ctx, bazarrClient, config); err != nil {
+		log.Error(err, "Failed to sync language profiles")
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "LanguageProfileSyncFailed", err.Error())
+		config.Status.LanguageProfilesSynced = false
+		if statusErr := r.Status().Update(ctx, config); statusErr != nil {
+			log.Error(statusErr, "Failed to update status")
+		}
+		return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
+	}
+	config.Status.LanguageProfilesSynced = true
+
+	// Sync providers
+	if err := r.syncProviders(ctx, bazarrClient, config); err != nil {
+		log.Error(err, "Failed to sync providers")
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "ProviderSyncFailed", err.Error())
+		config.Status.ProvidersSynced = false
+		if statusErr := r.Status().Update(ctx, config); statusErr != nil {
+			log.Error(statusErr, "Failed to update status")
+		}
+		return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
+	}
+	config.Status.ProvidersSynced = true
+
+	// Update status
+	config.Status.ConfigGenerated = false // Not applicable in API mode
+	now := metav1.Now()
+	config.Status.LastReconcile = &now
+	r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionTrue, "Ready",
+		fmt.Sprintf("Bazarr configured successfully via API (v%s)", version))
+
+	if err := r.Status().Update(ctx, config); err != nil {
+		log.Error(err, "Failed to update status")
+		return ctrl.Result{}, err
+	}
+
+	// Determine requeue interval
+	requeueAfter := DefaultRequeueInterval
+	if config.Spec.Reconciliation != nil && config.Spec.Reconciliation.Interval != nil {
+		requeueAfter = config.Spec.Reconciliation.Interval.Duration
+	}
+
+	log.Info("Successfully reconciled BazarrConfig (API mode)", "name", config.Name, "version", version)
+	return ctrl.Result{RequeueAfter: requeueAfter}, nil
+}
+
+// syncLanguageProfiles syncs language profiles from spec to Bazarr
+func (r *BazarrConfigReconciler) syncLanguageProfiles(ctx context.Context, client *bazarr.Client, config *arrv1alpha1.BazarrConfig) error {
+	log := logf.FromContext(ctx)
+
+	// Get current profiles from Bazarr
+	currentProfiles, err := client.GetLanguageProfiles(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get current language profiles: %w", err)
+	}
+
+	// Build a map of current profiles by name
+	currentByName := make(map[string]bazarr.LanguageProfile)
+	for _, p := range currentProfiles {
+		currentByName[p.Name] = p
+	}
+
+	// Process desired profiles
+	desiredNames := make(map[string]bool)
+	for _, desired := range config.Spec.LanguageProfiles {
+		desiredNames[desired.Name] = true
+
+		// Build the API profile
+		items := make([]bazarr.LanguageProfileItem, 0, len(desired.Languages))
+		for idx, lang := range desired.Languages {
+			forced := "False"
+			if lang.Forced {
+				forced = "True"
+			}
+			hi := "False"
+			if lang.HearingImpaired {
+				hi = "True"
+			}
+			items = append(items, bazarr.LanguageProfileItem{
+				ID:           idx + 1,
+				Language:     lang.Code,
+				Forced:       forced,
+				HI:           hi,
+				AudioExclude: "False",
+			})
+		}
+
+		apiProfile := bazarr.LanguageProfile{
+			Name:  desired.Name,
+			Items: items,
+		}
+
+		if existing, ok := currentByName[desired.Name]; ok {
+			// Update existing profile
+			apiProfile.ProfileID = existing.ProfileID
+			if err := client.UpdateLanguageProfile(ctx, apiProfile); err != nil {
+				log.Error(err, "Failed to update language profile", "name", desired.Name)
+				// Continue with other profiles
+			} else {
+				log.V(1).Info("Updated language profile", "name", desired.Name)
+			}
+		} else {
+			// Create new profile
+			if _, err := client.CreateLanguageProfile(ctx, apiProfile); err != nil {
+				log.Error(err, "Failed to create language profile", "name", desired.Name)
+				// Continue with other profiles
+			} else {
+				log.V(1).Info("Created language profile", "name", desired.Name)
+			}
+		}
+	}
+
+	// Note: We don't delete profiles not in the spec to avoid breaking user customizations
+	// This is a "sync only what we manage" approach
+
+	return nil
+}
+
+// syncProviders syncs provider settings from spec to Bazarr
+func (r *BazarrConfigReconciler) syncProviders(ctx context.Context, bazarrClient *bazarr.Client, config *arrv1alpha1.BazarrConfig) error {
+	log := logf.FromContext(ctx)
+
+	if len(config.Spec.Providers) == 0 {
+		log.V(1).Info("No providers configured, skipping provider sync")
+		return nil
+	}
+
+	// Resolve provider secrets
+	providerSecrets, err := r.resolveProviderSecrets(ctx, config.Namespace, config.Spec.Providers)
+	if err != nil {
+		return fmt.Errorf("failed to resolve provider secrets: %w", err)
+	}
+
+	// Build provider list for API
+	providers := make([]bazarr.Provider, 0, len(config.Spec.Providers))
+	for _, p := range config.Spec.Providers {
+		secrets := providerSecrets[p.Name]
+		settings := make(map[string]interface{})
+
+		if p.Username != "" {
+			settings["username"] = p.Username
+		}
+		if secrets.Password != "" {
+			settings["password"] = secrets.Password
+		}
+		if secrets.APIKey != "" {
+			settings["apikey"] = secrets.APIKey
+		}
+
+		providers = append(providers, bazarr.Provider{
+			Name:     p.Name,
+			Enabled:  true,
+			Settings: settings,
+		})
+	}
+
+	// Update providers via API
+	if err := bazarrClient.UpdateProviders(ctx, providers); err != nil {
+		return fmt.Errorf("failed to update providers: %w", err)
+	}
+
+	log.V(1).Info("Synced providers", "count", len(providers))
+	return nil
 }
 
 // reconcileDelete handles deletion of the BazarrConfig
@@ -212,7 +457,7 @@ func (r *BazarrConfigReconciler) reconcileDelete(ctx context.Context, config *ar
 	log := logf.FromContext(ctx)
 	log.Info("Handling deletion of BazarrConfig", "name", config.Name)
 
-	// Clean up ConfigMap if we created one
+	// Clean up ConfigMap if we created one (file mode only)
 	if config.Spec.ConfigMapRef != nil {
 		cm := &corev1.ConfigMap{}
 		err := r.Get(ctx, client.ObjectKey{
@@ -231,6 +476,9 @@ func (r *BazarrConfigReconciler) reconcileDelete(ctx context.Context, config *ar
 			}
 		}
 	}
+
+	// Note: In API mode, we don't clean up Bazarr settings to avoid disruption
+	// Users can manually reset Bazarr if needed
 
 	// Remove finalizer
 	controllerutil.RemoveFinalizer(config, bazarrFinalizer)

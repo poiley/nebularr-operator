@@ -1,14 +1,22 @@
 package readarr
 
-import "time"
+import (
+	"github.com/poiley/nebularr-operator/internal/adapters/shared"
+)
 
-// SystemResource represents the system status response from Readarr
-type SystemResource struct {
-	Version   string     `json:"version"`
-	StartTime *time.Time `json:"startTime"`
-}
+// Type aliases for shared types - provides backwards compatibility
+type (
+	SystemResource = shared.SystemResource
+	TagResource    = shared.TagResource
+	HealthResource = shared.HealthResource
+)
+
+// FieldResource represents a field in a schema-based resource
+// Note: Readarr uses "FieldResource" naming convention
+type FieldResource = shared.Field
 
 // DownloadClientResource represents a download client in Readarr
+// Readarr's structure is simpler than other *arr apps
 type DownloadClientResource struct {
 	ID             int             `json:"id"`
 	Name           string          `json:"name"`
@@ -21,6 +29,7 @@ type DownloadClientResource struct {
 }
 
 // IndexerResource represents an indexer in Readarr
+// Readarr's structure is simpler than other *arr apps
 type IndexerResource struct {
 	ID             int             `json:"id"`
 	Name           string          `json:"name"`
@@ -32,19 +41,8 @@ type IndexerResource struct {
 	Fields         []FieldResource `json:"fields,omitempty"`
 }
 
-// FieldResource represents a field in a schema-based resource
-type FieldResource struct {
-	Name  string      `json:"name"`
-	Value interface{} `json:"value"`
-}
-
-// TagResource represents a tag in Readarr
-type TagResource struct {
-	ID    int    `json:"id"`
-	Label string `json:"label"`
-}
-
 // RootFolderResource represents a root folder in Readarr
+// Readarr-specific with Calibre library support
 type RootFolderResource struct {
 	ID                          int    `json:"id"`
 	Path                        string `json:"path"`
@@ -128,6 +126,7 @@ type ImportListResource struct {
 }
 
 // NotificationResource represents a notification in Readarr
+// Readarr-specific due to unique event triggers
 type NotificationResource struct {
 	ID                         int             `json:"id"`
 	Name                       string          `json:"name"`

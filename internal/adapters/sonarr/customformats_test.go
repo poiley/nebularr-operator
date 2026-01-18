@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/shared"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -18,17 +19,19 @@ func TestCustomFormatToIR(t *testing.T) {
 		{
 			name: "basic custom format",
 			input: CustomFormatResource{
-				ID:                              1,
-				Name:                            "x265",
-				IncludeCustomFormatWhenRenaming: false,
-				Specifications: []CustomFormatSpecification{
-					{
-						Name:           "x265",
-						Implementation: "ReleaseTitleSpecification",
-						Negate:         false,
-						Required:       true,
-						Fields: []Field{
-							{Name: "value", Value: "[xh]\\.?265|hevc"},
+				BaseCustomFormatResource: shared.BaseCustomFormatResource{
+					ID:                              1,
+					Name:                            "x265",
+					IncludeCustomFormatWhenRenaming: false,
+					Specifications: []CustomFormatSpecification{
+						{
+							Name:           "x265",
+							Implementation: "ReleaseTitleSpecification",
+							Negate:         false,
+							Required:       true,
+							Fields: []Field{
+								{Name: "value", Value: "[xh]\\.?265|hevc"},
+							},
 						},
 					},
 				},
@@ -51,26 +54,28 @@ func TestCustomFormatToIR(t *testing.T) {
 		{
 			name: "custom format with multiple specs",
 			input: CustomFormatResource{
-				ID:                              2,
-				Name:                            "DV HDR10",
-				IncludeCustomFormatWhenRenaming: true,
-				Specifications: []CustomFormatSpecification{
-					{
-						Name:           "DV",
-						Implementation: "ReleaseTitleSpecification",
-						Negate:         false,
-						Required:       true,
-						Fields: []Field{
-							{Name: "value", Value: "\\b(dv|dovi)\\b"},
+				BaseCustomFormatResource: shared.BaseCustomFormatResource{
+					ID:                              2,
+					Name:                            "DV HDR10",
+					IncludeCustomFormatWhenRenaming: true,
+					Specifications: []CustomFormatSpecification{
+						{
+							Name:           "DV",
+							Implementation: "ReleaseTitleSpecification",
+							Negate:         false,
+							Required:       true,
+							Fields: []Field{
+								{Name: "value", Value: "\\b(dv|dovi)\\b"},
+							},
 						},
-					},
-					{
-						Name:           "HDR10",
-						Implementation: "ReleaseTitleSpecification",
-						Negate:         false,
-						Required:       false,
-						Fields: []Field{
-							{Name: "value", Value: "hdr10"},
+						{
+							Name:           "HDR10",
+							Implementation: "ReleaseTitleSpecification",
+							Negate:         false,
+							Required:       false,
+							Fields: []Field{
+								{Name: "value", Value: "hdr10"},
+							},
 						},
 					},
 				},
@@ -162,17 +167,19 @@ func TestIRToCustomFormat(t *testing.T) {
 				},
 			},
 			expected: CustomFormatResource{
-				ID:                              5,
-				Name:                            "nebularr-test-HEVC",
-				IncludeCustomFormatWhenRenaming: false,
-				Specifications: []CustomFormatSpecification{
-					{
-						Name:           "HEVC",
-						Implementation: "ReleaseTitleSpecification",
-						Negate:         false,
-						Required:       true,
-						Fields: []Field{
-							{Name: "value", Value: "hevc|x265"},
+				BaseCustomFormatResource: shared.BaseCustomFormatResource{
+					ID:                              5,
+					Name:                            "nebularr-test-HEVC",
+					IncludeCustomFormatWhenRenaming: false,
+					Specifications: []CustomFormatSpecification{
+						{
+							Name:           "HEVC",
+							Implementation: "ReleaseTitleSpecification",
+							Negate:         false,
+							Required:       true,
+							Fields: []Field{
+								{Name: "value", Value: "hevc|x265"},
+							},
 						},
 					},
 				},

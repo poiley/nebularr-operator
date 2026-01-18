@@ -1,0 +1,295 @@
+apiVersion: arr.rinzler.cloud/v1alpha1
+kind: DownloadStackConfig
+metadata:
+  labels:
+    app.kubernetes.io/name: nebularr
+    app.kubernetes.io/managed-by: kustomize
+  name: downloadstackconfig-sample
+spec:
+  # Reference to the Deployment managing the download stack
+  deploymentRef:
+    name: download-stack
+
+  # Gluetun VPN configuration (required)
+  gluetun:
+    provider:
+      name: mullvad
+      # For OpenVPN providers:
+      credentialsSecretRef:
+        name: vpn-credentials
+        usernameKey: username
+        passwordKey: password
+      # For WireGuard providers:
+      # privateKeySecretRef:
+      #   name: vpn-credentials
+      #   key: privateKey
+
+    vpnType: openvpn  # or wireguard
+
+    # Server selection
+    server:
+      countries:
+        - Netherlands
+        - Germany
+      # Or specify regions/cities/hostnames:
+      # regions:
+      #   - Europe
+      # cities:
+      #   - Amsterdam
+      # hostnames:
+      #   - nl-ams-001
+
+    # Firewall settings
+    firewall:
+      # Ports to allow inbound on VPN interface (for port forwarding)
+      vpnInputPorts:
+        - 51413  # Transmission
+        - 6881   # qBittorrent
+      # Subnets to allow outbound (local network access)
+      outboundSubnets:
+        - 10.0.0.0/8
+        - 172.16.0.0/12
+        - 192.168.0.0/16
+
+    # Kill switch (blocks traffic if VPN drops)
+    killSwitch:
+      enabled: true
+
+    # DNS settings
+    dns:
+      overTls: true
+      plaintextAddress: "1.1.1.1"
+
+    # Logging
+    logging:
+      level: info
+
+  # Transmission torrent client
+  transmission:
+    connection:
+      url: http://localhost:9091
+      credentialsSecretRef:
+        name: transmission-credentials
+        usernameKey: username
+        passwordKey: password
+
+    speed:
+      downloadLimitEnabled: false
+      downloadLimit: 0
+      uploadLimitEnabled: true
+      uploadLimit: 1000  # KB/s
+
+    altSpeed:
+      enabled: false
+      down: 500
+      up: 100
+      timeEnabled: true
+      timeBegin: 540    # 9:00 AM (minutes from midnight)
+      timeEnd: 1080     # 6:00 PM
+      timeDays: [1, 2, 3, 4, 5]  # Mon-Fri
+
+    directories:
+      download: /downloads/complete
+      incomplete: /downloads/incomplete
+      incompleteEnabled: true
+
+    seeding:
+      ratioLimited: true
+      ratioLimit: "2.0"
+      idleLimitEnabled: true
+      idleLimit: 30
+
+    queue:
+      downloadEnabled: true
+      downloadSize: 5
+      seedEnabled: true
+      seedSize: 10
+      stalledEnabled: true
+      stalledMinutes: 30
+
+    peers:
+      limitGlobal: 500
+      limitPerTorrent: 100
+      port: 51413
+      portForwardingEnabled: true
+
+    security:
+      encryption: required
+      pexEnabled: true
+      dhtEnabled: true
+      lpdEnabled: false
+
+    blocklist:
+      enabled: true
+      url: https://github.com/Naunter/BT_BlockLists/raw/master/bt_blocklists.gz
+
+  # qBittorrent torrent client (alternative to Transmission)
+  # qbittorrent:
+  #   connection:
+  #     url: http://localhost:8080
+  #     credentialsSecretRef:
+  #       name: qbittorrent-credentials
+  #       usernameKey: username
+  #       passwordKey: password
+  #   speed:
+  #     downloadLimit: 0
+  #     uploadLimit: 1000
+  #   directories:
+  #     savePath: /downloads/complete
+  #     tempPath: /downloads/incomplete
+  #     tempPathEnabled: true
+  #   seeding:
+  #     maxRatioEnabled: true
+  #     maxRatio: "2.0"
+  #     maxSeedingTimeEnabled: true
+  #     maxSeedingTime: 1440  # 24 hours
+  #   queue:
+  #     queueingEnabled: true
+  #     maxActiveDownloads: 5
+  #     maxActiveUploads: 10
+  #     maxActiveTorrents: 15
+  #   connections:
+  #     maxConnections: 500
+  #     maxConnectionsPerTorrent: 100
+  #     listenPort: 6881
+  #   bittorrent:
+  #     dht: true
+  #     pex: true
+  #     lsd: false
+  #     encryption: 1  # force_on
+  #     anonymousMode: true
+
+  # Deluge torrent client
+  # deluge:
+  #   connection:
+  #     url: http://localhost:8112
+  #     passwordSecretRef:
+  #       name: deluge-credentials
+  #       key: password
+  #   speed:
+  #     maxDownloadSpeed: -1  # unlimited
+  #     maxUploadSpeed: 1000
+  #   directories:
+  #     downloadLocation: /downloads/incomplete
+  #     moveCompleted: true
+  #     moveCompletedPath: /downloads/complete
+  #   seeding:
+  #     stopSeedAtRatio: true
+  #     stopSeedRatio: "2.0"
+  #   protocol:
+  #     dht: true
+  #     protocolEncryption: true
+
+  # rTorrent client
+  # rtorrent:
+  #   connection:
+  #     url: http://localhost:8080/RPC2
+  #     credentialsSecretRef:
+  #       name: rtorrent-credentials
+  #       usernameKey: username
+  #       passwordKey: password
+  #   speed:
+  #     downloadRate: 0  # unlimited
+  #     uploadRate: 1000
+  #   directories:
+  #     directory: /downloads/complete
+  #   seeding:
+  #     maxSeedRatio: "2.0"
+  #   protocol:
+  #     dht: true
+  #     pex: true
+  #     encryption: require
+
+  # SABnzbd usenet client
+  sabnzbd:
+    connection:
+      url: http://localhost:8080
+      apiKeySecretRef:
+        name: sabnzbd-credentials
+        key: apiKey
+
+    speed:
+      speedLimit: 0  # unlimited
+
+    directories:
+      downloadDir: /downloads/incomplete
+      completeDir: /downloads/complete
+      nzbBackupDir: /downloads/nzb-backup
+
+    categories:
+      - name: movies
+        dir: movies
+        priority: 0  # normal
+      - name: tv
+        dir: tv
+        priority: 0
+      - name: music
+        dir: music
+        priority: -1  # low
+
+    postProcessing:
+      enabled: true
+      quickCheck: true
+      unpackEnabled: true
+      cleanupEnabled: true
+
+  # NZBGet usenet client (alternative to SABnzbd)
+  # nzbget:
+  #   connection:
+  #     url: http://localhost:6789
+  #     credentialsSecretRef:
+  #       name: nzbget-credentials
+  #       usernameKey: username
+  #       passwordKey: password
+  #   speed:
+  #     downloadRate: 0  # unlimited
+  #   directories:
+  #     mainDir: /downloads
+  #     destDir: /downloads/complete
+  #     interDir: /downloads/incomplete
+  #   categories:
+  #     - name: Movies
+  #       destDir: movies
+  #     - name: TV
+  #       destDir: tv
+  #   postProcessing:
+  #     parCheck: auto
+  #     parRepair: true
+  #     unpack: true
+  #     unpackCleanupDisk: true
+
+  # Restart Deployment when Gluetun config changes
+  restartOnGluetunChange: true
+
+  # Reconciliation settings
+  reconciliation:
+    interval: 5m
+    suspend: false
+---
+# Example secrets (DO NOT use in production - use sealed-secrets or external-secrets)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: vpn-credentials
+type: Opaque
+stringData:
+  username: "your-vpn-username"
+  password: "your-vpn-password"
+  # privateKey: "your-wireguard-private-key"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: transmission-credentials
+type: Opaque
+stringData:
+  username: "transmission"
+  password: "your-transmission-password"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sabnzbd-credentials
+type: Opaque
+stringData:
+  apiKey: "your-sabnzbd-api-key"

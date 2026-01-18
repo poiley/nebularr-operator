@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -30,23 +31,23 @@ type MediaManagementConfigResource struct {
 }
 
 // getMediaManagementConfig fetches the current media management configuration
-func (a *Adapter) getMediaManagementConfig(ctx context.Context, c *httpClient) (*MediaManagementConfigResource, error) {
+func (a *Adapter) getMediaManagementConfig(ctx context.Context, c *httpclient.Client) (*MediaManagementConfigResource, error) {
 	var config MediaManagementConfigResource
-	if err := c.get(ctx, "/api/v1/config/mediamanagement", &config); err != nil {
+	if err := c.Get(ctx, "/api/v1/config/mediamanagement", &config); err != nil {
 		return nil, fmt.Errorf("failed to get media management config: %w", err)
 	}
 	return &config, nil
 }
 
 // updateMediaManagementConfig updates the media management configuration
-func (a *Adapter) updateMediaManagementConfig(ctx context.Context, c *httpClient, config MediaManagementConfigResource) error {
+func (a *Adapter) updateMediaManagementConfig(ctx context.Context, c *httpclient.Client, config MediaManagementConfigResource) error {
 	path := fmt.Sprintf("/api/v1/config/mediamanagement/%d", config.ID)
 	var result MediaManagementConfigResource
-	return c.put(ctx, path, config, &result)
+	return c.Put(ctx, path, config, &result)
 }
 
 // applyMediaManagement applies media management configuration from IR
-func (a *Adapter) applyMediaManagement(ctx context.Context, c *httpClient, ir *irv1.MediaManagementIR) error {
+func (a *Adapter) applyMediaManagement(ctx context.Context, c *httpclient.Client, ir *irv1.MediaManagementIR) error {
 	if ir == nil {
 		return nil
 	}
@@ -80,7 +81,7 @@ func (a *Adapter) applyMediaManagement(ctx context.Context, c *httpClient, ir *i
 }
 
 // getMediaManagementIR converts the current config to IR format
-func (a *Adapter) getMediaManagementIR(ctx context.Context, c *httpClient) (*irv1.MediaManagementIR, error) {
+func (a *Adapter) getMediaManagementIR(ctx context.Context, c *httpclient.Client) (*irv1.MediaManagementIR, error) {
 	config, err := a.getMediaManagementConfig(ctx, c)
 	if err != nil {
 		return nil, err

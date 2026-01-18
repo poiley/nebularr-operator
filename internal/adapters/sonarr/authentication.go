@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -46,23 +47,23 @@ type HostConfigResource struct {
 }
 
 // getHostConfig fetches the current host configuration (includes authentication)
-func (a *Adapter) getHostConfig(ctx context.Context, c *httpClient) (*HostConfigResource, error) {
+func (a *Adapter) getHostConfig(ctx context.Context, c *httpclient.Client) (*HostConfigResource, error) {
 	var config HostConfigResource
-	if err := c.get(ctx, "/api/v3/config/host", &config); err != nil {
+	if err := c.Get(ctx, "/api/v3/config/host", &config); err != nil {
 		return nil, fmt.Errorf("failed to get host config: %w", err)
 	}
 	return &config, nil
 }
 
 // updateHostConfig updates the host configuration
-func (a *Adapter) updateHostConfig(ctx context.Context, c *httpClient, config HostConfigResource) error {
+func (a *Adapter) updateHostConfig(ctx context.Context, c *httpclient.Client, config HostConfigResource) error {
 	path := fmt.Sprintf("/api/v3/config/host/%d", config.ID)
 	var result HostConfigResource
-	return c.put(ctx, path, config, &result)
+	return c.Put(ctx, path, config, &result)
 }
 
 // applyAuthentication applies authentication configuration from IR
-func (a *Adapter) applyAuthentication(ctx context.Context, c *httpClient, ir *irv1.AuthenticationIR) error {
+func (a *Adapter) applyAuthentication(ctx context.Context, c *httpclient.Client, ir *irv1.AuthenticationIR) error {
 	if ir == nil {
 		return nil
 	}
@@ -95,7 +96,7 @@ func (a *Adapter) applyAuthentication(ctx context.Context, c *httpClient, ir *ir
 }
 
 // getAuthenticationIR converts the current config to IR format
-func (a *Adapter) getAuthenticationIR(ctx context.Context, c *httpClient) (*irv1.AuthenticationIR, error) {
+func (a *Adapter) getAuthenticationIR(ctx context.Context, c *httpclient.Client) (*irv1.AuthenticationIR, error) {
 	config, err := a.getHostConfig(ctx, c)
 	if err != nil {
 		return nil, err

@@ -5,14 +5,15 @@ import (
 	"fmt"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
 // getManagedQualityProfiles retrieves quality profiles that are managed by Nebularr.
 // Quality profiles in Readarr don't have tags, so we identify managed profiles by name prefix.
-func (a *Adapter) getManagedQualityProfiles(ctx context.Context, c *httpClient) ([]*irv1.BookQualityIR, error) {
+func (a *Adapter) getManagedQualityProfiles(ctx context.Context, c *httpclient.Client) ([]*irv1.BookQualityIR, error) {
 	var profiles []QualityProfileResource
-	if err := c.get(ctx, "/api/v1/qualityprofile", &profiles); err != nil {
+	if err := c.Get(ctx, "/api/v1/qualityprofile", &profiles); err != nil {
 		return nil, fmt.Errorf("failed to get quality profiles: %w", err)
 	}
 
@@ -139,10 +140,10 @@ func (a *Adapter) diffQualityProfiles(current, desired *irv1.IR, changes *adapte
 }
 
 // createQualityProfile creates a new quality profile in Readarr
-func (a *Adapter) createQualityProfile(ctx context.Context, c *httpClient, ir *irv1.BookQualityIR, _ int) error {
+func (a *Adapter) createQualityProfile(ctx context.Context, c *httpclient.Client, ir *irv1.BookQualityIR, _ int) error {
 	// First, get the quality definitions to build proper items
 	var qualities []QualityDefinitionResource
-	if err := c.get(ctx, "/api/v1/qualitydefinition", &qualities); err != nil {
+	if err := c.Get(ctx, "/api/v1/qualitydefinition", &qualities); err != nil {
 		return fmt.Errorf("failed to get quality definitions: %w", err)
 	}
 
@@ -169,14 +170,14 @@ func (a *Adapter) createQualityProfile(ctx context.Context, c *httpClient, ir *i
 	}
 
 	var result QualityProfileResource
-	return c.post(ctx, "/api/v1/qualityprofile", profile, &result)
+	return c.Post(ctx, "/api/v1/qualityprofile", profile, &result)
 }
 
 // updateQualityProfile updates an existing quality profile
-func (a *Adapter) updateQualityProfile(ctx context.Context, c *httpClient, ir *irv1.BookQualityIR, profileID int) error {
+func (a *Adapter) updateQualityProfile(ctx context.Context, c *httpclient.Client, ir *irv1.BookQualityIR, profileID int) error {
 	// Get quality definitions
 	var qualities []QualityDefinitionResource
-	if err := c.get(ctx, "/api/v1/qualitydefinition", &qualities); err != nil {
+	if err := c.Get(ctx, "/api/v1/qualitydefinition", &qualities); err != nil {
 		return fmt.Errorf("failed to get quality definitions: %w", err)
 	}
 
@@ -204,7 +205,7 @@ func (a *Adapter) updateQualityProfile(ctx context.Context, c *httpClient, ir *i
 	}
 
 	var result QualityProfileResource
-	return c.put(ctx, fmt.Sprintf("/api/v1/qualityprofile/%d", profileID), profile, &result)
+	return c.Put(ctx, fmt.Sprintf("/api/v1/qualityprofile/%d", profileID), profile, &result)
 }
 
 // tierToQualityItem converts an IR tier to a quality profile item
@@ -267,15 +268,15 @@ func (a *Adapter) findQualityIDByName(qualities []QualityDefinitionResource, nam
 }
 
 // deleteQualityProfileByName deletes a quality profile by name
-func (a *Adapter) deleteQualityProfileByName(ctx context.Context, c *httpClient, name string) error {
+func (a *Adapter) deleteQualityProfileByName(ctx context.Context, c *httpclient.Client, name string) error {
 	var profiles []QualityProfileResource
-	if err := c.get(ctx, "/api/v1/qualityprofile", &profiles); err != nil {
+	if err := c.Get(ctx, "/api/v1/qualityprofile", &profiles); err != nil {
 		return err
 	}
 
 	for _, profile := range profiles {
 		if profile.Name == name {
-			return c.delete(ctx, fmt.Sprintf("/api/v1/qualityprofile/%d", profile.ID))
+			return c.Delete(ctx, fmt.Sprintf("/api/v1/qualityprofile/%d", profile.ID))
 		}
 	}
 

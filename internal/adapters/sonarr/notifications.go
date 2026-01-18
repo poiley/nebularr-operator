@@ -5,13 +5,14 @@ import (
 	"fmt"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
 // getManagedNotifications retrieves notifications tagged with the ownership tag
-func (a *Adapter) getManagedNotifications(ctx context.Context, c *httpClient, tagID int) ([]irv1.NotificationIR, error) {
+func (a *Adapter) getManagedNotifications(ctx context.Context, c *httpclient.Client, tagID int) ([]irv1.NotificationIR, error) {
 	var notifications []NotificationResource
-	if err := c.get(ctx, "/api/v3/notification", &notifications); err != nil {
+	if err := c.Get(ctx, "/api/v3/notification", &notifications); err != nil {
 		return nil, fmt.Errorf("failed to get notifications: %w", err)
 	}
 
@@ -204,11 +205,11 @@ func notificationsEqual(a, b irv1.NotificationIR) bool {
 }
 
 // createNotification creates a notification in Sonarr
-func (a *Adapter) createNotification(ctx context.Context, c *httpClient, ir *irv1.NotificationIR, tagID int) error {
+func (a *Adapter) createNotification(ctx context.Context, c *httpclient.Client, ir *irv1.NotificationIR, tagID int) error {
 	notification := a.irToNotification(ir, tagID)
 
 	var created NotificationResource
-	if err := c.post(ctx, "/api/v3/notification", notification, &created); err != nil {
+	if err := c.Post(ctx, "/api/v3/notification", notification, &created); err != nil {
 		return fmt.Errorf("failed to create notification: %w", err)
 	}
 
@@ -216,12 +217,12 @@ func (a *Adapter) createNotification(ctx context.Context, c *httpClient, ir *irv
 }
 
 // updateNotification updates a notification in Sonarr
-func (a *Adapter) updateNotification(ctx context.Context, c *httpClient, ir *irv1.NotificationIR, tagID int) error {
+func (a *Adapter) updateNotification(ctx context.Context, c *httpclient.Client, ir *irv1.NotificationIR, tagID int) error {
 	notification := a.irToNotification(ir, tagID)
 
 	endpoint := fmt.Sprintf("/api/v3/notification/%d", ir.ID)
 	var updated NotificationResource
-	if err := c.put(ctx, endpoint, notification, &updated); err != nil {
+	if err := c.Put(ctx, endpoint, notification, &updated); err != nil {
 		return fmt.Errorf("failed to update notification: %w", err)
 	}
 
@@ -229,9 +230,9 @@ func (a *Adapter) updateNotification(ctx context.Context, c *httpClient, ir *irv
 }
 
 // deleteNotification deletes a notification from Sonarr
-func (a *Adapter) deleteNotification(ctx context.Context, c *httpClient, id int) error {
+func (a *Adapter) deleteNotification(ctx context.Context, c *httpclient.Client, id int) error {
 	endpoint := fmt.Sprintf("/api/v3/notification/%d", id)
-	if err := c.delete(ctx, endpoint); err != nil {
+	if err := c.Delete(ctx, endpoint); err != nil {
 		return fmt.Errorf("failed to delete notification: %w", err)
 	}
 

@@ -5,11 +5,13 @@ import (
 	"fmt"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
+	"github.com/poiley/nebularr-operator/internal/adapters/shared"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
 // applyCreate creates a new resource
-func (a *Adapter) applyCreate(ctx context.Context, c *httpClient, change adapters.Change, tagID int) error {
+func (a *Adapter) applyCreate(ctx context.Context, c *httpclient.Client, change adapters.Change, tagID int) error {
 	switch change.ResourceType {
 	case adapters.ResourceQualityProfile:
 		return a.createQualityProfile(ctx, c, change.Payload.(*irv1.VideoQualityIR))
@@ -33,7 +35,7 @@ func (a *Adapter) applyCreate(ctx context.Context, c *httpClient, change adapter
 }
 
 // applyUpdate updates an existing resource
-func (a *Adapter) applyUpdate(ctx context.Context, c *httpClient, change adapters.Change, tagID int) error {
+func (a *Adapter) applyUpdate(ctx context.Context, c *httpclient.Client, change adapters.Change, tagID int) error {
 	switch change.ResourceType {
 	case adapters.ResourceQualityProfile:
 		return a.updateQualityProfile(ctx, c, *change.ID, change.Payload.(*irv1.VideoQualityIR))
@@ -57,22 +59,22 @@ func (a *Adapter) applyUpdate(ctx context.Context, c *httpClient, change adapter
 }
 
 // applyDelete deletes a resource
-func (a *Adapter) applyDelete(ctx context.Context, c *httpClient, change adapters.Change) error {
+func (a *Adapter) applyDelete(ctx context.Context, c *httpclient.Client, change adapters.Change) error {
 	if change.ID == nil {
 		return fmt.Errorf("cannot delete resource without ID")
 	}
 
 	switch change.ResourceType {
 	case adapters.ResourceQualityProfile:
-		return c.delete(ctx, fmt.Sprintf("/api/v3/qualityprofile/%d", *change.ID))
+		return c.Delete(ctx, fmt.Sprintf("/api/v3/qualityprofile/%d", *change.ID))
 	case adapters.ResourceCustomFormat:
 		return a.deleteCustomFormat(ctx, c, *change.ID)
 	case adapters.ResourceDownloadClient:
-		return c.delete(ctx, fmt.Sprintf("/api/v3/downloadclient/%d", *change.ID))
+		return c.Delete(ctx, fmt.Sprintf("/api/v3/downloadclient/%d", *change.ID))
 	case adapters.ResourceIndexer:
-		return c.delete(ctx, fmt.Sprintf("/api/v3/indexer/%d", *change.ID))
+		return c.Delete(ctx, fmt.Sprintf("/api/v3/indexer/%d", *change.ID))
 	case adapters.ResourceRootFolder:
-		return c.delete(ctx, fmt.Sprintf("/api/v3/rootfolder/%d", *change.ID))
+		return c.Delete(ctx, fmt.Sprintf("/api/v3/rootfolder/%d", *change.ID))
 	case adapters.ResourceRemotePathMapping:
 		return a.deleteRemotePathMapping(ctx, c, *change.ID)
 	case adapters.ResourceNotification:
@@ -85,10 +87,10 @@ func (a *Adapter) applyDelete(ctx context.Context, c *httpClient, change adapter
 }
 
 // createQualityProfile creates a quality profile using the schema
-func (a *Adapter) createQualityProfile(ctx context.Context, c *httpClient, profile *irv1.VideoQualityIR) error {
+func (a *Adapter) createQualityProfile(ctx context.Context, c *httpclient.Client, profile *irv1.VideoQualityIR) error {
 	// Fetch schema to get all quality items with proper structure
 	var schema QualityProfileResource
-	if err := c.get(ctx, "/api/v3/qualityprofile/schema", &schema); err != nil {
+	if err := c.Get(ctx, "/api/v3/qualityprofile/schema", &schema); err != nil {
 		return fmt.Errorf("failed to get quality profile schema: %w", err)
 	}
 
@@ -115,14 +117,14 @@ func (a *Adapter) createQualityProfile(ctx context.Context, c *httpClient, profi
 		CutoffFormatScore:     profile.UpgradeUntilCustomFormatScore,
 	}
 
-	return c.post(ctx, "/api/v3/qualityprofile", resource, nil)
+	return c.Post(ctx, "/api/v3/qualityprofile", resource, nil)
 }
 
 // updateQualityProfile updates a quality profile using the schema
-func (a *Adapter) updateQualityProfile(ctx context.Context, c *httpClient, id int, profile *irv1.VideoQualityIR) error {
+func (a *Adapter) updateQualityProfile(ctx context.Context, c *httpclient.Client, id int, profile *irv1.VideoQualityIR) error {
 	// Fetch schema to get all quality items with proper structure
 	var schema QualityProfileResource
-	if err := c.get(ctx, "/api/v3/qualityprofile/schema", &schema); err != nil {
+	if err := c.Get(ctx, "/api/v3/qualityprofile/schema", &schema); err != nil {
 		return fmt.Errorf("failed to get quality profile schema: %w", err)
 	}
 
@@ -150,7 +152,7 @@ func (a *Adapter) updateQualityProfile(ctx context.Context, c *httpClient, id in
 		CutoffFormatScore:     profile.UpgradeUntilCustomFormatScore,
 	}
 
-	return c.put(ctx, fmt.Sprintf("/api/v3/qualityprofile/%d", id), resource, nil)
+	return c.Put(ctx, fmt.Sprintf("/api/v3/qualityprofile/%d", id), resource, nil)
 }
 
 // buildAllowedQualitiesMap creates a map of resolution -> sources that are allowed
@@ -284,7 +286,7 @@ func mapSonarrSource(source string) string {
 
 // buildFormatItems builds the format items array for a quality profile
 // It takes the desired format scores and merges them with the schema's format items
-func (a *Adapter) buildFormatItems(ctx context.Context, c *httpClient, formatScores map[string]int, schemaItems []ProfileFormatItem) ([]ProfileFormatItem, error) {
+func (a *Adapter) buildFormatItems(ctx context.Context, c *httpclient.Client, formatScores map[string]int, schemaItems []ProfileFormatItem) ([]ProfileFormatItem, error) {
 	// If no format scores specified, return schema items as-is (all scores = 0)
 	if len(formatScores) == 0 {
 		return schemaItems, nil
@@ -292,7 +294,7 @@ func (a *Adapter) buildFormatItems(ctx context.Context, c *httpClient, formatSco
 
 	// Fetch all custom formats to get their IDs and names
 	var formats []CustomFormatResource
-	if err := c.get(ctx, "/api/v3/customformat", &formats); err != nil {
+	if err := c.Get(ctx, "/api/v3/customformat", &formats); err != nil {
 		return nil, fmt.Errorf("failed to get custom formats: %w", err)
 	}
 
@@ -340,35 +342,37 @@ func (a *Adapter) buildFormatItems(ctx context.Context, c *httpClient, formatSco
 }
 
 // createDownloadClient creates a download client
-func (a *Adapter) createDownloadClient(ctx context.Context, c *httpClient, dc irv1.DownloadClientIR, tagID int) error {
+func (a *Adapter) createDownloadClient(ctx context.Context, c *httpclient.Client, dc irv1.DownloadClientIR, tagID int) error {
 	resource := a.downloadClientFromIR(dc, tagID)
-	return c.post(ctx, "/api/v3/downloadclient", resource, nil)
+	return c.Post(ctx, "/api/v3/downloadclient", resource, nil)
 }
 
 // updateDownloadClient updates a download client
-func (a *Adapter) updateDownloadClient(ctx context.Context, c *httpClient, id int, dc irv1.DownloadClientIR, tagID int) error {
+func (a *Adapter) updateDownloadClient(ctx context.Context, c *httpclient.Client, id int, dc irv1.DownloadClientIR, tagID int) error {
 	resource := a.downloadClientFromIR(dc, tagID)
 	resource.ID = id
-	return c.put(ctx, fmt.Sprintf("/api/v3/downloadclient/%d", id), resource, nil)
+	return c.Put(ctx, fmt.Sprintf("/api/v3/downloadclient/%d", id), resource, nil)
 }
 
 // downloadClientFromIR converts IR to Sonarr download client
 func (a *Adapter) downloadClientFromIR(dc irv1.DownloadClientIR, tagID int) DownloadClientResource {
 	resource := DownloadClientResource{
-		Name:           dc.Name,
-		Implementation: dc.Implementation,
-		ConfigContract: dc.Implementation + "Settings",
-		Protocol:       dc.Protocol,
-		Enable:         dc.Enable,
-		Priority:       dc.Priority,
-		Tags:           []int{tagID},
-		Fields: []Field{
-			{Name: "host", Value: dc.Host},
-			{Name: "port", Value: dc.Port},
-			{Name: "useSsl", Value: dc.UseTLS},
-			{Name: "username", Value: dc.Username},
-			{Name: "password", Value: dc.Password},
-			{Name: "tvCategory", Value: dc.Category},
+		BaseDownloadClientResource: shared.BaseDownloadClientResource{
+			Name:           dc.Name,
+			Implementation: dc.Implementation,
+			ConfigContract: dc.Implementation + "Settings",
+			Protocol:       dc.Protocol,
+			Enable:         dc.Enable,
+			Priority:       dc.Priority,
+			Tags:           []int{tagID},
+			Fields: []Field{
+				{Name: "host", Value: dc.Host},
+				{Name: "port", Value: dc.Port},
+				{Name: "useSsl", Value: dc.UseTLS},
+				{Name: "username", Value: dc.Username},
+				{Name: "password", Value: dc.Password},
+				{Name: "tvCategory", Value: dc.Category},
+			},
 		},
 		RemoveCompletedDownloads: dc.RemoveCompletedDownloads,
 		RemoveFailedDownloads:    dc.RemoveFailedDownloads,
@@ -377,51 +381,53 @@ func (a *Adapter) downloadClientFromIR(dc irv1.DownloadClientIR, tagID int) Down
 }
 
 // createIndexer creates an indexer
-func (a *Adapter) createIndexer(ctx context.Context, c *httpClient, idx irv1.IndexerIR, tagID int) error {
+func (a *Adapter) createIndexer(ctx context.Context, c *httpclient.Client, idx irv1.IndexerIR, tagID int) error {
 	resource := a.indexerFromIR(idx, tagID)
-	return c.post(ctx, "/api/v3/indexer", resource, nil)
+	return c.Post(ctx, "/api/v3/indexer", resource, nil)
 }
 
 // updateIndexer updates an indexer
-func (a *Adapter) updateIndexer(ctx context.Context, c *httpClient, id int, idx irv1.IndexerIR, tagID int) error {
+func (a *Adapter) updateIndexer(ctx context.Context, c *httpclient.Client, id int, idx irv1.IndexerIR, tagID int) error {
 	resource := a.indexerFromIR(idx, tagID)
 	resource.ID = id
-	return c.put(ctx, fmt.Sprintf("/api/v3/indexer/%d", id), resource, nil)
+	return c.Put(ctx, fmt.Sprintf("/api/v3/indexer/%d", id), resource, nil)
 }
 
 // indexerFromIR converts IR to Sonarr indexer
 func (a *Adapter) indexerFromIR(idx irv1.IndexerIR, tagID int) IndexerResource {
 	resource := IndexerResource{
-		Name:                    idx.Name,
-		Implementation:          idx.Implementation,
-		ConfigContract:          idx.Implementation + "Settings",
-		Protocol:                idx.Protocol,
-		Enable:                  idx.Enable,
-		Priority:                idx.Priority,
-		Tags:                    []int{tagID},
-		EnableRss:               idx.EnableRss,
-		EnableAutomaticSearch:   idx.EnableAutomaticSearch,
-		EnableInteractiveSearch: idx.EnableInteractiveSearch,
-		Fields: []Field{
-			{Name: "baseUrl", Value: idx.URL},
-			{Name: "apiKey", Value: idx.APIKey},
-			{Name: "categories", Value: idx.Categories},
-			{Name: "minimumSeeders", Value: idx.MinimumSeeders},
+		BaseIndexerResource: shared.BaseIndexerResource{
+			Name:                    idx.Name,
+			Implementation:          idx.Implementation,
+			ConfigContract:          idx.Implementation + "Settings",
+			Protocol:                idx.Protocol,
+			Enable:                  idx.Enable,
+			Priority:                idx.Priority,
+			Tags:                    []int{tagID},
+			EnableRss:               idx.EnableRss,
+			EnableAutomaticSearch:   idx.EnableAutomaticSearch,
+			EnableInteractiveSearch: idx.EnableInteractiveSearch,
+			Fields: []Field{
+				{Name: "baseUrl", Value: idx.URL},
+				{Name: "apiKey", Value: idx.APIKey},
+				{Name: "categories", Value: idx.Categories},
+				{Name: "minimumSeeders", Value: idx.MinimumSeeders},
+			},
 		},
 	}
 	return resource
 }
 
 // createRootFolder creates a root folder
-func (a *Adapter) createRootFolder(ctx context.Context, c *httpClient, rf irv1.RootFolderIR) error {
+func (a *Adapter) createRootFolder(ctx context.Context, c *httpclient.Client, rf irv1.RootFolderIR) error {
 	resource := RootFolderResource{
 		Path: rf.Path,
 	}
-	return c.post(ctx, "/api/v3/rootfolder", resource, nil)
+	return c.Post(ctx, "/api/v3/rootfolder", resource, nil)
 }
 
 // updateNaming updates the naming configuration
-func (a *Adapter) updateNaming(ctx context.Context, c *httpClient, naming *irv1.SonarrNamingIR) error {
+func (a *Adapter) updateNaming(ctx context.Context, c *httpclient.Client, naming *irv1.SonarrNamingIR) error {
 	resource := NamingConfigResource{
 		ID:                       namingConfigID,
 		RenameEpisodes:           naming.RenameEpisodes,
@@ -434,5 +440,5 @@ func (a *Adapter) updateNaming(ctx context.Context, c *httpClient, naming *irv1.
 		SpecialsFolderFormat:     naming.SpecialsFolderFormat,
 		MultiEpisodeStyle:        naming.MultiEpisodeStyle,
 	}
-	return c.put(ctx, "/api/v3/config/naming", resource, nil)
+	return c.Put(ctx, "/api/v3/config/naming", resource, nil)
 }

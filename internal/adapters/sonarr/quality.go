@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -11,9 +12,9 @@ import (
 var managedProfileID *int
 
 // getManagedQualityProfiles retrieves quality profiles managed by Nebularr
-func (a *Adapter) getManagedQualityProfiles(ctx context.Context, c *httpClient, _ int) ([]*irv1.VideoQualityIR, error) {
+func (a *Adapter) getManagedQualityProfiles(ctx context.Context, c *httpclient.Client, _ int) ([]*irv1.VideoQualityIR, error) {
 	var profiles []QualityProfileResource
-	if err := c.get(ctx, "/api/v3/qualityprofile", &profiles); err != nil {
+	if err := c.Get(ctx, "/api/v3/qualityprofile", &profiles); err != nil {
 		return nil, err
 	}
 

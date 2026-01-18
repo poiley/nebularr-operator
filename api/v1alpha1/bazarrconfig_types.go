@@ -97,8 +97,43 @@ type BazarrConnectionSpec struct {
 	ConfigPath string `json:"configPath,omitempty"`
 }
 
+// BazarrConfigMode defines how Bazarr configuration is applied
+// +kubebuilder:validation:Enum=file;api
+type BazarrConfigMode string
+
+const (
+	// BazarrConfigModeFile generates config.yaml to a ConfigMap for init-container mounting
+	BazarrConfigModeFile BazarrConfigMode = "file"
+	// BazarrConfigModeAPI configures Bazarr at runtime via its REST API
+	BazarrConfigModeAPI BazarrConfigMode = "api"
+)
+
+// BazarrAPIConnectionSpec defines connection to Bazarr's own API
+type BazarrAPIConnectionSpec struct {
+	// URL is the base URL to Bazarr (e.g., http://bazarr:6767).
+	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern=`^https?://`
+	URL string `json:"url"`
+
+	// APIKeySecretRef references a Secret containing the Bazarr API key.
+	// +kubebuilder:validation:Required
+	APIKeySecretRef SecretKeySelector `json:"apiKeySecretRef"`
+}
+
 // BazarrConfigSpec defines the desired configuration for Bazarr
 type BazarrConfigSpec struct {
+	// ConfigMode determines how configuration is applied to Bazarr.
+	// - "file": Generates config.yaml to a ConfigMap (for init-container mounting)
+	// - "api": Configures Bazarr at runtime via its REST API
+	// +optional
+	// +kubebuilder:default=file
+	ConfigMode BazarrConfigMode `json:"configMode,omitempty"`
+
+	// Connection specifies how to connect to Bazarr's API.
+	// Required when configMode is "api".
+	// +optional
+	Connection *BazarrAPIConnectionSpec `json:"connection,omitempty"`
+
 	// Sonarr connection configuration.
 	// +kubebuilder:validation:Required
 	Sonarr BazarrConnectionSpec `json:"sonarr"`
@@ -116,17 +151,18 @@ type BazarrConfigSpec struct {
 	Providers []BazarrProvider `json:"providers,omitempty"`
 
 	// Authentication configures Bazarr authentication.
+	// Only used in "file" mode. In "api" mode, authentication is managed separately.
 	// +optional
 	Authentication *AuthenticationSpec `json:"authentication,omitempty"`
 
 	// OutputPath is where to write Bazarr's config.yaml.
-	// Used for init-container config generation.
+	// Used for init-container config generation in "file" mode.
 	// +optional
 	// +kubebuilder:default="/config/config/config.yaml"
 	OutputPath string `json:"outputPath,omitempty"`
 
 	// ConfigMapRef references a ConfigMap to store the generated config.
-	// If specified, generates config to ConfigMap instead of file.
+	// Used in "file" mode. If specified, generates config to ConfigMap instead of file.
 	// +optional
 	ConfigMapRef *LocalObjectReference `json:"configMapRef,omitempty"`
 
@@ -143,6 +179,18 @@ type BazarrConfigStatus struct {
 	// +optional
 	Conditions []metav1.Condition `json:"conditions,omitempty"`
 
+	// ActiveMode indicates which configuration mode is currently active.
+	// +optional
+	ActiveMode BazarrConfigMode `json:"activeMode,omitempty"`
+
+	// BazarrConnected indicates whether Bazarr API is reachable (API mode only).
+	// +optional
+	BazarrConnected bool `json:"bazarrConnected,omitempty"`
+
+	// BazarrVersion is the Bazarr version (API mode only).
+	// +optional
+	BazarrVersion string `json:"bazarrVersion,omitempty"`
+
 	// SonarrConnected indicates whether Sonarr is reachable.
 	// +optional
 	SonarrConnected bool `json:"sonarrConnected,omitempty"`
@@ -151,9 +199,17 @@ type BazarrConfigStatus struct {
 	// +optional
 	RadarrConnected bool `json:"radarrConnected,omitempty"`
 
-	// ConfigGenerated indicates if the config.yaml was generated.
+	// ConfigGenerated indicates if the config.yaml was generated (file mode only).
 	// +optional
 	ConfigGenerated bool `json:"configGenerated,omitempty"`
+
+	// LanguageProfilesSynced indicates if language profiles are synced (API mode only).
+	// +optional
+	LanguageProfilesSynced bool `json:"languageProfilesSynced,omitempty"`
+
+	// ProvidersSynced indicates if providers are synced (API mode only).
+	// +optional
+	ProvidersSynced bool `json:"providersSynced,omitempty"`
 
 	// LastReconcile is the timestamp of the last reconciliation.
 	// +optional
@@ -166,8 +222,10 @@ type BazarrConfigStatus struct {
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
-// +kubebuilder:printcolumn:name="Sonarr",type=string,JSONPath=`.spec.sonarr.url`
-// +kubebuilder:printcolumn:name="Radarr",type=string,JSONPath=`.spec.radarr.url`
+// +kubebuilder:printcolumn:name="Mode",type=string,JSONPath=`.spec.configMode`
+// +kubebuilder:printcolumn:name="Bazarr",type=string,JSONPath=`.status.bazarrConnected`
+// +kubebuilder:printcolumn:name="Sonarr",type=string,JSONPath=`.status.sonarrConnected`
+// +kubebuilder:printcolumn:name="Radarr",type=string,JSONPath=`.status.radarrConnected`
 // +kubebuilder:printcolumn:name="Ready",type=string,JSONPath=`.status.conditions[?(@.type=="Ready")].status`
 // +kubebuilder:printcolumn:name="Age",type=date,JSONPath=`.metadata.creationTimestamp`
 

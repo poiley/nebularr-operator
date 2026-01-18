@@ -1,0 +1,1328 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: downloadstackconfigs.arr.rinzler.cloud
+spec:
+  group: arr.rinzler.cloud
+  names:
+    kind: DownloadStackConfig
+    listKind: DownloadStackConfigList
+    plural: downloadstackconfigs
+    singular: downloadstackconfig
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.deploymentRef.name
+      name: Deployment
+      type: string
+    - jsonPath: .spec.gluetun.provider.name
+      name: VPN
+      type: string
+    - jsonPath: .status.transmissionConnected
+      name: Transmission
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: DownloadStackConfig manages Gluetun VPN and Transmission configuration
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired configuration
+            properties:
+              deluge:
+                description: |-
+                  Deluge configuration (applied via JSON-RPC API)
+                  At least one download client must be specified
+                properties:
+                  connection:
+                    description: Connection settings
+                    properties:
+                      passwordSecretRef:
+                        description: |-
+                          PasswordSecretRef references the password Secret for Deluge Web UI.
+                          Deluge Web UI uses a single password for authentication (default: "deluge").
+                        properties:
+                          key:
+                            default: apiKey
+                            description: Key is the key within the Secret.
+                            type: string
+                          name:
+                            description: Name is the name of the Secret in the same
+                              namespace.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        default: http://localhost:8112
+                        description: URL to Deluge Web UI (e.g., http://localhost:8112)
+                        type: string
+                    required:
+                    - url
+                    type: object
+                  connections:
+                    description: Connection settings (peers, etc.)
+                    properties:
+                      listenPorts:
+                        description: ListenPorts is the range of ports to listen on
+                          [start, end]
+                        items:
+                          type: integer
+                        type: array
+                      maxConnections:
+                        description: MaxConnections is the global max connections
+                        type: integer
+                      maxConnectionsPerTorrent:
+                        description: MaxConnectionsPerTorrent is the per-torrent max
+                          connections
+                        type: integer
+                      maxUploadSlots:
+                        description: MaxUploadSlots is the global max upload slots
+                        type: integer
+                      maxUploadSlotsPerTorrent:
+                        description: MaxUploadSlotsPerTorrent is the per-torrent max
+                          upload slots
+                        type: integer
+                      randomPort:
+                        description: RandomPort enables random port selection
+                        type: boolean
+                    type: object
+                  directories:
+                    description: Directories configuration
+                    properties:
+                      copyTorrentFile:
+                        description: CopyTorrentFile copies .torrent files to a location
+                        type: boolean
+                      downloadLocation:
+                        description: DownloadLocation is the default download directory
+                        type: string
+                      moveCompleted:
+                        description: MoveCompleted enables moving completed downloads
+                        type: boolean
+                      moveCompletedPath:
+                        description: MoveCompletedPath is the path to move completed
+                          downloads to
+                        type: string
+                      torrentFilesLocation:
+                        description: TorrentFilesLocation is where to copy .torrent
+                          files
+                        type: string
+                    type: object
+                  protocol:
+                    description: Protocol settings (DHT, encryption, etc.)
+                    properties:
+                      dht:
+                        description: DHT enables Distributed Hash Table
+                        type: boolean
+                      encryptionLevel:
+                        description: 'EncryptionLevel: 0=handshake, 1=full, 2=either'
+                        enum:
+                        - 0
+                        - 1
+                        - 2
+                        type: integer
+                      lsd:
+                        description: LSD enables Local Service Discovery
+                        type: boolean
+                      natpmp:
+                        description: NATPMP enables NAT-PMP port forwarding
+                        type: boolean
+                      protocolEncryption:
+                        description: ProtocolEncryption enables protocol encryption
+                        type: boolean
+                      upnp:
+                        description: UPnP enables UPnP port forwarding
+                        type: boolean
+                    type: object
+                  queue:
+                    description: Queue settings
+                    properties:
+                      maxActiveDownloading:
+                        description: MaxActiveDownloading is the max concurrent downloads
+                        type: integer
+                      maxActiveLimit:
+                        description: MaxActiveLimit is the total max active torrents
+                        type: integer
+                      maxActiveSeeding:
+                        description: MaxActiveSeeding is the max concurrent seeding
+                          torrents
+                        type: integer
+                      queueNewToTop:
+                        description: QueueNewToTop adds new torrents to the top of
+                          the queue
+                        type: boolean
+                    type: object
+                  seeding:
+                    description: Seeding limits
+                    properties:
+                      removeAtRatio:
+                        description: RemoveAtRatio removes the torrent when ratio
+                          is reached
+                        type: boolean
+                      seedTimeLimit:
+                        description: SeedTimeLimit is the max seeding time in seconds
+                          (-1 = unlimited)
+                        type: integer
+                      shareRatioLimit:
+                        description: ShareRatioLimit is the share ratio limit
+                        type: string
+                      stopSeedAtRatio:
+                        description: StopSeedAtRatio enables stopping seeding at a
+                          ratio
+                        type: boolean
+                      stopSeedRatio:
+                        description: StopSeedRatio is the ratio to stop seeding at
+                          (e.g., 2.0)
+                        type: string
+                    type: object
+                  speed:
+                    description: Speed limits
+                    properties:
+                      maxDownloadSpeed:
+                        default: -1
+                        description: MaxDownloadSpeed in KiB/s (-1 = unlimited)
+                        type: integer
+                      maxDownloadSpeedPerTorrent:
+                        default: -1
+                        description: MaxDownloadSpeedPerTorrent in KiB/s (-1 = unlimited)
+                        type: integer
+                      maxUploadSpeed:
+                        default: -1
+                        description: MaxUploadSpeed in KiB/s (-1 = unlimited)
+                        type: integer
+                      maxUploadSpeedPerTorrent:
+                        default: -1
+                        description: MaxUploadSpeedPerTorrent in KiB/s (-1 = unlimited)
+                        type: integer
+                    type: object
+                required:
+                - connection
+                type: object
+              deploymentRef:
+                description: DeploymentRef references the Deployment to manage
+                properties:
+                  name:
+                    description: Name is the name of the referenced object.
+                    type: string
+                required:
+                - name
+                type: object
+              gluetun:
+                description: Gluetun VPN configuration (generates env Secret)
+                properties:
+                  dns:
+                    description: DNS settings
+                    properties:
+                      keepNameserver:
+                        description: KeepNameserver keeps the existing nameserver
+                        type: boolean
+                      overTls:
+                        description: OverTLS enables DNS over TLS (DoT)
+                        type: boolean
+                      plaintextAddress:
+                        default: 1.1.1.1
+                        description: PlaintextAddress is the plaintext DNS server
+                        type: string
+                    type: object
+                  firewall:
+                    description: Firewall settings
+                    properties:
+                      debug:
+                        description: Debug enables firewall debug logging
+                        type: boolean
+                      inputPorts:
+                        description: InputPorts are ports to allow inbound on all
+                          interfaces
+                        items:
+                          type: integer
+                        type: array
+                      outboundSubnets:
+                        description: OutboundSubnets are subnets to allow outbound
+                          (local network access)
+                        items:
+                          type: string
+                        type: array
+                      vpnInputPorts:
+                        description: VPNInputPorts are ports to allow inbound on VPN
+                          interface
+                        items:
+                          type: integer
+                        type: array
+                    type: object
+                  ipv6:
+                    description: IPv6 settings
+                    properties:
+                      enabled:
+                        default: false
+                        description: Enabled enables IPv6 (usually disabled for VPN)
+                        type: boolean
+                    type: object
+                  killSwitch:
+                    description: KillSwitch blocks traffic if VPN drops
+                    properties:
+                      enabled:
+                        default: true
+                        description: Enabled blocks traffic if VPN connection drops
+                        type: boolean
+                    type: object
+                  logging:
+                    description: Logging settings
+                    properties:
+                      level:
+                        default: info
+                        description: 'Level: debug, info, warning, error'
+                        enum:
+                        - debug
+                        - info
+                        - warning
+                        - error
+                        type: string
+                    type: object
+                  provider:
+                    description: Provider configuration
+                    properties:
+                      credentialsSecretRef:
+                        description: CredentialsSecretRef for OpenVPN username/password
+                          authentication
+                        properties:
+                          name:
+                            description: Name is the name of the Secret.
+                            type: string
+                          passwordKey:
+                            default: password
+                            description: PasswordKey is the key for the password.
+                            type: string
+                          usernameKey:
+                            default: username
+                            description: UsernameKey is the key for the username.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      name:
+                        description: 'Name is the VPN provider: nordvpn, mullvad,
+                          expressvpn, pia, surfshark, etc.'
+                        type: string
+                      privateKeySecretRef:
+                        description: PrivateKeySecretRef for WireGuard private key
+                        properties:
+                          key:
+                            default: apiKey
+                            description: Key is the key within the Secret.
+                            type: string
+                          name:
+                            description: Name is the name of the Secret in the same
+                              namespace.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                    required:
+                    - name
+                    type: object
+                  server:
+                    description: Server selection
+                    properties:
+                      cities:
+                        description: Cities to connect to
+                        items:
+                          type: string
+                        type: array
+                      countries:
+                        description: Countries to connect to
+                        items:
+                          type: string
+                        type: array
+                      hostnames:
+                        description: Hostnames of specific servers
+                        items:
+                          type: string
+                        type: array
+                      regions:
+                        description: Regions to connect to (e.g., ["Netherlands",
+                          "Germany"])
+                        items:
+                          type: string
+                        type: array
+                    type: object
+                  vpnType:
+                    default: openvpn
+                    description: 'VPNType: openvpn or wireguard'
+                    enum:
+                    - openvpn
+                    - wireguard
+                    type: string
+                required:
+                - provider
+                type: object
+              nzbget:
+                description: |-
+                  NZBGet configuration (applied via JSON-RPC API)
+                  Usenet download client
+                properties:
+                  categories:
+                    description: Categories configuration
+                    items:
+                      description: NZBGetCategorySpec defines a download category
+                      properties:
+                        aliases:
+                          description: Aliases are alternative names for this category
+                          items:
+                            type: string
+                          type: array
+                        destDir:
+                          description: DestDir is the destination directory for this
+                            category
+                          type: string
+                        name:
+                          description: Name is the category name
+                          type: string
+                        unpack:
+                          description: Unpack enables unpacking for this category
+                          type: boolean
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  connection:
+                    description: Connection settings
+                    properties:
+                      credentialsSecretRef:
+                        description: CredentialsSecretRef for authentication (username/password)
+                        properties:
+                          name:
+                            description: Name is the name of the Secret.
+                            type: string
+                          passwordKey:
+                            default: password
+                            description: PasswordKey is the key for the password.
+                            type: string
+                          usernameKey:
+                            default: username
+                            description: UsernameKey is the key for the username.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        default: http://localhost:6789
+                        description: URL to NZBGet JSON-RPC API (e.g., http://localhost:6789)
+                        type: string
+                    required:
+                    - url
+                    type: object
+                  connections:
+                    description: Connections settings
+                    properties:
+                      articleConnections:
+                        description: ArticleConnections is connections per news server
+                        type: integer
+                      decode:
+                        description: Decode enables article decoding (should typically
+                          be enabled)
+                        type: boolean
+                      retryInterval:
+                        description: RetryInterval is seconds between retries
+                        type: integer
+                      terminateTimeout:
+                        description: TerminateTimeout is timeout for graceful termination
+                          in seconds
+                        type: integer
+                    type: object
+                  directories:
+                    description: Directories configuration
+                    properties:
+                      destDir:
+                        description: DestDir is the destination directory for completed
+                          downloads
+                        type: string
+                      interDir:
+                        description: InterDir is the intermediate directory during
+                          download
+                        type: string
+                      mainDir:
+                        description: MainDir is the main working directory
+                        type: string
+                      nzbDir:
+                        description: NzbDir is the directory to monitor for NZB files
+                        type: string
+                      scriptDir:
+                        description: ScriptDir is the directory containing post-processing
+                          scripts
+                        type: string
+                      tempDir:
+                        description: TempDir is the directory for temporary files
+                        type: string
+                    type: object
+                  postProcessing:
+                    description: Post-processing settings
+                    properties:
+                      directUnpack:
+                        description: DirectUnpack enables unpacking while downloading
+                        type: boolean
+                      parCheck:
+                        description: 'ParCheck: auto, always, force, manual'
+                        enum:
+                        - auto
+                        - always
+                        - force
+                        - manual
+                        type: string
+                      parRepair:
+                        description: ParRepair enables automatic repair
+                        type: boolean
+                      scriptOrder:
+                        description: ScriptOrder is the order of post-processing scripts
+                        items:
+                          type: string
+                        type: array
+                      unpack:
+                        description: Unpack enables automatic unpacking
+                        type: boolean
+                      unpackCleanupDisk:
+                        description: UnpackCleanupDisk removes archive files after
+                          unpacking
+                        type: boolean
+                    type: object
+                  queue:
+                    description: Queue settings
+                    properties:
+                      dupeCheck:
+                        description: DupeCheck enables duplicate checking
+                        type: boolean
+                      flushQueue:
+                        description: FlushQueue writes queue to disk immediately
+                        type: boolean
+                      healthCheck:
+                        description: 'HealthCheck: none, park, delete, pause'
+                        enum:
+                        - none
+                        - park
+                        - delete
+                        - pause
+                        type: string
+                      propagationDelay:
+                        description: PropagationDelay is the delay before downloading
+                          in seconds
+                        type: integer
+                    type: object
+                  speed:
+                    description: Speed limits
+                    properties:
+                      articleTimeout:
+                        description: ArticleTimeout is the timeout for fetching an
+                          article in seconds
+                        type: integer
+                      downloadRate:
+                        description: DownloadRate in KiB/s (0 = unlimited)
+                        type: integer
+                      writeBuffer:
+                        description: WriteBuffer is the disk write buffer size in
+                          bytes
+                        type: integer
+                    type: object
+                required:
+                - connection
+                type: object
+              qbittorrent:
+                description: |-
+                  QBittorrent configuration (applied via WebUI API)
+                  At least one download client must be specified
+                properties:
+                  altSpeed:
+                    description: AltSpeed (scheduled limits)
+                    properties:
+                      downloadLimit:
+                        description: DownloadLimit in KiB/s
+                        type: integer
+                      enabled:
+                        description: Enabled enables alt-speed limits
+                        type: boolean
+                      scheduleFromHour:
+                        description: ScheduleFromHour is the start hour (0-23)
+                        type: integer
+                      scheduleFromMinute:
+                        description: ScheduleFromMinute is the start minute (0-59)
+                        type: integer
+                      scheduleToHour:
+                        description: ScheduleToHour is the end hour (0-23)
+                        type: integer
+                      scheduleToMinute:
+                        description: ScheduleToMinute is the end minute (0-59)
+                        type: integer
+                      schedulerDays:
+                        description: SchedulerDays is a bitmask (1=Mon, 2=Tue, 4=Wed,
+                          8=Thu, 16=Fri, 32=Sat, 64=Sun, 127=All)
+                        type: integer
+                      schedulerEnabled:
+                        description: SchedulerEnabled enables scheduled alt-speed
+                        type: boolean
+                      uploadLimit:
+                        description: UploadLimit in KiB/s
+                        type: integer
+                    type: object
+                  bittorrent:
+                    description: BitTorrent protocol settings
+                    properties:
+                      anonymousMode:
+                        description: AnonymousMode hides client identity
+                        type: boolean
+                      dht:
+                        description: DHT enables Distributed Hash Table
+                        type: boolean
+                      encryption:
+                        description: 'Encryption: 0=prefer, 1=force_on, 2=force_off'
+                        enum:
+                        - 0
+                        - 1
+                        - 2
+                        type: integer
+                      lsd:
+                        description: LSD enables Local Service Discovery
+                        type: boolean
+                      pex:
+                        description: PeX enables Peer Exchange
+                        type: boolean
+                    type: object
+                  connection:
+                    description: Connection settings
+                    properties:
+                      credentialsSecretRef:
+                        description: CredentialsSecretRef for authentication
+                        properties:
+                          name:
+                            description: Name is the name of the Secret.
+                            type: string
+                          passwordKey:
+                            default: password
+                            description: PasswordKey is the key for the password.
+                            type: string
+                          usernameKey:
+                            default: username
+                            description: UsernameKey is the key for the username.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        default: http://localhost:8080
+                        description: URL to qBittorrent WebUI (e.g., http://localhost:8080)
+                        type: string
+                    required:
+                    - url
+                    type: object
+                  connections:
+                    description: Connection settings (peers, etc.)
+                    properties:
+                      listenPort:
+                        description: ListenPort is the listening port for incoming
+                          connections
+                        type: integer
+                      maxConnections:
+                        description: MaxConnections is the global max connections
+                        type: integer
+                      maxConnectionsPerTorrent:
+                        description: MaxConnectionsPerTorrent is the per-torrent max
+                          connections
+                        type: integer
+                      maxUploads:
+                        description: MaxUploads is the global max upload slots
+                        type: integer
+                      maxUploadsPerTorrent:
+                        description: MaxUploadsPerTorrent is the per-torrent max upload
+                          slots
+                        type: integer
+                      randomPort:
+                        description: RandomPort uses random port on startup
+                        type: boolean
+                      upnpEnabled:
+                        description: UPnPEnabled enables UPnP/NAT-PMP port forwarding
+                        type: boolean
+                    type: object
+                  directories:
+                    description: Directories configuration
+                    properties:
+                      appendExtension:
+                        description: AppendExtension adds .!qB extension to incomplete
+                          files
+                        type: boolean
+                      createSubfolder:
+                        description: CreateSubfolder creates subfolder for multi-file
+                          torrents
+                        type: boolean
+                      savePath:
+                        description: SavePath is the default save path for downloads
+                        type: string
+                      tempPath:
+                        description: TempPath is the temporary download path
+                        type: string
+                      tempPathEnabled:
+                        description: TempPathEnabled enables use of temporary path
+                        type: boolean
+                    type: object
+                  queue:
+                    description: Queue settings
+                    properties:
+                      maxActiveDownloads:
+                        description: MaxActiveDownloads is the max concurrent downloads
+                        type: integer
+                      maxActiveTorrents:
+                        description: MaxActiveTorrents is the max total active torrents
+                        type: integer
+                      maxActiveUploads:
+                        description: MaxActiveUploads is the max concurrent uploads
+                        type: integer
+                      queueingEnabled:
+                        description: QueueingEnabled enables download queueing
+                        type: boolean
+                    type: object
+                  seeding:
+                    description: Seeding limits
+                    properties:
+                      maxRatio:
+                        description: MaxRatio is the max seeding ratio (e.g., 2.0)
+                        type: string
+                      maxRatioAction:
+                        description: 'MaxRatioAction: pause (0), remove (1), remove_and_delete
+                          (3), enable_super_seeding (2)'
+                        enum:
+                        - 0
+                        - 1
+                        - 2
+                        - 3
+                        type: integer
+                      maxRatioEnabled:
+                        description: MaxRatioEnabled enables ratio limit
+                        type: boolean
+                      maxSeedingTime:
+                        description: MaxSeedingTime is max seeding time in minutes
+                        type: integer
+                      maxSeedingTimeEnabled:
+                        description: MaxSeedingTimeEnabled enables time limit
+                        type: boolean
+                    type: object
+                  speed:
+                    description: Speed limits
+                    properties:
+                      downloadLimit:
+                        description: DownloadLimit in KiB/s (0 = unlimited)
+                        type: integer
+                      globalDownloadSpeedLimit:
+                        description: GlobalDownloadSpeedLimit in KiB/s (0 = unlimited)
+                        type: integer
+                      globalUploadSpeedLimit:
+                        description: GlobalUploadSpeedLimit in KiB/s (0 = unlimited)
+                        type: integer
+                      uploadLimit:
+                        description: UploadLimit in KiB/s (0 = unlimited)
+                        type: integer
+                    type: object
+                required:
+                - connection
+                type: object
+              reconciliation:
+                description: Reconciliation configures sync behavior
+                properties:
+                  interval:
+                    default: 5m
+                    description: Interval between reconciliations.
+                    type: string
+                  suspend:
+                    description: Suspend pauses reconciliation.
+                    type: boolean
+                type: object
+              restartOnGluetunChange:
+                default: true
+                description: RestartOnGluetunChange triggers Deployment restart when
+                  Gluetun config changes
+                type: boolean
+              rtorrent:
+                description: |-
+                  RTorrent configuration (applied via XML-RPC API)
+                  At least one download client must be specified
+                properties:
+                  connection:
+                    description: Connection settings
+                    properties:
+                      credentialsSecretRef:
+                        description: CredentialsSecretRef for HTTP Basic authentication
+                          (if using a web server proxy)
+                        properties:
+                          name:
+                            description: Name is the name of the Secret.
+                            type: string
+                          passwordKey:
+                            default: password
+                            description: PasswordKey is the key for the password.
+                            type: string
+                          usernameKey:
+                            default: username
+                            description: UsernameKey is the key for the username.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        description: |-
+                          URL to rTorrent XML-RPC interface (e.g., http://localhost:8080/RPC2)
+                          Can also be a Unix socket path (e.g., /path/to/.local/share/rtorrent/rtorrent.sock)
+                        type: string
+                    required:
+                    - url
+                    type: object
+                  connections:
+                    description: Connection settings (peers, etc.)
+                    properties:
+                      maxPeers:
+                        description: MaxPeers is the global max peers
+                        type: integer
+                      maxPeersPerTorrent:
+                        description: MaxPeersPerTorrent is the per-torrent max peers
+                        type: integer
+                      maxUploads:
+                        description: MaxUploads is the global max upload slots
+                        type: integer
+                      maxUploadsPerTorrent:
+                        description: MaxUploadsPerTorrent is the per-torrent max upload
+                          slots
+                        type: integer
+                      port:
+                        description: Port is the listening port (0 = random)
+                        type: integer
+                      portRandomize:
+                        description: PortRandomize randomizes the port within the
+                          range
+                        type: boolean
+                      portRange:
+                        description: PortRange is the port range (e.g., "6881-6889")
+                        type: string
+                    type: object
+                  directories:
+                    description: Directories configuration
+                    properties:
+                      directory:
+                        description: Directory is the default download directory
+                        type: string
+                      sessionDirectory:
+                        description: SessionDirectory is the session data directory
+                        type: string
+                    type: object
+                  protocol:
+                    description: Protocol settings
+                    properties:
+                      dht:
+                        description: DHT enables Distributed Hash Table
+                        type: boolean
+                      encryption:
+                        description: 'Encryption mode: none, allow_incoming, try_outgoing,
+                          require, require_RC4, require_RC4_strong'
+                        type: string
+                      pex:
+                        description: PEX enables Peer Exchange
+                        type: boolean
+                    type: object
+                  seeding:
+                    description: Seeding limits
+                    properties:
+                      maxSeedRatio:
+                        description: MaxSeedRatio is the maximum ratio before stopping
+                          (-1 = disabled)
+                        type: string
+                      maxSeedTime:
+                        description: MaxSeedTime is maximum seeding time in seconds
+                          (-1 = disabled)
+                        type: integer
+                      minSeedRatio:
+                        description: MinSeedRatio is the minimum ratio to maintain
+                          (-1 = disabled)
+                        type: string
+                      minSeedTime:
+                        description: MinSeedTime is minimum seeding time in seconds
+                        type: integer
+                    type: object
+                  speed:
+                    description: Speed limits
+                    properties:
+                      downloadRate:
+                        description: DownloadRate in KiB/s (0 = unlimited)
+                        type: integer
+                      uploadRate:
+                        description: UploadRate in KiB/s (0 = unlimited)
+                        type: integer
+                    type: object
+                required:
+                - connection
+                type: object
+              sabnzbd:
+                description: |-
+                  SABnzbd configuration (applied via REST API)
+                  Usenet download client
+                properties:
+                  categories:
+                    description: Categories configuration
+                    items:
+                      description: SABnzbdCategorySpec defines a download category
+                      properties:
+                        dir:
+                          description: Dir is the directory for this category
+                          type: string
+                        name:
+                          description: Name is the category name
+                          type: string
+                        priority:
+                          description: 'Priority: -100 (default), -2 (paused), -1
+                            (low), 0 (normal), 1 (high), 2 (force)'
+                          enum:
+                          - -100
+                          - -2
+                          - -1
+                          - 0
+                          - 1
+                          - 2
+                          type: integer
+                        script:
+                          description: Script is the post-processing script for this
+                            category
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  connection:
+                    description: Connection settings
+                    properties:
+                      apiKeySecretRef:
+                        description: APIKeySecretRef references the API key Secret
+                          for SABnzbd.
+                        properties:
+                          key:
+                            default: apiKey
+                            description: Key is the key within the Secret.
+                            type: string
+                          name:
+                            description: Name is the name of the Secret in the same
+                              namespace.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        default: http://localhost:8080
+                        description: URL to SABnzbd API (e.g., http://localhost:8080)
+                        type: string
+                    required:
+                    - apiKeySecretRef
+                    - url
+                    type: object
+                  directories:
+                    description: Directories configuration
+                    properties:
+                      completeDir:
+                        description: CompleteDir is the completed downloads directory
+                        type: string
+                      downloadDir:
+                        description: DownloadDir is the temporary download directory
+                        type: string
+                      incompleteDir:
+                        description: IncompleteDir is the incomplete downloads directory
+                        type: string
+                      nzbBackupDir:
+                        description: NzbBackupDir is the NZB backup directory
+                        type: string
+                      scriptDir:
+                        description: ScriptDir is the post-processing scripts directory
+                        type: string
+                    type: object
+                  postProcessing:
+                    description: Post-processing settings
+                    properties:
+                      cleanupEnabled:
+                        description: CleanupEnabled cleans up files after unpacking
+                        type: boolean
+                      enabled:
+                        description: Enabled enables post-processing
+                        type: boolean
+                      quickCheck:
+                        description: QuickCheck enables quick verification
+                        type: boolean
+                      scriptEnabled:
+                        description: ScriptEnabled enables post-processing scripts
+                        type: boolean
+                      unpackEnabled:
+                        description: UnpackEnabled enables automatic unpacking
+                        type: boolean
+                    type: object
+                  queue:
+                    description: Queue settings
+                    properties:
+                      connections:
+                        description: Connections is the total number of connections
+                        type: integer
+                      maxRetries:
+                        description: MaxRetries is the max number of retries per server
+                        type: integer
+                      preCheck:
+                        description: PreCheck enables pre-download check
+                        type: boolean
+                    type: object
+                  speed:
+                    description: Speed limits
+                    properties:
+                      pauseDownloads:
+                        description: PauseDownloads pauses all downloads
+                        type: boolean
+                      speedLimit:
+                        description: SpeedLimit in KiB/s (0 = unlimited)
+                        type: integer
+                      speedLimitPercentage:
+                        description: SpeedLimitPercentage is the percentage of bandwidth
+                          to use (0-100)
+                        maximum: 100
+                        minimum: 0
+                        type: integer
+                    type: object
+                required:
+                - connection
+                type: object
+              transmission:
+                description: |-
+                  Transmission configuration (applied via RPC)
+                  At least one download client must be specified
+                properties:
+                  altSpeed:
+                    description: AltSpeed (turtle mode / scheduled limits)
+                    properties:
+                      down:
+                        description: Down is the alt-speed download limit in KB/s
+                        type: integer
+                      enabled:
+                        description: Enabled enables alt-speed mode
+                        type: boolean
+                      timeBegin:
+                        description: TimeBegin is minutes from midnight for schedule
+                          start
+                        type: integer
+                      timeDays:
+                        description: TimeDays are days to enable alt-speed (1=Mon,
+                          7=Sun)
+                        items:
+                          type: integer
+                        type: array
+                      timeEnabled:
+                        description: TimeEnabled enables scheduled alt-speed
+                        type: boolean
+                      timeEnd:
+                        description: TimeEnd is minutes from midnight for schedule
+                          end
+                        type: integer
+                      up:
+                        description: Up is the alt-speed upload limit in KB/s
+                        type: integer
+                    type: object
+                  blocklist:
+                    description: Blocklist settings
+                    properties:
+                      enabled:
+                        description: Enabled enables blocklist
+                        type: boolean
+                      url:
+                        description: URL is the blocklist URL
+                        type: string
+                    type: object
+                  connection:
+                    description: Connection settings
+                    properties:
+                      credentialsSecretRef:
+                        description: CredentialsSecretRef for authentication (optional
+                          if no auth)
+                        properties:
+                          name:
+                            description: Name is the name of the Secret.
+                            type: string
+                          passwordKey:
+                            default: password
+                            description: PasswordKey is the key for the password.
+                            type: string
+                          usernameKey:
+                            default: username
+                            description: UsernameKey is the key for the username.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        default: http://localhost:9091
+                        description: URL to Transmission RPC (e.g., http://localhost:9091)
+                        type: string
+                    required:
+                    - url
+                    type: object
+                  directories:
+                    description: Directories configuration
+                    properties:
+                      download:
+                        description: Download is the completed downloads directory
+                        type: string
+                      incomplete:
+                        description: Incomplete is the incomplete downloads directory
+                        type: string
+                      incompleteEnabled:
+                        description: IncompleteEnabled enables incomplete directory
+                        type: boolean
+                    type: object
+                  peers:
+                    description: Peers settings
+                    properties:
+                      limitGlobal:
+                        description: LimitGlobal is the global peer limit
+                        type: integer
+                      limitPerTorrent:
+                        description: LimitPerTorrent is the per-torrent peer limit
+                        type: integer
+                      port:
+                        description: Port is the peer port
+                        type: integer
+                      portForwardingEnabled:
+                        description: PortForwardingEnabled enables port forwarding
+                        type: boolean
+                      randomPort:
+                        description: RandomPort enables random port selection
+                        type: boolean
+                    type: object
+                  queue:
+                    description: Queue settings
+                    properties:
+                      downloadEnabled:
+                        description: DownloadEnabled enables download queue
+                        type: boolean
+                      downloadSize:
+                        description: DownloadSize is max concurrent downloads
+                        type: integer
+                      seedEnabled:
+                        description: SeedEnabled enables seed queue
+                        type: boolean
+                      seedSize:
+                        description: SeedSize is max concurrent seeds
+                        type: integer
+                      stalledEnabled:
+                        description: StalledEnabled enables stalled torrent handling
+                        type: boolean
+                      stalledMinutes:
+                        description: StalledMinutes is time before a torrent is considered
+                          stalled
+                        type: integer
+                    type: object
+                  security:
+                    description: Security/protocol settings
+                    properties:
+                      dhtEnabled:
+                        description: DHTEnabled enables Distributed Hash Table
+                        type: boolean
+                      encryption:
+                        default: preferred
+                        description: 'Encryption: required, preferred, tolerated'
+                        enum:
+                        - required
+                        - preferred
+                        - tolerated
+                        type: string
+                      lpdEnabled:
+                        description: LPDEnabled enables Local Peer Discovery
+                        type: boolean
+                      pexEnabled:
+                        description: PEXEnabled enables Peer Exchange
+                        type: boolean
+                      utpEnabled:
+                        description: UTPEnabled enables Micro Transport Protocol
+                        type: boolean
+                    type: object
+                  seeding:
+                    description: Seeding limits
+                    properties:
+                      idleLimit:
+                        description: IdleLimit is minutes of idle before stopping
+                        type: integer
+                      idleLimitEnabled:
+                        description: IdleLimitEnabled enables idle limit
+                        type: boolean
+                      ratioLimit:
+                        description: RatioLimit is the seed ratio to stop at
+                        type: string
+                      ratioLimited:
+                        description: RatioLimited enables ratio limit
+                        type: boolean
+                    type: object
+                  speed:
+                    description: Speed limits
+                    properties:
+                      downloadLimit:
+                        description: DownloadLimit in KB/s (0 = unlimited)
+                        type: integer
+                      downloadLimitEnabled:
+                        description: DownloadLimitEnabled enables download limit
+                        type: boolean
+                      uploadLimit:
+                        description: UploadLimit in KB/s (0 = unlimited)
+                        type: integer
+                      uploadLimitEnabled:
+                        description: UploadLimitEnabled enables upload limit
+                        type: boolean
+                    type: object
+                required:
+                - connection
+                type: object
+            required:
+            - deploymentRef
+            - gluetun
+            type: object
+          status:
+            description: Status defines the observed state
+            properties:
+              conditions:
+                description: Conditions represent the latest observations
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              delugeConnected:
+                description: DelugeConnected indicates if Deluge Web UI is reachable
+                type: boolean
+              delugeVersion:
+                description: DelugeVersion is the Deluge version
+                type: string
+              gluetunConfigHash:
+                description: GluetunConfigHash is the hash of the generated Gluetun
+                  config
+                type: string
+              gluetunSecretGenerated:
+                description: GluetunSecretGenerated indicates if the Gluetun env Secret
+                  was created
+                type: boolean
+              lastReconcile:
+                description: LastReconcile is the timestamp of the last reconciliation
+                format: date-time
+                type: string
+              nzbgetConnected:
+                description: NZBGetConnected indicates if NZBGet JSON-RPC is reachable
+                type: boolean
+              nzbgetVersion:
+                description: NZBGetVersion is the NZBGet version
+                type: string
+              observedGeneration:
+                description: ObservedGeneration is the last observed generation
+                format: int64
+                type: integer
+              qbittorrentConnected:
+                description: QBittorrentConnected indicates if qBittorrent WebUI is
+                  reachable
+                type: boolean
+              qbittorrentVersion:
+                description: QBittorrentVersion is the qBittorrent version
+                type: string
+              rtorrentConnected:
+                description: RTorrentConnected indicates if rTorrent XML-RPC is reachable
+                type: boolean
+              rtorrentVersion:
+                description: RTorrentVersion is the rTorrent version
+                type: string
+              sabnzbdConnected:
+                description: SABnzbdConnected indicates if SABnzbd API is reachable
+                type: boolean
+              sabnzbdVersion:
+                description: SABnzbdVersion is the SABnzbd version
+                type: string
+              transmissionConnected:
+                description: TransmissionConnected indicates if Transmission RPC is
+                  reachable
+                type: boolean
+              transmissionVersion:
+                description: TransmissionVersion is the Transmission version
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

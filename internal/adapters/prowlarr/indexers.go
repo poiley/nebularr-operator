@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -12,9 +13,9 @@ import (
 var indexerIDCache = make(map[string]int) // "baseURL:name" -> ID
 
 // getManagedIndexers retrieves indexers tagged with ownership tag
-func (a *Adapter) getManagedIndexers(ctx context.Context, c *httpClient, tagID int) ([]irv1.ProwlarrIndexerIR, error) {
+func (a *Adapter) getManagedIndexers(ctx context.Context, c *httpclient.Client, tagID int) ([]irv1.ProwlarrIndexerIR, error) {
 	var indexers []IndexerResource
-	if err := c.get(ctx, "/api/v1/indexer", &indexers); err != nil {
+	if err := c.Get(ctx, "/api/v1/indexer", &indexers); err != nil {
 		return nil, fmt.Errorf("failed to get indexers: %w", err)
 	}
 
@@ -25,7 +26,7 @@ func (a *Adapter) getManagedIndexers(ctx context.Context, c *httpClient, tagID i
 		}
 
 		// Cache the ID
-		cacheKey := fmt.Sprintf("%s:%s", c.baseURL, idx.Name)
+		cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), idx.Name)
 		indexerIDCache[cacheKey] = idx.ID
 
 		// Convert to IR
@@ -129,7 +130,7 @@ func indexersEqual(a, b irv1.ProwlarrIndexerIR) bool {
 }
 
 // createIndexer creates an indexer in Prowlarr
-func (a *Adapter) createIndexer(ctx context.Context, c *httpClient, idx irv1.ProwlarrIndexerIR, tagID int) error {
+func (a *Adapter) createIndexer(ctx context.Context, c *httpclient.Client, idx irv1.ProwlarrIndexerIR, tagID int) error {
 	// Build the resource
 	resource := IndexerResource{
 		Name:           idx.Name,
@@ -164,26 +165,26 @@ func (a *Adapter) createIndexer(ctx context.Context, c *httpClient, idx irv1.Pro
 	}
 
 	var created IndexerResource
-	if err := c.post(ctx, "/api/v1/indexer", resource, &created); err != nil {
+	if err := c.Post(ctx, "/api/v1/indexer", resource, &created); err != nil {
 		return fmt.Errorf("failed to create indexer %s: %w", idx.Name, err)
 	}
 
 	// Cache the ID
-	cacheKey := fmt.Sprintf("%s:%s", c.baseURL, idx.Name)
+	cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), idx.Name)
 	indexerIDCache[cacheKey] = created.ID
 
 	return nil
 }
 
 // updateIndexer updates an existing indexer
-func (a *Adapter) updateIndexer(ctx context.Context, c *httpClient, idx irv1.ProwlarrIndexerIR, tagID int) error {
+func (a *Adapter) updateIndexer(ctx context.Context, c *httpclient.Client, idx irv1.ProwlarrIndexerIR, tagID int) error {
 	// Get the cached ID
-	cacheKey := fmt.Sprintf("%s:%s", c.baseURL, idx.Name)
+	cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), idx.Name)
 	id, ok := indexerIDCache[cacheKey]
 	if !ok {
 		// Try to find it
 		var indexers []IndexerResource
-		if err := c.get(ctx, "/api/v1/indexer", &indexers); err != nil {
+		if err := c.Get(ctx, "/api/v1/indexer", &indexers); err != nil {
 			return fmt.Errorf("failed to get indexers: %w", err)
 		}
 		for _, existing := range indexers {
@@ -233,7 +234,7 @@ func (a *Adapter) updateIndexer(ctx context.Context, c *httpClient, idx irv1.Pro
 	}
 
 	path := fmt.Sprintf("/api/v1/indexer/%d", id)
-	if err := c.put(ctx, path, resource, nil); err != nil {
+	if err := c.Put(ctx, path, resource, nil); err != nil {
 		return fmt.Errorf("failed to update indexer %s: %w", idx.Name, err)
 	}
 
@@ -241,13 +242,13 @@ func (a *Adapter) updateIndexer(ctx context.Context, c *httpClient, idx irv1.Pro
 }
 
 // deleteIndexer deletes an indexer
-func (a *Adapter) deleteIndexer(ctx context.Context, c *httpClient, name string) error {
-	cacheKey := fmt.Sprintf("%s:%s", c.baseURL, name)
+func (a *Adapter) deleteIndexer(ctx context.Context, c *httpclient.Client, name string) error {
+	cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), name)
 	id, ok := indexerIDCache[cacheKey]
 	if !ok {
 		// Try to find it
 		var indexers []IndexerResource
-		if err := c.get(ctx, "/api/v1/indexer", &indexers); err != nil {
+		if err := c.Get(ctx, "/api/v1/indexer", &indexers); err != nil {
 			return fmt.Errorf("failed to get indexers: %w", err)
 		}
 		for _, existing := range indexers {
@@ -263,7 +264,7 @@ func (a *Adapter) deleteIndexer(ctx context.Context, c *httpClient, name string)
 	}
 
 	path := fmt.Sprintf("/api/v1/indexer/%d", id)
-	if err := c.delete(ctx, path); err != nil {
+	if err := c.Delete(ctx, path); err != nil {
 		return fmt.Errorf("failed to delete indexer %s: %w", name, err)
 	}
 

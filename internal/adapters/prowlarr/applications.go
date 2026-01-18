@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -12,9 +13,9 @@ import (
 var applicationIDCache = make(map[string]int) // "baseURL:name" -> ID
 
 // getManagedApplications retrieves applications tagged with ownership tag
-func (a *Adapter) getManagedApplications(ctx context.Context, c *httpClient, tagID int) ([]irv1.ProwlarrApplicationIR, error) {
+func (a *Adapter) getManagedApplications(ctx context.Context, c *httpclient.Client, tagID int) ([]irv1.ProwlarrApplicationIR, error) {
 	var apps []ApplicationResource
-	if err := c.get(ctx, "/api/v1/applications", &apps); err != nil {
+	if err := c.Get(ctx, "/api/v1/applications", &apps); err != nil {
 		return nil, fmt.Errorf("failed to get applications: %w", err)
 	}
 
@@ -25,7 +26,7 @@ func (a *Adapter) getManagedApplications(ctx context.Context, c *httpClient, tag
 		}
 
 		// Cache the ID
-		cacheKey := fmt.Sprintf("%s:%s", c.baseURL, app.Name)
+		cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), app.Name)
 		applicationIDCache[cacheKey] = app.ID
 
 		// Convert to IR
@@ -172,7 +173,7 @@ func applicationsEqual(a, b irv1.ProwlarrApplicationIR) bool {
 }
 
 // createApplication creates an application in Prowlarr
-func (a *Adapter) createApplication(ctx context.Context, c *httpClient, app irv1.ProwlarrApplicationIR, tagID int) error {
+func (a *Adapter) createApplication(ctx context.Context, c *httpclient.Client, app irv1.ProwlarrApplicationIR, tagID int) error {
 	impl := appTypeToImpl(app.Type)
 	resource := ApplicationResource{
 		Name:           app.Name,
@@ -186,24 +187,24 @@ func (a *Adapter) createApplication(ctx context.Context, c *httpClient, app irv1
 	resource.Fields = buildApplicationFields(app)
 
 	var created ApplicationResource
-	if err := c.post(ctx, "/api/v1/applications", resource, &created); err != nil {
+	if err := c.Post(ctx, "/api/v1/applications", resource, &created); err != nil {
 		return fmt.Errorf("failed to create application %s: %w", app.Name, err)
 	}
 
 	// Cache the ID
-	cacheKey := fmt.Sprintf("%s:%s", c.baseURL, app.Name)
+	cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), app.Name)
 	applicationIDCache[cacheKey] = created.ID
 
 	return nil
 }
 
 // updateApplication updates an existing application
-func (a *Adapter) updateApplication(ctx context.Context, c *httpClient, app irv1.ProwlarrApplicationIR, tagID int) error {
-	cacheKey := fmt.Sprintf("%s:%s", c.baseURL, app.Name)
+func (a *Adapter) updateApplication(ctx context.Context, c *httpclient.Client, app irv1.ProwlarrApplicationIR, tagID int) error {
+	cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), app.Name)
 	id, ok := applicationIDCache[cacheKey]
 	if !ok {
 		var apps []ApplicationResource
-		if err := c.get(ctx, "/api/v1/applications", &apps); err != nil {
+		if err := c.Get(ctx, "/api/v1/applications", &apps); err != nil {
 			return fmt.Errorf("failed to get applications: %w", err)
 		}
 		for _, existing := range apps {
@@ -231,7 +232,7 @@ func (a *Adapter) updateApplication(ctx context.Context, c *httpClient, app irv1
 	resource.Fields = buildApplicationFields(app)
 
 	path := fmt.Sprintf("/api/v1/applications/%d", id)
-	if err := c.put(ctx, path, resource, nil); err != nil {
+	if err := c.Put(ctx, path, resource, nil); err != nil {
 		return fmt.Errorf("failed to update application %s: %w", app.Name, err)
 	}
 
@@ -239,12 +240,12 @@ func (a *Adapter) updateApplication(ctx context.Context, c *httpClient, app irv1
 }
 
 // deleteApplication deletes an application
-func (a *Adapter) deleteApplication(ctx context.Context, c *httpClient, name string) error {
-	cacheKey := fmt.Sprintf("%s:%s", c.baseURL, name)
+func (a *Adapter) deleteApplication(ctx context.Context, c *httpclient.Client, name string) error {
+	cacheKey := fmt.Sprintf("%s:%s", c.BaseURL(), name)
 	id, ok := applicationIDCache[cacheKey]
 	if !ok {
 		var apps []ApplicationResource
-		if err := c.get(ctx, "/api/v1/applications", &apps); err != nil {
+		if err := c.Get(ctx, "/api/v1/applications", &apps); err != nil {
 			return fmt.Errorf("failed to get applications: %w", err)
 		}
 		for _, existing := range apps {
@@ -259,7 +260,7 @@ func (a *Adapter) deleteApplication(ctx context.Context, c *httpClient, name str
 	}
 
 	path := fmt.Sprintf("/api/v1/applications/%d", id)
-	if err := c.delete(ctx, path); err != nil {
+	if err := c.Delete(ctx, path); err != nil {
 		return fmt.Errorf("failed to delete application %s: %w", name, err)
 	}
 

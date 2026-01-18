@@ -6,21 +6,13 @@
 package prowlarr
 
 import (
-	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"time"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
-)
-
-const (
-	// OwnershipTagName is the tag name used to identify Nebularr-managed resources
-	OwnershipTagName = "nebularr-managed"
 )
 
 // Adapter implements the adapters.Adapter interface for Prowlarr
@@ -44,7 +36,7 @@ func (a *Adapter) Connect(ctx context.Context, conn *irv1.ConnectionIR) (*adapte
 	c := a.newClient(conn)
 
 	var status SystemResource
-	if err := c.get(ctx, "/api/v1/system/status", &status); err != nil {
+	if err := c.Get(ctx, "/api/v1/system/status", &status); err != nil {
 		return nil, fmt.Errorf("failed to connect to Prowlarr: %w", err)
 	}
 
@@ -69,7 +61,7 @@ func (a *Adapter) Discover(ctx context.Context, conn *irv1.ConnectionIR) (*adapt
 
 	// Discover download client types
 	var dcSchemas []DownloadClientResource
-	if err := c.get(ctx, "/api/v1/downloadclient/schema", &dcSchemas); err == nil {
+	if err := c.Get(ctx, "/api/v1/downloadclient/schema", &dcSchemas); err == nil {
 		seen := make(map[string]bool)
 		for _, schema := range dcSchemas {
 			if schema.Implementation != "" && !seen[schema.Implementation] {
@@ -81,7 +73,7 @@ func (a *Adapter) Discover(ctx context.Context, conn *irv1.ConnectionIR) (*adapt
 
 	// Discover indexer definitions (Prowlarr has many more indexer types)
 	var idxSchemas []IndexerResource
-	if err := c.get(ctx, "/api/v1/indexer/schema", &idxSchemas); err == nil {
+	if err := c.Get(ctx, "/api/v1/indexer/schema", &idxSchemas); err == nil {
 		seen := make(map[string]bool)
 		for _, schema := range idxSchemas {
 			if schema.DefinitionName != "" && !seen[schema.DefinitionName] {
@@ -233,142 +225,17 @@ func (a *Adapter) Apply(ctx context.Context, conn *irv1.ConnectionIR, changes *a
 	return result, nil
 }
 
-// httpClient is a simple HTTP client for Prowlarr API
-type httpClient struct {
-	baseURL    string
-	apiKey     string
-	httpClient *http.Client
-}
-
-func (a *Adapter) newClient(conn *irv1.ConnectionIR) *httpClient {
-	return &httpClient{
-		baseURL: conn.URL,
-		apiKey:  conn.APIKey,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
-	}
-}
-
-func (c *httpClient) get(ctx context.Context, path string, result interface{}) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+path, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("X-Api-Key", c.apiKey)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
-	}
-
-	return json.NewDecoder(resp.Body).Decode(result)
-}
-
-func (c *httpClient) post(ctx context.Context, path string, body, result interface{}) error {
-	var bodyReader io.Reader
-	if body != nil {
-		data, err := json.Marshal(body)
-		if err != nil {
-			return err
-		}
-		bodyReader = bytes.NewReader(data)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.baseURL+path, bodyReader)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("X-Api-Key", c.apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
-	}
-
-	if result != nil {
-		return json.NewDecoder(resp.Body).Decode(result)
-	}
-	return nil
-}
-
-func (c *httpClient) put(ctx context.Context, path string, body, result interface{}) error { //nolint:unparam // result may be used in future
-	var bodyReader io.Reader
-	if body != nil {
-		data, err := json.Marshal(body)
-		if err != nil {
-			return err
-		}
-		bodyReader = bytes.NewReader(data)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPut, c.baseURL+path, bodyReader)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("X-Api-Key", c.apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusAccepted {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
-	}
-
-	if result != nil {
-		return json.NewDecoder(resp.Body).Decode(result)
-	}
-	return nil
-}
-
-func (c *httpClient) delete(ctx context.Context, path string) error {
-	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, c.baseURL+path, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("X-Api-Key", c.apiKey)
-
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent {
-		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("unexpected status %d: %s", resp.StatusCode, string(body))
-	}
-
-	return nil
-}
-
-// HealthResource represents a health check from Prowlarr API
-type HealthResource struct {
-	Source  string `json:"source"`
-	Type    string `json:"type"` // error, warning, notice
-	Message string `json:"message"`
-	WikiURL string `json:"wikiUrl"`
+// newClient creates a new HTTP client for Prowlarr API communication
+func (a *Adapter) newClient(conn *irv1.ConnectionIR) *httpclient.Client {
+	return httpclient.New(httpclient.Config{
+		BaseURL:            conn.URL,
+		APIKey:             conn.APIKey,
+		InsecureSkipVerify: conn.InsecureSkipVerify,
+	})
 }
 
 // Ensure Adapter implements HealthChecker
+// Note: HealthResource is now defined as a type alias in types.go
 var _ adapters.HealthChecker = (*Adapter)(nil)
 
 // GetHealth fetches the current health status from Prowlarr
@@ -376,7 +243,7 @@ func (a *Adapter) GetHealth(ctx context.Context, conn *irv1.ConnectionIR) (*irv1
 	c := a.newClient(conn)
 
 	var healthChecks []HealthResource
-	if err := c.get(ctx, "/api/v1/health", &healthChecks); err != nil {
+	if err := c.Get(ctx, "/api/v1/health", &healthChecks); err != nil {
 		return nil, fmt.Errorf("failed to get health: %w", err)
 	}
 

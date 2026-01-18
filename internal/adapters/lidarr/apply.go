@@ -5,11 +5,13 @@ import (
 	"fmt"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
+	"github.com/poiley/nebularr-operator/internal/adapters/shared"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
 // applyCreate creates a new resource
-func (a *Adapter) applyCreate(ctx context.Context, c *httpClient, change adapters.Change, tagID int) error {
+func (a *Adapter) applyCreate(ctx context.Context, c *httpclient.Client, change adapters.Change, tagID int) error {
 	switch change.ResourceType {
 	case adapters.ResourceQualityProfile:
 		return a.createQualityProfile(ctx, c, change.Payload.(*irv1.AudioQualityIR))
@@ -33,7 +35,7 @@ func (a *Adapter) applyCreate(ctx context.Context, c *httpClient, change adapter
 }
 
 // applyUpdate updates an existing resource
-func (a *Adapter) applyUpdate(ctx context.Context, c *httpClient, change adapters.Change, tagID int) error {
+func (a *Adapter) applyUpdate(ctx context.Context, c *httpclient.Client, change adapters.Change, tagID int) error {
 	switch change.ResourceType {
 	case adapters.ResourceQualityProfile:
 		return a.updateQualityProfile(ctx, c, *change.ID, change.Payload.(*irv1.AudioQualityIR))
@@ -57,20 +59,20 @@ func (a *Adapter) applyUpdate(ctx context.Context, c *httpClient, change adapter
 }
 
 // applyDelete deletes a resource
-func (a *Adapter) applyDelete(ctx context.Context, c *httpClient, change adapters.Change) error {
+func (a *Adapter) applyDelete(ctx context.Context, c *httpclient.Client, change adapters.Change) error {
 	if change.ID == nil {
 		return fmt.Errorf("cannot delete resource without ID")
 	}
 
 	switch change.ResourceType {
 	case adapters.ResourceQualityProfile:
-		return c.delete(ctx, fmt.Sprintf("/api/v1/qualityprofile/%d", *change.ID))
+		return c.Delete(ctx, fmt.Sprintf("/api/v1/qualityprofile/%d", *change.ID))
 	case adapters.ResourceDownloadClient:
-		return c.delete(ctx, fmt.Sprintf("/api/v1/downloadclient/%d", *change.ID))
+		return c.Delete(ctx, fmt.Sprintf("/api/v1/downloadclient/%d", *change.ID))
 	case adapters.ResourceIndexer:
-		return c.delete(ctx, fmt.Sprintf("/api/v1/indexer/%d", *change.ID))
+		return c.Delete(ctx, fmt.Sprintf("/api/v1/indexer/%d", *change.ID))
 	case adapters.ResourceRootFolder:
-		return c.delete(ctx, fmt.Sprintf("/api/v1/rootfolder/%d", *change.ID))
+		return c.Delete(ctx, fmt.Sprintf("/api/v1/rootfolder/%d", *change.ID))
 	case adapters.ResourceRemotePathMapping:
 		return a.deleteRemotePathMapping(ctx, c, *change.ID)
 	case adapters.ResourceNotification:
@@ -85,30 +87,30 @@ func (a *Adapter) applyDelete(ctx context.Context, c *httpClient, change adapter
 }
 
 // createQualityProfile creates a quality profile using schema for complete structure
-func (a *Adapter) createQualityProfile(ctx context.Context, c *httpClient, profile *irv1.AudioQualityIR) error {
+func (a *Adapter) createQualityProfile(ctx context.Context, c *httpclient.Client, profile *irv1.AudioQualityIR) error {
 	// Get schema to get full items structure
 	var schema QualityProfileResource
-	if err := c.get(ctx, "/api/v1/qualityprofile/schema", &schema); err != nil {
+	if err := c.Get(ctx, "/api/v1/qualityprofile/schema", &schema); err != nil {
 		return fmt.Errorf("failed to get quality profile schema: %w", err)
 	}
 
 	// Build profile from schema with our tier preferences
 	resource := a.profileFromSchema(&schema, profile)
-	return c.post(ctx, "/api/v1/qualityprofile", resource, nil)
+	return c.Post(ctx, "/api/v1/qualityprofile", resource, nil)
 }
 
 // updateQualityProfile updates a quality profile using schema for complete structure
-func (a *Adapter) updateQualityProfile(ctx context.Context, c *httpClient, id int, profile *irv1.AudioQualityIR) error {
+func (a *Adapter) updateQualityProfile(ctx context.Context, c *httpclient.Client, id int, profile *irv1.AudioQualityIR) error {
 	// Get schema to get full items structure
 	var schema QualityProfileResource
-	if err := c.get(ctx, "/api/v1/qualityprofile/schema", &schema); err != nil {
+	if err := c.Get(ctx, "/api/v1/qualityprofile/schema", &schema); err != nil {
 		return fmt.Errorf("failed to get quality profile schema: %w", err)
 	}
 
 	// Build profile from schema with our tier preferences
 	resource := a.profileFromSchema(&schema, profile)
 	resource.ID = id
-	return c.put(ctx, fmt.Sprintf("/api/v1/qualityprofile/%d", id), resource, nil)
+	return c.Put(ctx, fmt.Sprintf("/api/v1/qualityprofile/%d", id), resource, nil)
 }
 
 // profileFromSchema builds a quality profile from schema with tier preferences applied
@@ -227,35 +229,37 @@ func qualityNameToTier(qualityName string) string {
 }
 
 // createDownloadClient creates a download client
-func (a *Adapter) createDownloadClient(ctx context.Context, c *httpClient, dc irv1.DownloadClientIR, tagID int) error {
+func (a *Adapter) createDownloadClient(ctx context.Context, c *httpclient.Client, dc irv1.DownloadClientIR, tagID int) error {
 	resource := a.downloadClientFromIR(dc, tagID)
-	return c.post(ctx, "/api/v1/downloadclient", resource, nil)
+	return c.Post(ctx, "/api/v1/downloadclient", resource, nil)
 }
 
 // updateDownloadClient updates a download client
-func (a *Adapter) updateDownloadClient(ctx context.Context, c *httpClient, id int, dc irv1.DownloadClientIR, tagID int) error {
+func (a *Adapter) updateDownloadClient(ctx context.Context, c *httpclient.Client, id int, dc irv1.DownloadClientIR, tagID int) error {
 	resource := a.downloadClientFromIR(dc, tagID)
 	resource.ID = id
-	return c.put(ctx, fmt.Sprintf("/api/v1/downloadclient/%d", id), resource, nil)
+	return c.Put(ctx, fmt.Sprintf("/api/v1/downloadclient/%d", id), resource, nil)
 }
 
 // downloadClientFromIR converts IR to Lidarr download client
 func (a *Adapter) downloadClientFromIR(dc irv1.DownloadClientIR, tagID int) DownloadClientResource {
 	resource := DownloadClientResource{
-		Name:           dc.Name,
-		Implementation: dc.Implementation,
-		ConfigContract: dc.Implementation + "Settings",
-		Protocol:       dc.Protocol,
-		Enable:         dc.Enable,
-		Priority:       dc.Priority,
-		Tags:           []int{tagID},
-		Fields: []Field{
-			{Name: "host", Value: dc.Host},
-			{Name: "port", Value: dc.Port},
-			{Name: "useSsl", Value: dc.UseTLS},
-			{Name: "username", Value: dc.Username},
-			{Name: "password", Value: dc.Password},
-			{Name: "musicCategory", Value: dc.Category},
+		BaseDownloadClientResource: shared.BaseDownloadClientResource{
+			Name:           dc.Name,
+			Implementation: dc.Implementation,
+			ConfigContract: dc.Implementation + "Settings",
+			Protocol:       dc.Protocol,
+			Enable:         dc.Enable,
+			Priority:       dc.Priority,
+			Tags:           []int{tagID},
+			Fields: []Field{
+				{Name: "host", Value: dc.Host},
+				{Name: "port", Value: dc.Port},
+				{Name: "useSsl", Value: dc.UseTLS},
+				{Name: "username", Value: dc.Username},
+				{Name: "password", Value: dc.Password},
+				{Name: "musicCategory", Value: dc.Category},
+			},
 		},
 		RemoveCompletedDownloads: dc.RemoveCompletedDownloads,
 		RemoveFailedDownloads:    dc.RemoveFailedDownloads,
@@ -264,16 +268,16 @@ func (a *Adapter) downloadClientFromIR(dc irv1.DownloadClientIR, tagID int) Down
 }
 
 // createIndexer creates an indexer
-func (a *Adapter) createIndexer(ctx context.Context, c *httpClient, idx irv1.IndexerIR, tagID int) error {
+func (a *Adapter) createIndexer(ctx context.Context, c *httpclient.Client, idx irv1.IndexerIR, tagID int) error {
 	resource := a.indexerFromIR(idx, tagID)
-	return c.post(ctx, "/api/v1/indexer", resource, nil)
+	return c.Post(ctx, "/api/v1/indexer", resource, nil)
 }
 
 // updateIndexer updates an indexer
-func (a *Adapter) updateIndexer(ctx context.Context, c *httpClient, id int, idx irv1.IndexerIR, tagID int) error {
+func (a *Adapter) updateIndexer(ctx context.Context, c *httpclient.Client, id int, idx irv1.IndexerIR, tagID int) error {
 	resource := a.indexerFromIR(idx, tagID)
 	resource.ID = id
-	return c.put(ctx, fmt.Sprintf("/api/v1/indexer/%d", id), resource, nil)
+	return c.Put(ctx, fmt.Sprintf("/api/v1/indexer/%d", id), resource, nil)
 }
 
 // indexerFromIR converts IR to Lidarr indexer
@@ -299,13 +303,13 @@ func (a *Adapter) indexerFromIR(idx irv1.IndexerIR, tagID int) IndexerResource {
 }
 
 // createRootFolder creates a root folder
-func (a *Adapter) createRootFolder(ctx context.Context, c *httpClient, rf irv1.RootFolderIR) error {
+func (a *Adapter) createRootFolder(ctx context.Context, c *httpclient.Client, rf irv1.RootFolderIR) error {
 	// Lidarr requires DefaultMetadataProfileId and DefaultQualityProfileId
 	// Fetch them to get valid default values
 
 	// Get first metadata profile
 	var metadataProfiles []MetadataProfileResource
-	if err := c.get(ctx, "/api/v1/metadataprofile", &metadataProfiles); err != nil {
+	if err := c.Get(ctx, "/api/v1/metadataprofile", &metadataProfiles); err != nil {
 		return fmt.Errorf("failed to get metadata profiles: %w", err)
 	}
 	metadataProfileID := 1 // Default fallback
@@ -315,7 +319,7 @@ func (a *Adapter) createRootFolder(ctx context.Context, c *httpClient, rf irv1.R
 
 	// Get first quality profile (prefer our managed one if it exists)
 	var qualityProfiles []QualityProfileResource
-	if err := c.get(ctx, "/api/v1/qualityprofile", &qualityProfiles); err != nil {
+	if err := c.Get(ctx, "/api/v1/qualityprofile", &qualityProfiles); err != nil {
 		return fmt.Errorf("failed to get quality profiles: %w", err)
 	}
 	qualityProfileID := 1 // Default fallback
@@ -351,7 +355,7 @@ func (a *Adapter) createRootFolder(ctx context.Context, c *httpClient, rf irv1.R
 	if resource.DefaultMonitorOption == "" {
 		resource.DefaultMonitorOption = "all"
 	}
-	return c.post(ctx, "/api/v1/rootfolder", resource, nil)
+	return c.Post(ctx, "/api/v1/rootfolder", resource, nil)
 }
 
 // splitPath splits a path into components
@@ -375,7 +379,7 @@ func splitPath(path string) []string {
 }
 
 // updateNaming updates the naming configuration
-func (a *Adapter) updateNaming(ctx context.Context, c *httpClient, naming *irv1.LidarrNamingIR) error {
+func (a *Adapter) updateNaming(ctx context.Context, c *httpclient.Client, naming *irv1.LidarrNamingIR) error {
 	resource := NamingConfigResource{
 		ID:                       namingConfigID,
 		RenameTracks:             naming.RenameTracks,
@@ -385,5 +389,5 @@ func (a *Adapter) updateNaming(ctx context.Context, c *httpClient, naming *irv1.
 		ArtistFolderFormat:       naming.ArtistFolderFormat,
 		AlbumFolderFormat:        naming.AlbumFolderFormat,
 	}
-	return c.put(ctx, "/api/v1/config/naming", resource, nil)
+	return c.Put(ctx, "/api/v1/config/naming", resource, nil)
 }

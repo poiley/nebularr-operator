@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
+	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -11,9 +12,9 @@ import (
 var indexerIDMap = make(map[string]int)
 
 // getManagedIndexers retrieves indexers managed by Nebularr
-func (a *Adapter) getManagedIndexers(ctx context.Context, c *httpClient, tagID int) ([]irv1.IndexerIR, error) {
+func (a *Adapter) getManagedIndexers(ctx context.Context, c *httpclient.Client, tagID int) ([]irv1.IndexerIR, error) {
 	var indexers []IndexerResource
-	if err := c.get(ctx, "/api/v1/indexer", &indexers); err != nil {
+	if err := c.Get(ctx, "/api/v1/indexer", &indexers); err != nil {
 		return nil, err
 	}
 

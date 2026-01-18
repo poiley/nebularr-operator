@@ -1,0 +1,987 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.19.0
+  name: readarrconfigs.arr.rinzler.cloud
+spec:
+  group: arr.rinzler.cloud
+  names:
+    kind: ReadarrConfig
+    listKind: ReadarrConfigList
+    plural: readarrconfigs
+    singular: readarrconfig
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .spec.connection.url
+      name: URL
+      type: string
+    - jsonPath: .spec.quality.preset
+      name: Quality
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: ReadarrConfig is the all-in-one configuration for a Readarr instance
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: Spec defines the desired configuration for Readarr.
+            properties:
+              authentication:
+                description: Authentication configures authentication settings.
+                properties:
+                  authenticationRequired:
+                    default: enabled
+                    description: AuthenticationRequired specifies when authentication
+                      is required.
+                    enum:
+                    - enabled
+                    - disabledForLocalAddresses
+                    type: string
+                  method:
+                    default: none
+                    description: Method is the authentication method.
+                    enum:
+                    - none
+                    - forms
+                    - external
+                    type: string
+                  passwordSecretRef:
+                    description: PasswordSecretRef references the password Secret
+                      for forms authentication.
+                    properties:
+                      key:
+                        default: apiKey
+                        description: Key is the key within the Secret.
+                        type: string
+                      name:
+                        description: Name is the name of the Secret in the same namespace.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  username:
+                    description: Username for forms authentication.
+                    type: string
+                type: object
+              connection:
+                description: Connection specifies how to connect to Readarr.
+                properties:
+                  apiKeySecretRef:
+                    description: |-
+                      APIKeySecretRef references a Secret containing the API key.
+                      If not specified, auto-discovery is attempted.
+                    properties:
+                      key:
+                        default: apiKey
+                        description: Key is the key within the Secret.
+                        type: string
+                      name:
+                        description: Name is the name of the Secret in the same namespace.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  configPath:
+                    description: |-
+                      ConfigPath is the path to config.xml for API key auto-discovery.
+                      Only used if APIKeySecretRef is not specified.
+                      Defaults to /{app}-config/config.xml
+                    type: string
+                  insecureSkipVerify:
+                    description: InsecureSkipVerify disables TLS certificate verification.
+                    type: boolean
+                  timeout:
+                    default: 30s
+                    description: Timeout specifies the connection timeout.
+                    type: string
+                  url:
+                    description: URL is the base URL of the service (e.g., http://radarr:7878)
+                    pattern: ^https?://
+                    type: string
+                required:
+                - url
+                type: object
+              downloadClients:
+                description: DownloadClients configures download clients.
+                items:
+                  description: DownloadClientSpec defines a download client
+                  properties:
+                    category:
+                      description: Category for downloads. Defaults to app name (e.g.,
+                        "radarr").
+                      type: string
+                    credentialsSecretRef:
+                      description: CredentialsSecretRef references username/password.
+                      properties:
+                        name:
+                          description: Name is the name of the Secret.
+                          type: string
+                        passwordKey:
+                          default: password
+                          description: PasswordKey is the key for the password.
+                          type: string
+                        usernameKey:
+                          default: username
+                          description: UsernameKey is the key for the username.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    enabled:
+                      default: true
+                      description: Enabled enables/disables this client.
+                      type: boolean
+                    name:
+                      description: |-
+                        Name is the display name for this client.
+                        Also used for type inference if Type is not specified.
+                      type: string
+                    priority:
+                      default: 50
+                      description: Priority affects client selection (higher = preferred).
+                      maximum: 100
+                      minimum: 1
+                      type: integer
+                    removeCompletedDownloads:
+                      default: true
+                      description: RemoveCompletedDownloads removes the download from
+                        the client after import.
+                      type: boolean
+                    removeFailedDownloads:
+                      default: true
+                      description: RemoveFailedDownloads removes failed downloads
+                        from the client.
+                      type: boolean
+                    type:
+                      description: Type is the client type. If not specified, inferred
+                        from Name.
+                      enum:
+                      - qbittorrent
+                      - transmission
+                      - deluge
+                      - rtorrent
+                      - nzbget
+                      - sabnzbd
+                      type: string
+                    url:
+                      description: URL is the client URL (e.g., http://qbittorrent:8080)
+                      type: string
+                  required:
+                  - name
+                  - url
+                  type: object
+                type: array
+              importLists:
+                description: ImportLists configures automatic import lists (Goodreads,
+                  LazyLibrarian, etc.).
+                items:
+                  description: ImportListSpec defines an import list configuration
+                    for Radarr/Sonarr/Lidarr
+                  properties:
+                    enableAuto:
+                      default: true
+                      description: EnableAuto automatically adds items from this list.
+                      type: boolean
+                    enabled:
+                      default: true
+                      description: Enabled enables/disables this import list.
+                      type: boolean
+                    minimumAvailability:
+                      default: announced
+                      description: MinimumAvailability specifies when the movie is
+                        considered available. Radarr only.
+                      enum:
+                      - tba
+                      - announced
+                      - inCinemas
+                      - released
+                      type: string
+                    monitor:
+                      default: movieOnly
+                      description: Monitor specifies what to monitor. Radarr only.
+                      enum:
+                      - movieOnly
+                      - movieAndCollection
+                      - none
+                      type: string
+                    name:
+                      description: Name is the display name for this import list.
+                      type: string
+                    qualityProfile:
+                      description: QualityProfile is the name of the quality profile
+                        to use.
+                      type: string
+                    rootFolder:
+                      description: RootFolder is the root folder path for items from
+                        this list.
+                      type: string
+                    searchOnAdd:
+                      default: true
+                      description: SearchOnAdd searches for items when added from
+                        this list.
+                      type: boolean
+                    seasonFolder:
+                      default: true
+                      description: SeasonFolder enables season folders. Sonarr only.
+                      type: boolean
+                    seriesType:
+                      default: standard
+                      description: SeriesType specifies the series type. Sonarr only.
+                      enum:
+                      - standard
+                      - daily
+                      - anime
+                      type: string
+                    settings:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        Settings contains type-specific configuration.
+                        Keys are camelCase API field names.
+                        Examples:
+                          IMDb: listId (e.g., "ls123456", "top250")
+                          Trakt: username, listname, accessToken, refreshToken
+                          Plex: accessToken, serverUrl
+                      type: object
+                    settingsSecretRef:
+                      description: |-
+                        SettingsSecretRef references a Secret containing sensitive settings.
+                        Secret keys should match the settings keys (e.g., accessToken).
+                        Values from this secret override Settings.
+                      properties:
+                        key:
+                          default: apiKey
+                          description: Key is the key within the Secret.
+                          type: string
+                        name:
+                          description: Name is the name of the Secret in the same
+                            namespace.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    shouldMonitor:
+                      default: all
+                      description: ShouldMonitor specifies what to monitor. Sonarr
+                        only.
+                      enum:
+                      - all
+                      - future
+                      - missing
+                      - existing
+                      - firstSeason
+                      - latestSeason
+                      - pilot
+                      - none
+                      type: string
+                    type:
+                      description: |-
+                        Type is the import list implementation type.
+                        For Radarr: IMDbListImport, TraktListImport, TraktPopularImport, TraktUserImport,
+                                    PlexImport, RadarrImport, TMDbListImport, TMDbPopularImport, etc.
+                        For Sonarr: SonarrImport, TraktListImport, TraktPopularImport, PlexImport,
+                                    ImdbImport, etc.
+                        For Lidarr: SpotifyFollowedArtists, SpotifyPlaylist, LastFmUser, etc.
+                      type: string
+                  required:
+                  - name
+                  - qualityProfile
+                  - rootFolder
+                  - type
+                  type: object
+                type: array
+              indexers:
+                description: Indexers configures indexer sources.
+                properties:
+                  direct:
+                    description: |-
+                      Direct configures indexers directly (no Prowlarr).
+                      Mutually exclusive with ProwlarrRef.
+                    items:
+                      description: DirectIndexer defines an indexer configured directly
+                      properties:
+                        apiKeySecretRef:
+                          description: APIKeySecretRef for indexer authentication.
+                          properties:
+                            key:
+                              default: apiKey
+                              description: Key is the key within the Secret.
+                              type: string
+                            name:
+                              description: Name is the name of the Secret in the same
+                                namespace.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        categories:
+                          description: Categories to search. Human-readable (e.g.,
+                            "movies-hd") or numeric IDs.
+                          items:
+                            type: string
+                          type: array
+                        enabled:
+                          default: true
+                          description: Enabled enables/disables this indexer.
+                          type: boolean
+                        name:
+                          description: Name is the display name.
+                          type: string
+                        priority:
+                          default: 25
+                          description: Priority (1-50, lower = higher priority).
+                          type: integer
+                        type:
+                          default: torrent
+                          description: 'Type: torrent or usenet'
+                          enum:
+                          - torrent
+                          - usenet
+                          type: string
+                        url:
+                          description: URL is the indexer URL.
+                          type: string
+                      required:
+                      - name
+                      - url
+                      type: object
+                    type: array
+                  prowlarrRef:
+                    description: |-
+                      ProwlarrRef delegates indexer management to Prowlarr.
+                      Mutually exclusive with Direct.
+                    properties:
+                      autoRegister:
+                        default: true
+                        description: AutoRegister automatically registers this app
+                          with Prowlarr.
+                        type: boolean
+                      exclude:
+                        description: Exclude filters out specific Prowlarr indexers.
+                        items:
+                          type: string
+                        type: array
+                      include:
+                        description: |-
+                          Include filters which Prowlarr indexers to sync.
+                          If empty, all indexers are synced.
+                        items:
+                          type: string
+                        type: array
+                      name:
+                        description: Name is the name of a ProwlarrConfig in the same
+                          namespace.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                type: object
+              mediaManagement:
+                description: MediaManagement configures media management settings.
+                properties:
+                  allowFingerprinting:
+                    description: AllowFingerprinting enables audio fingerprinting.
+                      Lidarr only.
+                    enum:
+                    - never
+                    - newFiles
+                    - always
+                    type: string
+                  chmodFolder:
+                    default: "755"
+                    description: ChmodFolder is the folder permission mode (e.g.,
+                      "755").
+                    type: string
+                  chownGroup:
+                    description: ChownGroup is the group to set for files (Linux only).
+                    type: string
+                  createEmptyFolders:
+                    default: false
+                    description: CreateEmptyFolders creates folders for artists/movies/series
+                      even when empty.
+                    type: boolean
+                  deleteEmptyFolders:
+                    default: false
+                    description: DeleteEmptyFolders removes empty folders after moving/deleting
+                      files.
+                    type: boolean
+                  recycleBin:
+                    description: |-
+                      RecycleBin is the path to the recycle bin folder.
+                      If empty, recycle bin is disabled.
+                    type: string
+                  recycleBinCleanupDays:
+                    default: 7
+                    description: RecycleBinCleanupDays is the number of days before
+                      items are removed from recycle bin.
+                    minimum: 0
+                    type: integer
+                  setPermissions:
+                    default: false
+                    description: SetPermissions enables setting file permissions on
+                      Linux.
+                    type: boolean
+                  useHardlinks:
+                    default: true
+                    description: UseHardlinks uses hardlinks instead of copy when
+                      possible.
+                    type: boolean
+                  watchLibraryForChanges:
+                    description: WatchLibraryForChanges monitors the library folder
+                      for changes. Lidarr only.
+                    type: boolean
+                type: object
+              metadataProfile:
+                description: |-
+                  MetadataProfile defines metadata profile preferences.
+                  Controls how book metadata is matched from Goodreads/other sources.
+                properties:
+                  allowedLanguages:
+                    description: |-
+                      AllowedLanguages are the languages to allow.
+                      If empty, all languages are allowed.
+                    items:
+                      type: string
+                    type: array
+                  minPopularity:
+                    description: MinPopularity is the minimum Goodreads popularity
+                      for books.
+                    minimum: 0
+                    type: integer
+                  name:
+                    description: Name is the profile name.
+                    type: string
+                  skipMissingDate:
+                    default: true
+                    description: SkipMissingDate skips books without a release date.
+                    type: boolean
+                  skipMissingIsbn:
+                    default: false
+                    description: SkipMissingIsbn skips books without an ISBN.
+                    type: boolean
+                  skipPartsAndSets:
+                    default: false
+                    description: SkipPartsAndSets skips book parts and box sets.
+                    type: boolean
+                  skipSeriesSecondary:
+                    default: false
+                    description: SkipSeriesSecondary skips secondary series entries.
+                    type: boolean
+                required:
+                - name
+                type: object
+              naming:
+                description: Naming configures file/folder naming.
+                properties:
+                  authorFolderFormat:
+                    description: AuthorFolderFormat for author folders.
+                    type: string
+                  colonReplacementFormat:
+                    description: ColonReplacementFormat replaces colons in filenames.
+                    enum:
+                    - delete
+                    - dash
+                    - spaceDash
+                    - spaceDashSpace
+                    type: string
+                  folderFormat:
+                    description: FolderFormat is the format string for folders.
+                    type: string
+                  preset:
+                    default: plex-friendly
+                    description: Preset is a built-in naming configuration.
+                    enum:
+                    - plex-friendly
+                    - jellyfin-friendly
+                    - kodi-friendly
+                    - detailed
+                    - minimal
+                    - scene
+                    type: string
+                  renameMedia:
+                    description: RenameMedia enables renaming (movies/episodes/tracks).
+                    type: boolean
+                  standardBookFormat:
+                    description: StandardBookFormat for book files.
+                    type: string
+                  standardFormat:
+                    description: StandardFormat is the format string for standard
+                      files.
+                    type: string
+                type: object
+              notifications:
+                description: Notifications configures notification connections.
+                items:
+                  description: |-
+                    NotificationSpec defines a notification connection.
+                    Notifications are schema-based - the available settings depend on the type.
+                    Use the /api/v3/notification/schema endpoint to discover available types and their fields.
+                  properties:
+                    enabled:
+                      default: true
+                      description: Enabled enables/disables this notification.
+                      type: boolean
+                    includeHealthWarnings:
+                      description: IncludeHealthWarnings includes warnings (not just
+                        errors) in health notifications.
+                      type: boolean
+                    name:
+                      description: Name is the display name for this notification.
+                      type: string
+                    onAlbumDelete:
+                      description: OnAlbumDelete triggers when an album is deleted
+                        (Lidarr only).
+                      type: boolean
+                    onApplicationUpdate:
+                      description: OnApplicationUpdate triggers when the application
+                        updates.
+                      type: boolean
+                    onArtistAdd:
+                      description: OnArtistAdd triggers when an artist is added (Lidarr
+                        only).
+                      type: boolean
+                    onArtistDelete:
+                      description: OnArtistDelete triggers when an artist is deleted
+                        (Lidarr only).
+                      type: boolean
+                    onDownload:
+                      description: OnDownload triggers when a download completes and
+                        is imported.
+                      type: boolean
+                    onDownloadFailure:
+                      description: OnDownloadFailure triggers when a download fails
+                        (Lidarr only).
+                      type: boolean
+                    onEpisodeFileDelete:
+                      description: OnEpisodeFileDelete triggers when an episode file
+                        is deleted (Sonarr only).
+                      type: boolean
+                    onEpisodeFileDeleteForUpgrade:
+                      description: OnEpisodeFileDeleteForUpgrade triggers when an
+                        episode file is deleted for upgrade (Sonarr only).
+                      type: boolean
+                    onGrab:
+                      description: OnGrab triggers when a release is grabbed.
+                      type: boolean
+                    onHealthIssue:
+                      description: OnHealthIssue triggers when a health check fails.
+                      type: boolean
+                    onHealthRestored:
+                      description: OnHealthRestored triggers when a health issue is
+                        resolved.
+                      type: boolean
+                    onImportFailure:
+                      description: OnImportFailure triggers when an import fails (Lidarr
+                        only).
+                      type: boolean
+                    onManualInteractionRequired:
+                      description: OnManualInteractionRequired triggers when manual
+                        intervention is needed.
+                      type: boolean
+                    onMovieAdded:
+                      description: OnMovieAdded triggers when a movie is added (Radarr
+                        only).
+                      type: boolean
+                    onMovieDelete:
+                      description: OnMovieDelete triggers when a movie is deleted
+                        (Radarr only).
+                      type: boolean
+                    onMovieFileDelete:
+                      description: OnMovieFileDelete triggers when a movie file is
+                        deleted (Radarr only).
+                      type: boolean
+                    onMovieFileDeleteForUpgrade:
+                      description: OnMovieFileDeleteForUpgrade triggers when a movie
+                        file is deleted for upgrade (Radarr only).
+                      type: boolean
+                    onReleaseImport:
+                      description: OnReleaseImport triggers when a release is imported
+                        (Lidarr only, equivalent to onDownload).
+                      type: boolean
+                    onRename:
+                      description: OnRename triggers when files are renamed.
+                      type: boolean
+                    onSeriesAdd:
+                      description: OnSeriesAdd triggers when a series is added (Sonarr
+                        only).
+                      type: boolean
+                    onSeriesDelete:
+                      description: OnSeriesDelete triggers when a series is deleted
+                        (Sonarr only).
+                      type: boolean
+                    onTrackRetag:
+                      description: OnTrackRetag triggers when a track is retagged
+                        (Lidarr only).
+                      type: boolean
+                    onUpgrade:
+                      description: OnUpgrade triggers when a better quality version
+                        is imported.
+                      type: boolean
+                    settings:
+                      additionalProperties:
+                        type: string
+                      description: |-
+                        Settings contains type-specific configuration.
+                        Keys are the field names from the notification schema (camelCase).
+                        Common examples:
+                          Discord: webHookUrl, username, avatar
+                          Slack: webHookUrl, username, icon, channel
+                          Email: server, port, from, to, cc, bcc
+                          Telegram: botToken, chatId
+                          Webhook: url, method
+                          Gotify: server, appToken, priority
+                        Use the /api/v3/notification/schema endpoint to discover all fields for your type.
+                      type: object
+                    settingsSecretRef:
+                      description: |-
+                        SettingsSecretRef references a Secret containing sensitive settings.
+                        Secret keys should match the settings field names (e.g., webHookUrl, botToken).
+                        Values from this secret override Settings.
+                      properties:
+                        key:
+                          default: apiKey
+                          description: Key is the key within the Secret.
+                          type: string
+                        name:
+                          description: Name is the name of the Secret in the same
+                            namespace.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    tags:
+                      description: |-
+                        Tags are tag names to apply to this notification.
+                        Tags must exist in the *arr app.
+                      items:
+                        type: string
+                      type: array
+                    type:
+                      description: |-
+                        Type is the notification implementation type.
+                        Common types: Discord, Slack, Email, Webhook, Telegram, Pushover, Gotify, Apprise, etc.
+                        Use the schema endpoint to discover all available types for your *arr app version.
+                      type: string
+                  required:
+                  - name
+                  - type
+                  type: object
+                type: array
+              quality:
+                description: Quality defines book quality preferences.
+                properties:
+                  allowedFormats:
+                    description: AllowedFormats are the book formats to allow.
+                    items:
+                      description: ReadarrFormatSpec defines an allowed book format.
+                      properties:
+                        allowed:
+                          default: true
+                          description: Allowed indicates if this format is allowed.
+                          type: boolean
+                        format:
+                          description: |-
+                            Format is the book format type.
+                            Options: EPUB, MOBI, AZW3, PDF, FLAC, MP3, M4B, Unknown
+                          enum:
+                          - EPUB
+                          - MOBI
+                          - AZW3
+                          - PDF
+                          - FLAC
+                          - MP3
+                          - M4B
+                          - Unknown
+                          type: string
+                      required:
+                      - format
+                      type: object
+                    type: array
+                  cutoff:
+                    description: Cutoff is the format quality that stops upgrades.
+                    type: string
+                  preset:
+                    description: |-
+                      Preset selects a built-in quality configuration.
+                      Options: "standard", "high-quality", "audiobook-focus"
+                    enum:
+                    - standard
+                    - high-quality
+                    - audiobook-focus
+                    type: string
+                  upgradeAllowed:
+                    default: true
+                    description: UpgradeAllowed permits upgrading to higher quality
+                      formats.
+                    type: boolean
+                type: object
+              reconciliation:
+                description: Reconciliation configures sync behavior.
+                properties:
+                  interval:
+                    default: 5m
+                    description: Interval between reconciliations.
+                    type: string
+                  suspend:
+                    description: Suspend pauses reconciliation.
+                    type: boolean
+                type: object
+              remotePathMappings:
+                description: RemotePathMappings maps download client paths to local
+                  paths.
+                items:
+                  description: |-
+                    RemotePathMappingSpec maps download client paths to local paths.
+                    This is needed when the download client and *arr app see the same files at different paths.
+                  properties:
+                    host:
+                      description: |-
+                        Host is the download client hostname.
+                        Must match the host configured in the download client.
+                      type: string
+                    localPath:
+                      description: |-
+                        LocalPath is the path as seen by the *arr app.
+                        This is where the *arr app can access the same files.
+                      type: string
+                    remotePath:
+                      description: |-
+                        RemotePath is the path as reported by the download client.
+                        This is the path where the download client places completed files.
+                      type: string
+                  required:
+                  - host
+                  - localPath
+                  - remotePath
+                  type: object
+                type: array
+              rootFolders:
+                description: RootFolders configures root folder paths for book storage.
+                items:
+                  type: string
+                type: array
+            required:
+            - connection
+            type: object
+          status:
+            description: Status defines the observed state of ReadarrConfig.
+            properties:
+              conditions:
+                description: Conditions represent the latest observations of the ReadarrConfig's
+                  state.
+                items:
+                  description: Condition contains details for one aspect of the current
+                    state of this API Resource.
+                  properties:
+                    lastTransitionTime:
+                      description: |-
+                        lastTransitionTime is the last time the condition transitioned from one status to another.
+                        This should be when the underlying condition changed.  If that is not known, then using the time when the API field changed is acceptable.
+                      format: date-time
+                      type: string
+                    message:
+                      description: |-
+                        message is a human readable message indicating details about the transition.
+                        This may be an empty string.
+                      maxLength: 32768
+                      type: string
+                    observedGeneration:
+                      description: |-
+                        observedGeneration represents the .metadata.generation that the condition was set based upon.
+                        For instance, if .metadata.generation is currently 12, but the .status.conditions[x].observedGeneration is 9, the condition is out of date
+                        with respect to the current state of the instance.
+                      format: int64
+                      minimum: 0
+                      type: integer
+                    reason:
+                      description: |-
+                        reason contains a programmatic identifier indicating the reason for the condition's last transition.
+                        Producers of specific condition types may define expected values and meanings for this field,
+                        and whether the values are considered a guaranteed API.
+                        The value should be a CamelCase string.
+                        This field may not be empty.
+                      maxLength: 1024
+                      minLength: 1
+                      pattern: ^[A-Za-z]([A-Za-z0-9_,:]*[A-Za-z0-9_])?$
+                      type: string
+                    status:
+                      description: status of the condition, one of True, False, Unknown.
+                      enum:
+                      - "True"
+                      - "False"
+                      - Unknown
+                      type: string
+                    type:
+                      description: type of condition in CamelCase or in foo.example.com/CamelCase.
+                      maxLength: 316
+                      pattern: ^([a-z0-9]([-a-z0-9]*[a-z0-9])?(\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*/)?(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])$
+                      type: string
+                  required:
+                  - lastTransitionTime
+                  - message
+                  - reason
+                  - status
+                  - type
+                  type: object
+                type: array
+                x-kubernetes-list-map-keys:
+                - type
+                x-kubernetes-list-type: map
+              connected:
+                description: Connected indicates whether Readarr is reachable.
+                type: boolean
+              health:
+                description: Health represents the app's health status from its internal
+                  health checks.
+                properties:
+                  errorCount:
+                    description: ErrorCount is the number of error-level issues.
+                    type: integer
+                  healthy:
+                    description: Healthy indicates whether the app has no error-level
+                      issues.
+                    type: boolean
+                  issueCount:
+                    description: IssueCount is the total number of health issues.
+                    type: integer
+                  issues:
+                    description: Issues lists the current health issues.
+                    items:
+                      description: HealthIssueStatus represents a single health issue
+                      properties:
+                        message:
+                          description: Message is the human-readable description.
+                          type: string
+                        source:
+                          description: Source identifies the check that produced this
+                            issue.
+                          type: string
+                        type:
+                          description: 'Type is the severity: error, warning, notice.'
+                          type: string
+                        wikiUrl:
+                          description: WikiURL is a link to documentation about this
+                            issue.
+                          type: string
+                      type: object
+                    type: array
+                  lastCheck:
+                    description: LastCheck is the timestamp of the last health check.
+                    format: date-time
+                    type: string
+                  warningCount:
+                    description: WarningCount is the number of warning-level issues.
+                    type: integer
+                type: object
+              lastAppliedHash:
+                description: LastAppliedHash is the hash of the last applied spec.
+                type: string
+              lastReconcile:
+                description: LastReconcile is the timestamp of the last reconciliation.
+                format: date-time
+                type: string
+              managedResources:
+                description: ManagedResources lists resources created by this config.
+                properties:
+                  customFormatIds:
+                    description: CustomFormatIDs are the managed custom format IDs.
+                    items:
+                      type: integer
+                    type: array
+                  downloadClientIds:
+                    description: DownloadClientIDs are the managed download client
+                      IDs.
+                    items:
+                      type: integer
+                    type: array
+                  indexerIds:
+                    description: IndexerIDs are the managed indexer IDs.
+                    items:
+                      type: integer
+                    type: array
+                  notificationIds:
+                    description: NotificationIDs are the managed notification IDs.
+                    items:
+                      type: integer
+                    type: array
+                  qualityProfileId:
+                    description: QualityProfileID is the managed quality profile ID.
+                    type: integer
+                  remotePathMappingIds:
+                    description: RemotePathMappingIDs are the managed remote path
+                      mapping IDs.
+                    items:
+                      type: integer
+                    type: array
+                  rootFolderIds:
+                    description: RootFolderIDs are the managed root folder IDs.
+                    items:
+                      type: integer
+                    type: array
+                type: object
+              prowlarrRegistration:
+                description: ProwlarrRegistration tracks registration with Prowlarr
+                  (Pull Model).
+                properties:
+                  applicationId:
+                    description: ApplicationID is the ID of this app in Prowlarr.
+                    type: integer
+                  lastSync:
+                    description: LastSync is the timestamp of the last successful
+                      sync.
+                    format: date-time
+                    type: string
+                  message:
+                    description: Message provides status details or error information.
+                    type: string
+                  prowlarrName:
+                    description: ProwlarrName is the name of the ProwlarrConfig this
+                      app is registered with.
+                    type: string
+                  registered:
+                    description: Registered indicates whether this app is registered
+                      with Prowlarr.
+                    type: boolean
+                  syncedIndexers:
+                    description: SyncedIndexers lists indexers synced from Prowlarr.
+                    items:
+                      type: string
+                    type: array
+                type: object
+              serviceVersion:
+                description: ServiceVersion is the Readarr version.
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}
