@@ -5,6 +5,7 @@ import (
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
 	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
+	"github.com/poiley/nebularr-operator/internal/adapters/shared"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -42,31 +43,8 @@ func (a *Adapter) indexerToIR(idx *IndexerResource) irv1.IndexerIR {
 		EnableInteractiveSearch: idx.EnableInteractiveSearch,
 	}
 
-	// Extract fields
-	for _, f := range idx.Fields {
-		switch f.Name {
-		case "baseUrl":
-			if v, ok := f.Value.(string); ok {
-				ir.URL = v
-			}
-		case "apiKey":
-			if v, ok := f.Value.(string); ok {
-				ir.APIKey = v
-			}
-		case "categories":
-			if v, ok := f.Value.([]interface{}); ok {
-				for _, cat := range v {
-					if catNum, ok := cat.(float64); ok {
-						ir.Categories = append(ir.Categories, int(catNum))
-					}
-				}
-			}
-		case "minimumSeeders":
-			if v, ok := f.Value.(float64); ok {
-				ir.MinimumSeeders = int(v)
-			}
-		}
-	}
+	// Extract fields using shared helper
+	shared.ExtractIndexerFields(idx.Fields, &ir)
 
 	return ir
 }

@@ -5,6 +5,7 @@ import (
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
 	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
+	"github.com/poiley/nebularr-operator/internal/adapters/shared"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -41,31 +42,8 @@ func (a *Adapter) clientToIR(dc *DownloadClientResource) irv1.DownloadClientIR {
 		RemoveFailedDownloads:    dc.RemoveFailedDownloads,
 	}
 
-	// Extract fields
-	for _, f := range dc.Fields {
-		switch f.Name {
-		case "host":
-			if v, ok := f.Value.(string); ok {
-				ir.Host = v
-			}
-		case "port":
-			if v, ok := f.Value.(float64); ok {
-				ir.Port = int(v)
-			}
-		case "useSsl":
-			if v, ok := f.Value.(bool); ok {
-				ir.UseTLS = v
-			}
-		case "username":
-			if v, ok := f.Value.(string); ok {
-				ir.Username = v
-			}
-		case "category", "tvCategory":
-			if v, ok := f.Value.(string); ok {
-				ir.Category = v
-			}
-		}
-	}
+	// Extract fields using shared helper
+	shared.ExtractDownloadClientFields(dc.Fields, &ir, "category", "tvCategory")
 
 	return ir
 }
