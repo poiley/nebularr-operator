@@ -78,6 +78,12 @@ type CompileInput struct {
 	// DelayProfiles (Radarr/Sonarr only)
 	DelayProfiles []DelayProfileInput
 
+	// MetadataProfile (Readarr only)
+	MetadataProfile *MetadataProfileInput
+
+	// BookQuality (Readarr only)
+	BookQuality *BookQualityInput
+
 	// Capabilities for pruning unsupported features
 	Capabilities *adapters.Capabilities
 
@@ -293,6 +299,45 @@ type DelayProfileInput struct {
 	Order int
 }
 
+// MetadataProfileInput holds metadata profile configuration (Readarr only)
+type MetadataProfileInput struct {
+	// Name is the profile name
+	Name string
+
+	// MinPopularity is the minimum GoodReads popularity score
+	MinPopularity int
+
+	// SkipMissingDate skips books without release date
+	SkipMissingDate bool
+
+	// SkipMissingIsbn skips books without ISBN
+	SkipMissingIsbn bool
+
+	// SkipPartsAndSets skips parts and sets
+	SkipPartsAndSets bool
+
+	// SkipSeriesSecondary skips non-primary series entries
+	SkipSeriesSecondary bool
+
+	// AllowedLanguages are the languages to allow
+	AllowedLanguages []string
+}
+
+// BookQualityInput holds book quality configuration (Readarr only)
+type BookQualityInput struct {
+	// ProfileName is the quality profile name
+	ProfileName string
+
+	// UpgradeAllowed enables quality upgrades
+	UpgradeAllowed bool
+
+	// CutoffFormat is the format where upgrades stop
+	CutoffFormat string
+
+	// AllowedFormats are the allowed book formats
+	AllowedFormats []string
+}
+
 // Compile transforms CRD intent into IR
 func (c *Compiler) Compile(ctx context.Context, input CompileInput) (*irv1.IR, error) {
 	ir := &irv1.IR{
@@ -325,6 +370,19 @@ func (c *Compiler) Compile(ctx context.Context, input CompileInput) (*irv1.IR, e
 		}
 		ir.Quality = &irv1.QualityIR{
 			Audio: c.expander.ExpandAudioPreset(presetName, input.QualityOverrides, profileName),
+		}
+	case adapters.AppReadarr:
+		// Readarr uses book quality profiles
+		if input.BookQuality != nil {
+			ir.Quality = &irv1.QualityIR{
+				Book: c.compileBookQuality(input.BookQuality, profileName),
+			}
+		}
+		// Handle metadata profiles
+		if input.MetadataProfile != nil {
+			ir.MetadataProfiles = []*irv1.MetadataProfileIR{
+				c.compileMetadataProfile(input.MetadataProfile, profileName),
+			}
 		}
 	}
 
@@ -465,7 +523,6 @@ func (c *Compiler) compileIndexers(input *IndexersInput, configName string) *irv
 			Include:      input.ProwlarrRef.Include,
 			Exclude:      input.ProwlarrRef.Exclude,
 		}
-		return result
 	}
 
 	// Handle direct indexers
@@ -490,6 +547,69 @@ func (c *Compiler) compileIndexers(input *IndexersInput, configName string) *irv
 	}
 
 	return result
+}
+
+// compileBookQuality converts BookQualityInput to BookQualityIR
+func (c *Compiler) compileBookQuality(input *BookQualityInput, profileName string) *irv1.BookQualityIR {
+	if input == nil {
+		return nil
+	}
+
+	ir := &irv1.BookQualityIR{
+		ProfileName:    profileName,
+		UpgradeAllowed: input.UpgradeAllowed,
+	}
+
+	// Build tiers from allowed formats
+	for _, format := range input.AllowedFormats {
+		tier := irv1.BookQualityTierIR{
+			Name:    format,
+			Formats: []string{format},
+			Allowed: true,
+		}
+		ir.Tiers = append(ir.Tiers, tier)
+
+		// Set cutoff if this format matches
+		if format == input.CutoffFormat {
+			ir.Cutoff = tier
+		}
+	}
+
+	return ir
+}
+
+// compileMetadataProfile converts MetadataProfileInput to MetadataProfileIR
+func (c *Compiler) compileMetadataProfile(input *MetadataProfileInput, profileName string) *irv1.MetadataProfileIR {
+	if input == nil {
+		return nil
+	}
+
+	// Use the profile name with nebularr prefix for identification
+	name := profileName
+	if input.Name != "" {
+		name = fmt.Sprintf("nebularr-%s", input.Name)
+	}
+
+	ir := &irv1.MetadataProfileIR{
+		Name:                name,
+		MinPopularity:       float64(input.MinPopularity),
+		SkipMissingDate:     input.SkipMissingDate,
+		SkipMissingIsbn:     input.SkipMissingIsbn,
+		SkipPartsAndSets:    input.SkipPartsAndSets,
+		SkipSeriesSecondary: input.SkipSeriesSecondary,
+	}
+
+	// Convert allowed languages to comma-separated string
+	if len(input.AllowedLanguages) > 0 {
+		for i, lang := range input.AllowedLanguages {
+			if i > 0 {
+				ir.AllowedLanguages += ","
+			}
+			ir.AllowedLanguages += lang
+		}
+	}
+
+	return ir
 }
 
 // pruneUnsupported removes features not supported by the service capabilities

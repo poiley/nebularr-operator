@@ -111,6 +111,19 @@ func (a *Adapter) CurrentState(ctx context.Context, conn *irv1.ConnectionIR) (*i
 		return ir, nil
 	}
 
+	// Get quality profiles (managed by name prefix)
+	if qualityProfiles, err := a.getManagedQualityProfiles(ctx, c); err == nil && len(qualityProfiles) > 0 {
+		// Take the first managed profile (typically there's only one per config)
+		ir.Quality = &irv1.QualityIR{
+			Book: qualityProfiles[0],
+		}
+	}
+
+	// Get metadata profiles (managed by name prefix)
+	if metadataProfiles, err := a.getManagedMetadataProfiles(ctx, c); err == nil {
+		ir.MetadataProfiles = metadataProfiles
+	}
+
 	// Get download clients tagged with ownership tag
 	if clients, err := a.getManagedDownloadClients(ctx, c, tagID); err == nil {
 		ir.DownloadClients = clients
@@ -137,6 +150,16 @@ func (a *Adapter) Diff(current, desired *irv1.IR, caps *adapters.Capabilities) (
 		Creates: []adapters.Change{},
 		Updates: []adapters.Change{},
 		Deletes: []adapters.Change{},
+	}
+
+	// Diff quality profiles
+	if err := a.diffQualityProfiles(current, desired, changes); err != nil {
+		return nil, fmt.Errorf("failed to diff quality profiles: %w", err)
+	}
+
+	// Diff metadata profiles
+	if err := a.diffMetadataProfiles(current.MetadataProfiles, desired.MetadataProfiles, changes); err != nil {
+		return nil, fmt.Errorf("failed to diff metadata profiles: %w", err)
 	}
 
 	// Diff download clients
@@ -303,6 +326,10 @@ func (a *Adapter) diffRootFolders(current, desired *irv1.IR, changes *adapters.C
 // applyCreate handles creation of a resource
 func (a *Adapter) applyCreate(ctx context.Context, c *httpClient, change adapters.Change, tagID int) error {
 	switch change.ResourceType {
+	case adapters.ResourceQualityProfile:
+		return a.createQualityProfile(ctx, c, change.Payload.(*irv1.BookQualityIR), tagID)
+	case adapters.ResourceMetadataProfile:
+		return a.createMetadataProfile(ctx, c, change.Payload.(*irv1.MetadataProfileIR))
 	case adapters.ResourceDownloadClient:
 		return a.createDownloadClient(ctx, c, change.Payload.(irv1.DownloadClientIR), tagID)
 	case adapters.ResourceIndexer:
@@ -316,13 +343,30 @@ func (a *Adapter) applyCreate(ctx context.Context, c *httpClient, change adapter
 
 // applyUpdate handles updating a resource
 func (a *Adapter) applyUpdate(ctx context.Context, c *httpClient, change adapters.Change, tagID int) error {
-	// For now, we just log that updates are not fully implemented
-	return nil
+	switch change.ResourceType {
+	case adapters.ResourceQualityProfile:
+		if change.ID != nil {
+			return a.updateQualityProfile(ctx, c, change.Payload.(*irv1.BookQualityIR), *change.ID)
+		}
+		return fmt.Errorf("quality profile update requires ID")
+	case adapters.ResourceMetadataProfile:
+		if change.ID != nil {
+			return a.updateMetadataProfile(ctx, c, change.Payload.(*irv1.MetadataProfileIR), *change.ID)
+		}
+		return fmt.Errorf("metadata profile update requires ID")
+	default:
+		// Other resources don't support updates yet
+		return nil
+	}
 }
 
 // applyDelete handles deletion of a resource
 func (a *Adapter) applyDelete(ctx context.Context, c *httpClient, change adapters.Change) error {
 	switch change.ResourceType {
+	case adapters.ResourceQualityProfile:
+		return a.deleteQualityProfileByName(ctx, c, change.Name)
+	case adapters.ResourceMetadataProfile:
+		return a.deleteMetadataProfileByName(ctx, c, change.Name)
 	case adapters.ResourceDownloadClient:
 		return a.deleteDownloadClientByName(ctx, c, change.Name)
 	case adapters.ResourceIndexer:

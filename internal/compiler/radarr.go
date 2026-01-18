@@ -752,6 +752,53 @@ func (c *Compiler) CompileReadarrConfig(ctx context.Context, config *arrv1alpha1
 	// Quality - Readarr uses format-based quality (ebook formats)
 	if config.Spec.Quality != nil {
 		input.QualityPreset = config.Spec.Quality.Preset
+		// Build book quality from spec
+		if config.Spec.Quality.AllowedFormats != nil || config.Spec.Quality.Cutoff != "" {
+			upgradeAllowed := true
+			if config.Spec.Quality.UpgradeAllowed != nil {
+				upgradeAllowed = *config.Spec.Quality.UpgradeAllowed
+			}
+			formats := make([]string, 0)
+			for _, f := range config.Spec.Quality.AllowedFormats {
+				if f.Allowed {
+					formats = append(formats, f.Format)
+				}
+			}
+			input.BookQuality = &BookQualityInput{
+				UpgradeAllowed: upgradeAllowed,
+				CutoffFormat:   config.Spec.Quality.Cutoff,
+				AllowedFormats: formats,
+			}
+		}
+	}
+
+	// Metadata profile - unique to Readarr
+	if config.Spec.MetadataProfile != nil {
+		skipMissingDate := true
+		if config.Spec.MetadataProfile.SkipMissingDate != nil {
+			skipMissingDate = *config.Spec.MetadataProfile.SkipMissingDate
+		}
+		skipMissingIsbn := false
+		if config.Spec.MetadataProfile.SkipMissingIsbn != nil {
+			skipMissingIsbn = *config.Spec.MetadataProfile.SkipMissingIsbn
+		}
+		skipPartsAndSets := false
+		if config.Spec.MetadataProfile.SkipPartsAndSets != nil {
+			skipPartsAndSets = *config.Spec.MetadataProfile.SkipPartsAndSets
+		}
+		skipSeriesSecondary := false
+		if config.Spec.MetadataProfile.SkipSeriesSecondary != nil {
+			skipSeriesSecondary = *config.Spec.MetadataProfile.SkipSeriesSecondary
+		}
+		input.MetadataProfile = &MetadataProfileInput{
+			Name:                config.Spec.MetadataProfile.Name,
+			MinPopularity:       config.Spec.MetadataProfile.MinPopularity,
+			SkipMissingDate:     skipMissingDate,
+			SkipMissingIsbn:     skipMissingIsbn,
+			SkipPartsAndSets:    skipPartsAndSets,
+			SkipSeriesSecondary: skipSeriesSecondary,
+			AllowedLanguages:    config.Spec.MetadataProfile.AllowedLanguages,
+		}
 	}
 
 	// Naming

@@ -56,6 +56,9 @@ type IR struct {
 	// ReleaseProfiles configuration - for Sonarr only
 	ReleaseProfiles []ReleaseProfileIR `json:"releaseProfiles,omitempty"`
 
+	// MetadataProfiles configuration - for Readarr only
+	MetadataProfiles []*MetadataProfileIR `json:"metadataProfiles,omitempty"`
+
 	// MediaManagement configuration
 	MediaManagement *MediaManagementIR `json:"mediaManagement,omitempty"`
 
