@@ -198,3 +198,32 @@ func (w *DownloadStackStatusWrapper) SetLastReconcile(t *metav1.Time) {
 func (w *DownloadStackStatusWrapper) SetLastAppliedHash(hash string) {
 	w.Status.GluetunConfigHash = hash
 }
+
+// ReadarrStatusWrapper wraps ReadarrConfigStatus to implement ConfigStatus
+type ReadarrStatusWrapper struct {
+	Status *arrv1alpha1.ReadarrConfigStatus
+}
+
+func (w *ReadarrStatusWrapper) GetConditions() []metav1.Condition {
+	return w.Status.Conditions
+}
+
+func (w *ReadarrStatusWrapper) SetConditions(conditions []metav1.Condition) {
+	w.Status.Conditions = conditions
+}
+
+func (w *ReadarrStatusWrapper) SetConnected(connected bool) {
+	w.Status.Connected = connected
+}
+
+func (w *ReadarrStatusWrapper) SetServiceVersion(version string) {
+	w.Status.ServiceVersion = version
+}
+
+func (w *ReadarrStatusWrapper) SetLastReconcile(t *metav1.Time) {
+	w.Status.LastReconcile = t
+}
+
+func (w *ReadarrStatusWrapper) SetLastAppliedHash(hash string) {
+	w.Status.LastAppliedHash = hash
+}

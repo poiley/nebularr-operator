@@ -4,14 +4,14 @@ kind: CustomResourceDefinition
 metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.19.0
-  name: lidarrconfigs.arr.rinzler.cloud
+  name: readarrconfigs.arr.rinzler.cloud
 spec:
   group: arr.rinzler.cloud
   names:
-    kind: LidarrConfig
-    listKind: LidarrConfigList
-    plural: lidarrconfigs
-    singular: lidarrconfig
+    kind: ReadarrConfig
+    listKind: ReadarrConfigList
+    plural: readarrconfigs
+    singular: readarrconfig
   scope: Namespaced
   versions:
   - additionalPrinterColumns:
@@ -30,7 +30,7 @@ spec:
     name: v1alpha1
     schema:
       openAPIV3Schema:
-        description: LidarrConfig is the all-in-one configuration for a Lidarr instance
+        description: ReadarrConfig is the all-in-one configuration for a Readarr instance
         properties:
           apiVersion:
             description: |-
@@ -50,7 +50,7 @@ spec:
           metadata:
             type: object
           spec:
-            description: Spec defines the desired configuration for Lidarr.
+            description: Spec defines the desired configuration for Readarr.
             properties:
               authentication:
                 description: Authentication configures authentication settings.
@@ -90,9 +90,7 @@ spec:
                     type: string
                 type: object
               connection:
-                description: |-
-                  Connection specifies how to connect to Lidarr.
-                  Note: Lidarr uses API v1, not v3.
+                description: Connection specifies how to connect to Readarr.
                 properties:
                   apiKeySecretRef:
                     description: |-
@@ -129,176 +127,6 @@ spec:
                 required:
                 - url
                 type: object
-              customFormats:
-                description: |-
-                  CustomFormats defines custom formats for fine-grained release quality control.
-                  Custom formats allow matching releases based on title patterns, sources, etc.
-                  and assigning scores that affect quality profile decisions.
-                  Note: Requires Lidarr v2.0+
-                items:
-                  description: |-
-                    CustomFormatSpec defines a custom format for release matching.
-                    Custom formats allow fine-grained control over release quality preferences
-                    through pattern matching on release titles and other attributes.
-                  properties:
-                    includeWhenRenaming:
-                      default: false
-                      description: IncludeWhenRenaming includes this format in renamed
-                        file names.
-                      type: boolean
-                    name:
-                      description: Name is the display name for this custom format.
-                      type: string
-                    score:
-                      default: 0
-                      description: |-
-                        Score is the score to assign to this custom format in quality profiles.
-                        Positive scores prefer releases matching this format.
-                        Negative scores reject releases matching this format.
-                        Zero means no preference (useful for informational formats).
-                      type: integer
-                    specifications:
-                      description: |-
-                        Specifications define the rules that must match for this format to apply.
-                        All specifications must match for the format to be assigned (AND logic).
-                      items:
-                        description: |-
-                          CustomFormatSpecificationSpec defines a single matching rule within a custom format.
-                          Each specification tests one aspect of a release (title, source, resolution, etc.).
-                        properties:
-                          name:
-                            description: Name is the display name for this specification.
-                            type: string
-                          negate:
-                            default: false
-                            description: |-
-                              Negate inverts the match logic. If true, the specification matches when
-                              the condition is NOT met.
-                            type: boolean
-                          required:
-                            default: false
-                            description: |-
-                              Required makes this specification mandatory. If true, the custom format
-                              only applies when this specification matches. If false, this is an
-                              optional enhancement.
-                            type: boolean
-                          type:
-                            description: |-
-                              Type is the specification implementation type.
-                              Common types:
-                                - ReleaseTitleSpecification: Match release title with regex
-                                - SourceSpecification: Match source type (bluray, webdl, webrip, hdtv, etc.)
-                                - ResolutionSpecification: Match resolution (2160p, 1080p, 720p, 480p)
-                                - QualityModifierSpecification: Match quality modifier (remux, brdisk, etc.)
-                                - IndexerFlagSpecification: Match indexer flags
-                                - ReleaseGroupSpecification: Match release group with regex
-                                - EditionSpecification: Match edition info with regex (Radarr only)
-                                - LanguageSpecification: Match language
-                              Use the /api/v3/customformat/schema endpoint to discover all available types.
-                            type: string
-                          value:
-                            description: |-
-                              Value is the specification value. Interpretation depends on Type:
-                                - ReleaseTitleSpecification: Regular expression pattern
-                                - SourceSpecification: Source name (cam, telesync, telecine, workprint, dvd, tv, webdl, webrip, bluray)
-                                - ResolutionSpecification: Resolution (r360p, r480p, r576p, r720p, r1080p, r2160p)
-                                - ReleaseGroupSpecification: Regular expression pattern
-                                - EditionSpecification: Regular expression pattern
-                                - LanguageSpecification: Language ID or name
-                            type: string
-                        required:
-                        - name
-                        - type
-                        - value
-                        type: object
-                      minItems: 1
-                      type: array
-                  required:
-                  - name
-                  - specifications
-                  type: object
-                type: array
-              delayProfiles:
-                description: |-
-                  DelayProfiles configures download delays for better release selection.
-                  Delay profiles allow waiting for preferred releases before downloading,
-                  with different delays for Usenet vs torrents and bypass conditions.
-                items:
-                  description: |-
-                    DelayProfileSpec defines a delay profile for controlling download timing.
-                    Delay profiles allow waiting for better releases before downloading,
-                    with different delays for different protocols and bypass conditions.
-                  properties:
-                    bypassIfAboveCustomFormatScore:
-                      default: false
-                      description: |-
-                        BypassIfAboveCustomFormatScore bypasses the delay if the release's
-                        custom format score is at or above MinimumCustomFormatScore.
-                      type: boolean
-                    bypassIfHighestQuality:
-                      default: false
-                      description: |-
-                        BypassIfHighestQuality bypasses the delay if the release is at or above
-                        the cutoff quality defined in the quality profile.
-                      type: boolean
-                    enableTorrent:
-                      default: true
-                      description: EnableTorrent enables/disables torrents for this
-                        profile.
-                      type: boolean
-                    enableUsenet:
-                      default: true
-                      description: EnableUsenet enables/disables Usenet for this profile.
-                      type: boolean
-                    minimumCustomFormatScore:
-                      default: 0
-                      description: |-
-                        MinimumCustomFormatScore is the minimum custom format score required
-                        to bypass the delay when BypassIfAboveCustomFormatScore is enabled.
-                      type: integer
-                    name:
-                      description: Name is a display name for this delay profile (used
-                        for identification only).
-                      type: string
-                    order:
-                      description: |-
-                        Order determines the priority of this profile (lower = higher priority).
-                        If not specified, profiles are ordered by their position in the array.
-                      minimum: 1
-                      type: integer
-                    preferredProtocol:
-                      default: usenet
-                      description: PreferredProtocol specifies which protocol to prefer
-                        when both are available.
-                      enum:
-                      - usenet
-                      - torrent
-                      type: string
-                    tags:
-                      description: |-
-                        Tags restricts this delay profile to items with matching tags.
-                        If empty, the profile applies to all items.
-                      items:
-                        type: string
-                      type: array
-                    torrentDelay:
-                      default: 0
-                      description: |-
-                        TorrentDelay is the delay in minutes before downloading from torrents.
-                        Set to 0 for no delay.
-                      minimum: 0
-                      type: integer
-                    usenetDelay:
-                      default: 0
-                      description: |-
-                        UsenetDelay is the delay in minutes before downloading from Usenet.
-                        Set to 0 for no delay.
-                      minimum: 0
-                      type: integer
-                  required:
-                  - name
-                  type: object
-                type: array
               downloadClients:
                 description: DownloadClients configures download clients.
                 items:
@@ -370,8 +198,8 @@ spec:
                   type: object
                 type: array
               importLists:
-                description: ImportLists configures automatic import lists (Spotify,
-                  Last.fm, etc.).
+                description: ImportLists configures automatic import lists (Goodreads,
+                  LazyLibrarian, etc.).
                 items:
                   description: ImportListSpec defines an import list configuration
                     for Radarr/Sonarr/Lidarr
@@ -629,34 +457,58 @@ spec:
                       for changes. Lidarr only.
                     type: boolean
                 type: object
-              metadata:
-                description: Metadata configures which album types to include.
+              metadataProfile:
+                description: |-
+                  MetadataProfile defines metadata profile preferences.
+                  Controls how book metadata is matched from Goodreads/other sources.
                 properties:
-                  primaryTypes:
-                    description: 'PrimaryTypes: album, ep, single, broadcast, other'
+                  allowedLanguages:
+                    description: |-
+                      AllowedLanguages are the languages to allow.
+                      If empty, all languages are allowed.
                     items:
                       type: string
                     type: array
-                  releaseStatuses:
-                    description: 'ReleaseStatuses: official, promotional, bootleg'
-                    items:
-                      type: string
-                    type: array
-                  secondaryTypes:
-                    description: 'SecondaryTypes: studio, compilation, soundtrack,
-                      live, remix, etc.'
-                    items:
-                      type: string
-                    type: array
+                  minPopularity:
+                    description: MinPopularity is the minimum Goodreads popularity
+                      for books.
+                    minimum: 0
+                    type: integer
+                  name:
+                    description: Name is the profile name.
+                    type: string
+                  skipMissingDate:
+                    default: true
+                    description: SkipMissingDate skips books without a release date.
+                    type: boolean
+                  skipMissingIsbn:
+                    default: false
+                    description: SkipMissingIsbn skips books without an ISBN.
+                    type: boolean
+                  skipPartsAndSets:
+                    default: false
+                    description: SkipPartsAndSets skips book parts and box sets.
+                    type: boolean
+                  skipSeriesSecondary:
+                    default: false
+                    description: SkipSeriesSecondary skips secondary series entries.
+                    type: boolean
+                required:
+                - name
                 type: object
               naming:
                 description: Naming configures file/folder naming.
                 properties:
-                  albumFolderFormat:
-                    description: AlbumFolderFormat for album folders.
+                  authorFolderFormat:
+                    description: AuthorFolderFormat for author folders.
                     type: string
-                  artistFolderFormat:
-                    description: ArtistFolderFormat for artist folders.
+                  colonReplacementFormat:
+                    description: ColonReplacementFormat replaces colons in filenames.
+                    enum:
+                    - delete
+                    - dash
+                    - spaceDash
+                    - spaceDashSpace
                     type: string
                   folderFormat:
                     description: FolderFormat is the format string for folders.
@@ -675,14 +527,16 @@ spec:
                   renameMedia:
                     description: RenameMedia enables renaming (movies/episodes/tracks).
                     type: boolean
+                  standardBookFormat:
+                    description: StandardBookFormat for book files.
+                    type: string
                   standardFormat:
                     description: StandardFormat is the format string for standard
                       files.
                     type: string
                 type: object
               notifications:
-                description: Notifications configures notification connections (Discord,
-                  Slack, Email, etc.).
+                description: Notifications configures notification connections.
                 items:
                   description: |-
                     NotificationSpec defines a notification connection.
@@ -840,54 +694,52 @@ spec:
                   type: object
                 type: array
               quality:
-                description: Quality defines audio quality preferences.
+                description: Quality defines book quality preferences.
                 properties:
-                  exclude:
-                    description: Exclude removes tiers/formats from the preset.
+                  allowedFormats:
+                    description: AllowedFormats are the book formats to allow.
                     items:
-                      type: string
+                      description: ReadarrFormatSpec defines an allowed book format.
+                      properties:
+                        allowed:
+                          default: true
+                          description: Allowed indicates if this format is allowed.
+                          type: boolean
+                        format:
+                          description: |-
+                            Format is the book format type.
+                            Options: EPUB, MOBI, AZW3, PDF, FLAC, MP3, M4B, Unknown
+                          enum:
+                          - EPUB
+                          - MOBI
+                          - AZW3
+                          - PDF
+                          - FLAC
+                          - MP3
+                          - M4B
+                          - Unknown
+                          type: string
+                      required:
+                      - format
+                      type: object
                     type: array
-                  preferAdditional:
-                    description: PreferAdditional adds formats to preferred list.
-                    items:
-                      type: string
-                    type: array
-                  preferredFormats:
-                    description: 'PreferredFormats: flac, alac, mp3-320, aac-320,
-                      etc.'
-                    items:
-                      type: string
-                    type: array
+                  cutoff:
+                    description: Cutoff is the format quality that stops upgrades.
+                    type: string
                   preset:
                     description: |-
-                      Preset is a built-in quality configuration.
-                      See PRESETS.md for available presets.
+                      Preset selects a built-in quality configuration.
+                      Options: "standard", "high-quality", "audiobook-focus"
                     enum:
-                    - lossless-hires
-                    - lossless
+                    - standard
                     - high-quality
-                    - balanced
-                    - portable
-                    - any
+                    - audiobook-focus
                     type: string
-                  templateRef:
-                    description: TemplateRef references a QualityTemplate.
-                    properties:
-                      name:
-                        description: Name is the name of the referenced object.
-                        type: string
-                    required:
-                    - name
-                    type: object
-                  tiers:
-                    description: 'Tiers defines quality tiers: lossless-hires, lossless,
-                      lossy-high, lossy-mid, lossy-low'
-                    items:
-                      type: string
-                    type: array
-                  upgradeUntil:
-                    description: UpgradeUntil defines the tier to upgrade until.
-                    type: string
+                  upgradeAllowed:
+                    default: true
+                    description: UpgradeAllowed permits upgrading to higher quality
+                      formats.
+                    type: boolean
                 type: object
               reconciliation:
                 description: Reconciliation configures sync behavior.
@@ -901,9 +753,8 @@ spec:
                     type: boolean
                 type: object
               remotePathMappings:
-                description: |-
-                  RemotePathMappings maps download client paths to local paths.
-                  Required when download clients and Lidarr see files at different paths.
+                description: RemotePathMappings maps download client paths to local
+                  paths.
                 items:
                   description: |-
                     RemotePathMappingSpec maps download client paths to local paths.
@@ -931,43 +782,18 @@ spec:
                   type: object
                 type: array
               rootFolders:
-                description: |-
-                  RootFolders configures root folder paths.
-                  Lidarr root folders require additional metadata.
+                description: RootFolders configures root folder paths for book storage.
                 items:
-                  description: LidarrRootFolder extends root folder with Lidarr requirements
-                  properties:
-                    defaultMonitor:
-                      default: all
-                      description: 'DefaultMonitor: all, future, missing, existing,
-                        latest, first, none'
-                      enum:
-                      - all
-                      - future
-                      - missing
-                      - existing
-                      - latest
-                      - first
-                      - none
-                      type: string
-                    name:
-                      description: Name is the display name for this root folder.
-                      type: string
-                    path:
-                      description: Path is the root folder path.
-                      type: string
-                  required:
-                  - path
-                  type: object
+                  type: string
                 type: array
             required:
             - connection
             type: object
           status:
-            description: Status defines the observed state of LidarrConfig.
+            description: Status defines the observed state of ReadarrConfig.
             properties:
               conditions:
-                description: Conditions represent the latest observations of the LidarrConfig's
+                description: Conditions represent the latest observations of the ReadarrConfig's
                   state.
                 items:
                   description: Condition contains details for one aspect of the current
@@ -1028,7 +854,7 @@ spec:
                 - type
                 x-kubernetes-list-type: map
               connected:
-                description: Connected indicates whether Lidarr is reachable.
+                description: Connected indicates whether Readarr is reachable.
                 type: boolean
               health:
                 description: Health represents the app's health status from its internal
@@ -1149,7 +975,7 @@ spec:
                     type: array
                 type: object
               serviceVersion:
-                description: ServiceVersion is the Lidarr version.
+                description: ServiceVersion is the Readarr version.
                 type: string
             type: object
         required:

@@ -136,6 +136,7 @@ const (
 	AppRadarr   = "radarr"
 	AppSonarr   = "sonarr"
 	AppLidarr   = "lidarr"
+	AppReadarr  = "readarr"
 	AppProwlarr = "prowlarr"
 )
 

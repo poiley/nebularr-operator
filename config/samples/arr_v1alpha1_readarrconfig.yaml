@@ -1,35 +1,40 @@
 apiVersion: arr.rinzler.cloud/v1alpha1
-kind: RadarrConfig
+kind: ReadarrConfig
 metadata:
   labels:
     app.kubernetes.io/name: nebularr
     app.kubernetes.io/managed-by: kustomize
-  name: radarrconfig-sample
+  name: readarrconfig-sample
 spec:
-  # Connection to Radarr instance
+  # Connection to Readarr instance
   connection:
-    url: http://radarr.media.svc.cluster.local:7878
+    url: http://readarr.media.svc.cluster.local:8787
     apiKeySecretRef:
-      name: radarr-credentials
+      name: readarr-credentials
       key: apiKey
 
-  # Quality profile settings
+  # Quality profile settings for ebooks
   quality:
-    preset: balanced
-    # Or use "4k-optimized" for 4K content
-    # Or define custom tiers:
-    # tiers:
-    #   - resolution: 2160p
-    #     sources: [bluray, webdl]
-    #     allowed: true
-    #   - resolution: 1080p
-    #     sources: [bluray, webdl, webrip]
-    #     allowed: true
+    preset: standard
+    # Or use "high-quality" for preferred formats
+    # Or "audiobook-focus" for audiobook-first selection
 
-  # Root folders for movies
+  # Metadata profile settings
+  metadataProfile:
+    name: Standard
+    minPopularity: 0
+    skipMissingDate: true
+    skipMissingIsbn: false
+    skipPartsAndSets: false
+    skipSeriesSecondary: false
+    # allowedLanguages:
+    #   - eng
+    #   - deu
+
+  # Root folders for books
   rootFolders:
-    - /movies
-    - /movies-4k
+    - /books
+    - /audiobooks
 
   # Download clients
   downloadClients:
@@ -40,7 +45,7 @@ spec:
         name: qbittorrent-credentials
         usernameKey: username
         passwordKey: password
-      category: movies-radarr
+      category: books-readarr
       priority: 1
 
     - name: sabnzbd
@@ -49,7 +54,7 @@ spec:
       apiKeySecretRef:
         name: sabnzbd-credentials
         key: apiKey
-      category: movies
+      category: books
       priority: 2
 
   # Remote path mappings
@@ -66,10 +71,11 @@ spec:
 
   # File/folder naming
   naming:
-    preset: plex-friendly
+    preset: standard
     # Or custom format:
-    # movieFolderFormat: "{Movie CleanTitle} ({Release Year}) [imdbid-{ImdbId}]"
-    # standardMovieFormat: "{Movie CleanTitle} ({Release Year}) {Quality Full}"
+    # authorFolderFormat: "{Author CleanName}"
+    # standardBookFormat: "{Book Title} ({Release Year}){[Quality Full]}"
+    # colonReplacementFormat: dash
 
   # Media management settings
   mediaManagement:
@@ -77,17 +83,17 @@ spec:
     createEmptyFolders: false
     minimumFreeSpace: 100
 
-  # Import lists (optional)
+  # Import lists (optional - Goodreads, LazyLibrarian, etc.)
   importLists:
-    - name: imdb-watchlist
-      type: imdb
-      listType: watchlist
+    - name: goodreads-list
+      type: goodreads
+      listType: bookshelf
       enabled: true
       enableAutomaticAdd: true
       qualityProfileId: 1
-      rootFolderPath: /movies
+      rootFolderPath: /books
       settingsSecretRef:
-        name: imdb-credentials
+        name: goodreads-credentials
 
   # Notifications (optional)
   notifications:
@@ -100,32 +106,6 @@ spec:
         name: discord-webhook
         key: url
 
-  # Custom formats for quality scoring
-  customFormats:
-    - name: HDR
-      specifications:
-        - type: ReleaseTitleSpecification
-          name: HDR
-          value: "\\bHDR(10(Plus|\\+)?)?\\b"
-          negate: false
-          required: true
-
-    - name: DV
-      specifications:
-        - type: ReleaseTitleSpecification
-          name: DolbyVision
-          value: "\\b(DV|DoVi|Dolby[ .]?Vision)\\b"
-          negate: false
-          required: true
-
-  # Delay profiles
-  delayProfiles:
-    - enableUsenet: true
-      enableTorrent: true
-      usenetDelay: 0
-      torrentDelay: 120
-      bypassIfHighestQuality: true
-
   # Reconciliation settings
   reconciliation:
     interval: 5m
@@ -135,15 +115,7 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: radarr-credentials
+  name: readarr-credentials
 type: Opaque
 stringData:
-  apiKey: "your-radarr-api-key"
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: sabnzbd-credentials
-type: Opaque
-stringData:
-  apiKey: "your-sabnzbd-api-key"
+  apiKey: "your-readarr-api-key"

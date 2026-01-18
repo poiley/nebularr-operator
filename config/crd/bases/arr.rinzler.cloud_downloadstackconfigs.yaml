@@ -212,6 +212,202 @@ spec:
                 required:
                 - provider
                 type: object
+              qbittorrent:
+                description: |-
+                  QBittorrent configuration (applied via WebUI API)
+                  At least one of Transmission or QBittorrent must be specified
+                properties:
+                  altSpeed:
+                    description: AltSpeed (scheduled limits)
+                    properties:
+                      downloadLimit:
+                        description: DownloadLimit in KiB/s
+                        type: integer
+                      enabled:
+                        description: Enabled enables alt-speed limits
+                        type: boolean
+                      scheduleFromHour:
+                        description: ScheduleFromHour is the start hour (0-23)
+                        type: integer
+                      scheduleFromMinute:
+                        description: ScheduleFromMinute is the start minute (0-59)
+                        type: integer
+                      scheduleToHour:
+                        description: ScheduleToHour is the end hour (0-23)
+                        type: integer
+                      scheduleToMinute:
+                        description: ScheduleToMinute is the end minute (0-59)
+                        type: integer
+                      schedulerDays:
+                        description: SchedulerDays is a bitmask (1=Mon, 2=Tue, 4=Wed,
+                          8=Thu, 16=Fri, 32=Sat, 64=Sun, 127=All)
+                        type: integer
+                      schedulerEnabled:
+                        description: SchedulerEnabled enables scheduled alt-speed
+                        type: boolean
+                      uploadLimit:
+                        description: UploadLimit in KiB/s
+                        type: integer
+                    type: object
+                  bittorrent:
+                    description: BitTorrent protocol settings
+                    properties:
+                      anonymousMode:
+                        description: AnonymousMode hides client identity
+                        type: boolean
+                      dht:
+                        description: DHT enables Distributed Hash Table
+                        type: boolean
+                      encryption:
+                        description: 'Encryption: 0=prefer, 1=force_on, 2=force_off'
+                        enum:
+                        - 0
+                        - 1
+                        - 2
+                        type: integer
+                      lsd:
+                        description: LSD enables Local Service Discovery
+                        type: boolean
+                      pex:
+                        description: PeX enables Peer Exchange
+                        type: boolean
+                    type: object
+                  connection:
+                    description: Connection settings
+                    properties:
+                      credentialsSecretRef:
+                        description: CredentialsSecretRef for authentication
+                        properties:
+                          name:
+                            description: Name is the name of the Secret.
+                            type: string
+                          passwordKey:
+                            default: password
+                            description: PasswordKey is the key for the password.
+                            type: string
+                          usernameKey:
+                            default: username
+                            description: UsernameKey is the key for the username.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        default: http://localhost:8080
+                        description: URL to qBittorrent WebUI (e.g., http://localhost:8080)
+                        type: string
+                    required:
+                    - url
+                    type: object
+                  connections:
+                    description: Connection settings (peers, etc.)
+                    properties:
+                      listenPort:
+                        description: ListenPort is the listening port for incoming
+                          connections
+                        type: integer
+                      maxConnections:
+                        description: MaxConnections is the global max connections
+                        type: integer
+                      maxConnectionsPerTorrent:
+                        description: MaxConnectionsPerTorrent is the per-torrent max
+                          connections
+                        type: integer
+                      maxUploads:
+                        description: MaxUploads is the global max upload slots
+                        type: integer
+                      maxUploadsPerTorrent:
+                        description: MaxUploadsPerTorrent is the per-torrent max upload
+                          slots
+                        type: integer
+                      randomPort:
+                        description: RandomPort uses random port on startup
+                        type: boolean
+                      upnpEnabled:
+                        description: UPnPEnabled enables UPnP/NAT-PMP port forwarding
+                        type: boolean
+                    type: object
+                  directories:
+                    description: Directories configuration
+                    properties:
+                      appendExtension:
+                        description: AppendExtension adds .!qB extension to incomplete
+                          files
+                        type: boolean
+                      createSubfolder:
+                        description: CreateSubfolder creates subfolder for multi-file
+                          torrents
+                        type: boolean
+                      savePath:
+                        description: SavePath is the default save path for downloads
+                        type: string
+                      tempPath:
+                        description: TempPath is the temporary download path
+                        type: string
+                      tempPathEnabled:
+                        description: TempPathEnabled enables use of temporary path
+                        type: boolean
+                    type: object
+                  queue:
+                    description: Queue settings
+                    properties:
+                      maxActiveDownloads:
+                        description: MaxActiveDownloads is the max concurrent downloads
+                        type: integer
+                      maxActiveTorrents:
+                        description: MaxActiveTorrents is the max total active torrents
+                        type: integer
+                      maxActiveUploads:
+                        description: MaxActiveUploads is the max concurrent uploads
+                        type: integer
+                      queueingEnabled:
+                        description: QueueingEnabled enables download queueing
+                        type: boolean
+                    type: object
+                  seeding:
+                    description: Seeding limits
+                    properties:
+                      maxRatio:
+                        description: MaxRatio is the max seeding ratio (e.g., 2.0)
+                        type: string
+                      maxRatioAction:
+                        description: 'MaxRatioAction: pause (0), remove (1), remove_and_delete
+                          (3), enable_super_seeding (2)'
+                        enum:
+                        - 0
+                        - 1
+                        - 2
+                        - 3
+                        type: integer
+                      maxRatioEnabled:
+                        description: MaxRatioEnabled enables ratio limit
+                        type: boolean
+                      maxSeedingTime:
+                        description: MaxSeedingTime is max seeding time in minutes
+                        type: integer
+                      maxSeedingTimeEnabled:
+                        description: MaxSeedingTimeEnabled enables time limit
+                        type: boolean
+                    type: object
+                  speed:
+                    description: Speed limits
+                    properties:
+                      downloadLimit:
+                        description: DownloadLimit in KiB/s (0 = unlimited)
+                        type: integer
+                      globalDownloadSpeedLimit:
+                        description: GlobalDownloadSpeedLimit in KiB/s (0 = unlimited)
+                        type: integer
+                      globalUploadSpeedLimit:
+                        description: GlobalUploadSpeedLimit in KiB/s (0 = unlimited)
+                        type: integer
+                      uploadLimit:
+                        description: UploadLimit in KiB/s (0 = unlimited)
+                        type: integer
+                    type: object
+                required:
+                - connection
+                type: object
               reconciliation:
                 description: Reconciliation configures sync behavior
                 properties:
@@ -229,7 +425,9 @@ spec:
                   Gluetun config changes
                 type: boolean
               transmission:
-                description: Transmission configuration (applied via RPC)
+                description: |-
+                  Transmission configuration (applied via RPC)
+                  At least one of Transmission or QBittorrent must be specified
                 properties:
                   altSpeed:
                     description: AltSpeed (turtle mode / scheduled limits)
@@ -416,7 +614,6 @@ spec:
             required:
             - deploymentRef
             - gluetun
-            - transmission
             type: object
           status:
             description: Status defines the observed state
@@ -497,6 +694,13 @@ spec:
                 description: ObservedGeneration is the last observed generation
                 format: int64
                 type: integer
+              qbittorrentConnected:
+                description: QBittorrentConnected indicates if qBittorrent WebUI is
+                  reachable
+                type: boolean
+              qbittorrentVersion:
+                description: QBittorrentVersion is the qBittorrent version
+                type: string
               transmissionConnected:
                 description: TransmissionConnected indicates if Transmission RPC is
                   reachable

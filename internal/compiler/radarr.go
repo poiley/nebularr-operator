@@ -238,13 +238,15 @@ func convertDownloadClients(clients []arrv1alpha1.DownloadClientSpec, resolvedSe
 		}
 
 		dcInput := DownloadClientInput{
-			Name:           dc.Name,
-			Implementation: normalizeImplementationName(impl),
-			Host:           host,
-			Port:           port,
-			UseTLS:         useTLS,
-			Category:       dc.Category,
-			Priority:       dc.Priority,
+			Name:                     dc.Name,
+			Implementation:           normalizeImplementationName(impl),
+			Host:                     host,
+			Port:                     port,
+			UseTLS:                   useTLS,
+			Category:                 dc.Category,
+			Priority:                 dc.Priority,
+			RemoveCompletedDownloads: dc.RemoveCompletedDownloads == nil || *dc.RemoveCompletedDownloads,
+			RemoveFailedDownloads:    dc.RemoveFailedDownloads == nil || *dc.RemoveFailedDownloads,
 		}
 
 		// Resolve credentials from secrets
@@ -729,4 +731,57 @@ func convertDelayProfiles(profiles []arrv1alpha1.DelayProfileSpec) []DelayProfil
 	}
 
 	return result
+}
+
+// CompileReadarrConfig compiles a ReadarrConfig CRD to IR
+func (c *Compiler) CompileReadarrConfig(ctx context.Context, config *arrv1alpha1.ReadarrConfig, resolvedSecrets map[string]string, caps *adapters.Capabilities) (*irv1.IR, error) {
+	input := CompileInput{
+		App:             adapters.AppReadarr,
+		ConfigName:      config.Name,
+		Namespace:       config.Namespace,
+		Capabilities:    caps,
+		ResolvedSecrets: resolvedSecrets,
+	}
+
+	// Connection (required field, always present)
+	input.URL = config.Spec.Connection.URL
+	if apiKey, ok := resolvedSecrets["apiKey"]; ok {
+		input.APIKey = apiKey
+	}
+
+	// Quality - Readarr uses format-based quality (ebook formats)
+	if config.Spec.Quality != nil {
+		input.QualityPreset = config.Spec.Quality.Preset
+	}
+
+	// Naming
+	if config.Spec.Naming != nil {
+		input.NamingPreset = config.Spec.Naming.Preset
+	}
+
+	// Download clients
+	input.DownloadClients = convertDownloadClients(config.Spec.DownloadClients, resolvedSecrets)
+
+	// Remote path mappings
+	input.RemotePathMappings = convertRemotePathMappings(config.Spec.RemotePathMappings)
+
+	// Indexers
+	input.Indexers = convertIndexers(config.Spec.Indexers, resolvedSecrets)
+
+	// Root folders
+	input.RootFolders = config.Spec.RootFolders
+
+	// Import lists
+	input.ImportLists = convertImportLists(config.Spec.ImportLists, resolvedSecrets)
+
+	// Media management
+	input.MediaManagement = convertMediaManagement(config.Spec.MediaManagement)
+
+	// Authentication
+	input.Authentication = convertAuthentication(config.Spec.Authentication, resolvedSecrets)
+
+	// Notifications
+	input.Notifications = convertNotifications(config.Spec.Notifications, resolvedSecrets)
+
+	return c.Compile(ctx, input)
 }

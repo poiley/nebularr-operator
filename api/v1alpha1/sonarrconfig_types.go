@@ -96,6 +96,13 @@ type SonarrConfigSpec struct {
 	// +optional
 	DelayProfiles []DelayProfileSpec `json:"delayProfiles,omitempty"`
 
+	// ReleaseProfiles configures release filtering and scoring.
+	// Release profiles allow requiring/ignoring certain terms and scoring
+	// releases based on preferred patterns. This is useful for filtering
+	// out unwanted release groups or preferring specific qualities.
+	// +optional
+	ReleaseProfiles []ReleaseProfileSpec `json:"releaseProfiles,omitempty"`
+
 	// Reconciliation configures sync behavior.
 	// +optional
 	Reconciliation *ReconciliationSpec `json:"reconciliation,omitempty"`

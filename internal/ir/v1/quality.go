@@ -93,8 +93,30 @@ type AudioQualityTierIR struct {
 	Allowed bool   `json:"allowed"`
 }
 
-// ReleaseProfileIR for Lidarr release filtering
+// ReleaseProfileIR for release filtering (Sonarr/Lidarr)
 type ReleaseProfileIR struct {
+	// ID is the server-side ID (nil for creates)
+	ID *int `json:"id,omitempty"`
+	// Name is the display name
+	Name string `json:"name"`
+	// Enabled indicates if the profile is active
+	Enabled bool `json:"enabled"`
+	// Required terms that must be present
 	Required []string `json:"required,omitempty"`
-	Ignored  []string `json:"ignored,omitempty"`
+	// Ignored terms that must not be present
+	Ignored []string `json:"ignored,omitempty"`
+	// Preferred terms with scores
+	Preferred []PreferredTermIR `json:"preferred,omitempty"`
+	// IncludePreferredWhenRenaming includes preferred terms in naming
+	IncludePreferredWhenRenaming bool `json:"includePreferredWhenRenaming,omitempty"`
+	// IndexerID restricts to specific indexer (0 = all)
+	IndexerID int `json:"indexerId,omitempty"`
+	// Tags restricts to specific tags
+	Tags []int `json:"tags,omitempty"`
+}
+
+// PreferredTermIR represents a preferred term with score
+type PreferredTermIR struct {
+	Term  string `json:"term"`
+	Score int    `json:"score"`
 }

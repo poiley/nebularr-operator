@@ -1,121 +1,361 @@
-# nebularr
-// TODO(user): Add simple overview of use/purpose
+# Nebularr Operator
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+A Kubernetes operator for declarative configuration management of the *arr media stack (Radarr, Sonarr, Lidarr, Prowlarr, Bazarr) and download clients (Transmission, qBittorrent, SABnzbd).
+
+## Overview
+
+Nebularr enables GitOps-style management of your media automation stack. Instead of manually configuring each application through their web UIs, you define your desired state as Kubernetes Custom Resources, and Nebularr ensures your applications match that configuration.
+
+### Key Features
+
+- **Declarative Configuration**: Define quality profiles, download clients, indexers, and more as YAML
+- **GitOps Ready**: Store your media stack configuration in Git and let ArgoCD/Flux sync it
+- **Secret Management**: Integrates with Kubernetes Secrets for API keys and credentials
+- **Prowlarr Integration**: Automatic indexer synchronization across all *arr applications
+- **Download Client Management**: Configure Transmission, qBittorrent, and SABnzbd
+- **Quality Presets**: Built-in presets for common quality configurations (balanced, 4k-optimized, etc.)
+
+### Supported Applications
+
+| Application | CRD | Description |
+|-------------|-----|-------------|
+| Radarr | `RadarrConfig` | Movie collection management |
+| Sonarr | `SonarrConfig` | TV series management |
+| Lidarr | `LidarrConfig` | Music collection management |
+| Prowlarr | `ProwlarrConfig` | Indexer management and sync |
+| Bazarr | `BazarrConfig` | Subtitle management |
+| Transmission | `DownloadStackConfig` | Torrent download client |
+
+## Architecture
+
+```
+                    +------------------+
+                    |  Kubernetes API  |
+                    +--------+---------+
+                             |
+              +----CRDs------+------Secrets-----+
+              |              |                  |
+    +---------v----+ +-------v------+ +--------v-------+
+    | RadarrConfig | | SonarrConfig | | ProwlarrConfig |
+    +---------+----+ +-------+------+ +--------+-------+
+              |              |                  |
+              +------+-------+--------+---------+
+                     |                |
+            +--------v--------+  +----v----+
+            | Nebularr        |  |  *arr   |
+            | Controller      |--| APIs    |
+            +-----------------+  +---------+
+```
+
+The operator uses an **Intermediate Representation (IR)** layer to abstract *arr API specifics:
+1. Controllers compile CRD specs to IR
+2. Adapters translate IR to application-specific API calls
+3. This allows for consistent configuration across different *arr applications
 
 ## Getting Started
 
 ### Prerequisites
-- go version v1.24.6+
-- docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
 
-### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
+- Kubernetes v1.26+
+- kubectl v1.26+
+- Helm v3 (optional, for Helm-based installation)
+- Docker (for building from source)
+- *arr applications deployed and accessible within the cluster
 
-```sh
-make docker-build docker-push IMG=<some-registry>/nebularr:tag
+### Installation
+
+#### Using kubectl
+
+```bash
+# Install CRDs
+kubectl apply -f https://raw.githubusercontent.com/poiley/nebularr/main/dist/install.yaml
 ```
 
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
+#### From Source
 
-**Install the CRDs into the cluster:**
+```bash
+# Clone the repository
+git clone https://github.com/poiley/nebularr.git
+cd nebularr
 
-```sh
+# Install CRDs
 make install
+
+# Deploy the operator
+make deploy IMG=ghcr.io/poiley/nebularr:latest
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
+### Quick Start
 
-```sh
-make deploy IMG=<some-registry>/nebularr:tag
+1. **Create a Secret with your Radarr API key:**
+
+```yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: radarr-credentials
+  namespace: media
+type: Opaque
+stringData:
+  apiKey: "your-radarr-api-key-here"
 ```
 
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
-privileges or be logged in as admin.
+2. **Create a RadarrConfig resource:**
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
+```yaml
+apiVersion: arr.rinzler.cloud/v1alpha1
+kind: RadarrConfig
+metadata:
+  name: radarr-production
+  namespace: media
+spec:
+  connection:
+    url: http://radarr.media.svc.cluster.local:7878
+    apiKeySecretRef:
+      name: radarr-credentials
+      key: apiKey
 
-```sh
-kubectl apply -k config/samples/
+  quality:
+    preset: balanced  # Use built-in preset
+
+  rootFolders:
+    - /movies
+
+  downloadClients:
+    - name: transmission
+      type: transmission
+      url: http://transmission.media.svc.cluster.local:9091
+      credentialsSecretRef:
+        name: transmission-credentials
+        usernameKey: username
+        passwordKey: password
+      category: movies
+
+  naming:
+    preset: plex-friendly
 ```
 
->**NOTE**: Ensure that the samples has default values to test it out.
+3. **Apply the configuration:**
 
-### To Uninstall
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
+```bash
+kubectl apply -f radarr-config.yaml
 ```
 
-**Delete the APIs(CRDs) from the cluster:**
+4. **Check the status:**
 
-```sh
-make uninstall
+```bash
+kubectl get radarrconfig radarr-production -n media -o yaml
 ```
 
-**UnDeploy the controller from the cluster:**
+## Configuration Reference
 
-```sh
-make undeploy
+### RadarrConfig / SonarrConfig
+
+```yaml
+spec:
+  connection:
+    url: string                    # Required: URL of the *arr instance
+    apiKeySecretRef:               # Required: Reference to API key secret
+      name: string
+      key: string
+
+  quality:
+    preset: string                 # One of: balanced, 4k-optimized, storage-optimized
+    # OR custom tiers:
+    tiers:
+      - resolution: string         # 2160p, 1080p, 720p, etc.
+        sources: [string]          # bluray, webdl, webrip, hdtv, etc.
+        allowed: bool
+
+  rootFolders: [string]            # List of root folder paths
+
+  downloadClients:
+    - name: string
+      type: string                 # transmission, qbittorrent, sabnzbd
+      url: string
+      credentialsSecretRef:        # For clients requiring user/pass
+        name: string
+        usernameKey: string
+        passwordKey: string
+      apiKeySecretRef:             # For clients requiring API key
+        name: string
+        key: string
+      category: string
+      priority: int
+
+  indexers:
+    prowlarrRef:                   # Sync indexers from Prowlarr
+      name: string
+      autoRegister: bool
+
+  naming:
+    preset: string                 # plex-friendly, jellyfin-friendly, custom
+    # OR custom formats (see samples for details)
+
+  customFormats: [...]             # Custom format definitions
+  delayProfiles: [...]             # Delay profile configurations
+  importLists: [...]               # Import list configurations
+  notifications: [...]             # Notification configurations
+
+  reconciliation:
+    interval: duration             # How often to reconcile (default: 5m)
+    suspend: bool                  # Pause reconciliation
 ```
 
-## Project Distribution
+### ProwlarrConfig
 
-Following the options to release and provide this solution to the users.
+```yaml
+spec:
+  connection:
+    url: string
+    apiKeySecretRef:
+      name: string
+      key: string
 
-### By providing a bundle with all YAML files
+  indexers:
+    - name: string
+      type: string                 # Indexer type (see Prowlarr docs)
+      enabled: bool
+      settings:                    # Indexer-specific settings
+        key: value
+      secretRef:                   # For sensitive settings
+        name: string
 
-1. Build the installer for the image built and published in the registry:
-
-```sh
-make build-installer IMG=<some-registry>/nebularr:tag
+  syncTargets:                     # Automatically sync to *arr apps
+    - type: radarr
+      configRef:
+        name: string
+    - type: sonarr
+      configRef:
+        name: string
 ```
 
-**NOTE:** The makefile target mentioned above generates an 'install.yaml'
-file in the dist directory. This file contains all the resources built
-with Kustomize, which are necessary to install this project without its
-dependencies.
+### DownloadStackConfig
 
-2. Using the installer
+```yaml
+spec:
+  transmission:
+    enabled: bool
+    url: string
+    credentialsSecretRef:
+      name: string
+      usernameKey: string
+      passwordKey: string
+    settings:
+      downloadDir: string
+      incompleteDir: string
+      peerPort: int
 
-Users can just run 'kubectl apply -f <URL for YAML BUNDLE>' to install
-the project, i.e.:
-
-```sh
-kubectl apply -f https://raw.githubusercontent.com/<org>/nebularr/<tag or branch>/dist/install.yaml
+  gluetun:                         # VPN configuration
+    enabled: bool
+    provider: string               # mullvad, nordvpn, etc.
+    secretRef:
+      name: string
 ```
 
-### By providing a Helm Chart
+## Examples
 
-1. Build the chart using the optional helm plugin
+See the [config/samples/](config/samples/) directory for complete examples:
 
-```sh
-kubebuilder edit --plugins=helm/v2-alpha
+- [RadarrConfig](config/samples/arr_v1alpha1_radarrconfig.yaml) - Movie management with custom formats
+- [SonarrConfig](config/samples/arr_v1alpha1_sonarrconfig.yaml) - TV show management with anime support
+- [LidarrConfig](config/samples/arr_v1alpha1_lidarrconfig.yaml) - Music management with metadata profiles
+- [ProwlarrConfig](config/samples/arr_v1alpha1_prowlarrconfig.yaml) - Indexer management
+
+## Development
+
+### Prerequisites
+
+- Go 1.24+
+- Docker
+- Kind (for local testing)
+- kubebuilder
+
+### Building
+
+```bash
+# Build the operator binary
+make build
+
+# Build the Docker image
+make docker-build IMG=nebularr:dev
+
+# Run tests
+make test
+
+# Run integration tests (requires Docker)
+make test-integration
+
+# Run full E2E tests (requires Kind)
+make test-e2e
 ```
 
-2. See that a chart was generated under 'dist/chart', and users
-can obtain this solution from there.
+### Project Structure
 
-**NOTE:** If you change the project, you need to update the Helm Chart
-using the same command above to sync the latest changes. Furthermore,
-if you create webhooks, you need to use the above command with
-the '--force' flag and manually ensure that any custom configuration
-previously added to 'dist/chart/values.yaml' or 'dist/chart/manager/manager.yaml'
-is manually re-applied afterwards.
+```
+.
+├── api/v1alpha1/          # CRD type definitions
+├── cmd/                   # Main entry point
+├── config/
+│   ├── crd/              # Generated CRD manifests
+│   ├── manager/          # Operator deployment manifests
+│   └── samples/          # Example CRs
+├── internal/
+│   ├── adapters/         # *arr API adapters
+│   │   ├── radarr/
+│   │   ├── sonarr/
+│   │   ├── lidarr/
+│   │   ├── prowlarr/
+│   │   └── downloadstack/
+│   ├── controller/       # Reconciliation controllers
+│   ├── discovery/        # API key discovery utilities
+│   └── ir/v1/           # Intermediate Representation types
+└── test/
+    ├── e2e/             # End-to-end tests
+    └── utils/           # Test utilities
+```
+
+### Adding a New *arr Application
+
+1. Define types in `api/v1alpha1/<app>config_types.go`
+2. Create IR mappings in `internal/ir/v1/`
+3. Implement adapter in `internal/adapters/<app>/`
+4. Create controller in `internal/controller/<app>config_controller.go`
+5. Register with the adapter registry
+6. Add sample configuration
+
+## Troubleshooting
+
+### Common Issues
+
+**CRD shows "NotReady" status:**
+```bash
+# Check the operator logs
+kubectl logs -n nebularr-system deployment/nebularr-controller-manager
+
+# Check events on the CR
+kubectl describe radarrconfig <name> -n <namespace>
+```
+
+**Cannot connect to *arr instance:**
+- Verify the URL is accessible from within the cluster
+- Check that the API key secret exists and contains the correct key
+- Ensure network policies allow traffic from the operator
+
+**Changes not being applied:**
+- Check if reconciliation is suspended (`spec.reconciliation.suspend: true`)
+- Verify the operator has RBAC permissions to read secrets
+- Check for validation errors in the CR status
 
 ## Contributing
-// TODO(user): Add detailed information on how you would like others to contribute to this project
 
-**NOTE:** Run `make help` for more information on all potential `make` targets
+Contributions are welcome! Please read our contributing guidelines and submit pull requests to the main repository.
 
-More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Run tests: `make test`
+5. Submit a pull request
 
 ## License
 
@@ -132,4 +372,3 @@ distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
-

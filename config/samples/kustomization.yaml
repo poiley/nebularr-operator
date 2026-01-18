@@ -3,5 +3,6 @@ resources:
 - arr_v1alpha1_radarrconfig.yaml
 - arr_v1alpha1_sonarrconfig.yaml
 - arr_v1alpha1_lidarrconfig.yaml
+- arr_v1alpha1_readarrconfig.yaml
 - arr_v1alpha1_prowlarrconfig.yaml
 # +kubebuilder:scaffold:manifestskustomizesamples

@@ -53,6 +53,9 @@ type IR struct {
 	// DelayProfiles configuration - for Radarr/Sonarr only
 	DelayProfiles []DelayProfileIR `json:"delayProfiles,omitempty"`
 
+	// ReleaseProfiles configuration - for Sonarr only
+	ReleaseProfiles []ReleaseProfileIR `json:"releaseProfiles,omitempty"`
+
 	// MediaManagement configuration
 	MediaManagement *MediaManagementIR `json:"mediaManagement,omitempty"`
 

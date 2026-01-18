@@ -6,4 +6,94 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: sonarrconfig-sample
 spec:
-  # TODO(user): Add fields here
+  # Connection to Sonarr instance
+  connection:
+    url: http://sonarr.media.svc.cluster.local:8989
+    apiKeySecretRef:
+      name: sonarr-credentials
+      key: apiKey
+
+  # Quality profile settings
+  quality:
+    preset: balanced
+
+  # Root folders for TV shows
+  rootFolders:
+    - /tv
+    - /tv-anime
+
+  # Download clients
+  downloadClients:
+    - name: qbittorrent
+      type: qbittorrent
+      url: http://qbittorrent.media.svc.cluster.local:8080
+      credentialsSecretRef:
+        name: qbittorrent-credentials
+        usernameKey: username
+        passwordKey: password
+      category: tv-sonarr
+      priority: 1
+
+  # Remote path mappings (if download client paths differ from Sonarr paths)
+  remotePathMappings:
+    - host: qbittorrent.media.svc.cluster.local
+      remotePath: /downloads/
+      localPath: /data/downloads/
+
+  # Indexers configuration - use Prowlarr (recommended)
+  indexers:
+    prowlarrRef:
+      name: prowlarrconfig-sample
+      autoRegister: true
+
+  # File/folder naming
+  naming:
+    preset: plex-friendly
+    seasonFolderFormat: "Season {season:00}"
+
+  # Media management settings
+  mediaManagement:
+    deleteEmptyFolders: true
+    createEmptyFolders: false
+    minimumFreeSpace: 100
+
+  # Custom formats for fine-grained quality control
+  customFormats:
+    - name: x265
+      specifications:
+        - type: ReleaseTitleSpecification
+          name: x265
+          value: "[xX]265"
+          negate: false
+          required: true
+
+  # Delay profiles for better release selection
+  delayProfiles:
+    - enableUsenet: true
+      enableTorrent: true
+      usenetDelay: 0
+      torrentDelay: 120
+      bypassIfHighestQuality: true
+
+  # Reconciliation settings
+  reconciliation:
+    interval: 5m
+    suspend: false
+---
+# Example secrets (DO NOT use in production - use sealed-secrets or external-secrets)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: sonarr-credentials
+type: Opaque
+stringData:
+  apiKey: "your-sonarr-api-key"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: qbittorrent-credentials
+type: Opaque
+stringData:
+  username: "admin"
+  password: "your-qbittorrent-password"

@@ -21,6 +21,28 @@ const (
 	DefaultTimeout = 30 * time.Second
 )
 
+// TransmissionClientInterface defines the Transmission RPC operations.
+// This interface allows for mock implementations in tests.
+type TransmissionClientInterface interface {
+	// TestConnection tests the connection to Transmission
+	TestConnection(ctx context.Context) error
+
+	// GetSession gets session/settings information
+	GetSession(ctx context.Context) (*TransmissionSession, error)
+
+	// SetSession updates session settings
+	SetSession(ctx context.Context, settings map[string]interface{}) error
+
+	// GetSessionStats gets session statistics
+	GetSessionStats(ctx context.Context) (map[string]interface{}, error)
+
+	// UpdateBlocklist updates the blocklist
+	UpdateBlocklist(ctx context.Context) error
+}
+
+// Ensure TransmissionClient implements the interface
+var _ TransmissionClientInterface = (*TransmissionClient)(nil)
+
 // TransmissionClient is a client for Transmission RPC API
 type TransmissionClient struct {
 	baseURL    string

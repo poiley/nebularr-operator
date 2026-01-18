@@ -52,8 +52,6 @@ func (a *Adapter) qualityProfileToIR(profile *client.QualityProfileResource) *ir
 		FormatScores:   make(map[string]int),
 	}
 
-	// TODO: Extract cutoff - we'd need to map the cutoff ID back to a tier
-
 	// Extract tiers from items
 	if profile.Items != nil {
 		for _, item := range *profile.Items {
@@ -61,6 +59,15 @@ func (a *Adapter) qualityProfileToIR(profile *client.QualityProfileResource) *ir
 			if tier != nil {
 				ir.Tiers = append(ir.Tiers, *tier)
 			}
+		}
+	}
+
+	// Extract cutoff - map the cutoff ID back to a tier
+	if profile.Cutoff != nil && profile.Items != nil {
+		cutoffID := int(*profile.Cutoff)
+		cutoffTier := a.findCutoffTier(*profile.Items, cutoffID)
+		if cutoffTier != nil {
+			ir.Cutoff = *cutoffTier
 		}
 	}
 
@@ -85,6 +92,33 @@ func (a *Adapter) qualityProfileToIR(profile *client.QualityProfileResource) *ir
 	}
 
 	return ir
+}
+
+// findCutoffTier searches through quality items to find the tier matching the cutoff ID.
+// The cutoff ID can match either a quality group ID or an individual quality ID.
+func (a *Adapter) findCutoffTier(items []client.QualityProfileQualityItemResource, cutoffID int) *irv1.VideoQualityTierIR {
+	for _, item := range items {
+		// Check if this item's ID matches the cutoff (for groups)
+		if item.Id != nil && int(*item.Id) == cutoffID {
+			return a.qualityItemToTier(&item)
+		}
+
+		// Check nested items (for groups, check individual qualities)
+		if item.Items != nil {
+			for _, subItem := range *item.Items {
+				// Check the sub-item's quality ID
+				if subItem.Quality != nil && subItem.Quality.Id != nil && int(*subItem.Quality.Id) == cutoffID {
+					return a.qualityItemToTier(&subItem)
+				}
+			}
+		}
+
+		// Check individual quality ID (for non-group items)
+		if item.Quality != nil && item.Quality.Id != nil && int(*item.Quality.Id) == cutoffID {
+			return a.qualityItemToTier(&item)
+		}
+	}
+	return nil
 }
 
 // qualityItemToTier converts a quality profile item to a tier

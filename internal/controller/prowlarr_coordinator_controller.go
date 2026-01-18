@@ -114,11 +114,10 @@ func (r *ProwlarrCoordinatorReconciler) Reconcile(ctx context.Context, req ctrl.
 				config.Spec.Indexers, config.Spec.Connection.URL,
 				&config.Status.ProwlarrRegistration); err != nil {
 				errs = append(errs, err)
-			} else {
-				// Update status if changed
-				if err := r.Status().Update(ctx, config); err != nil {
-					log.Error(err, "Failed to update RadarrConfig status", "name", config.Name)
-				}
+			}
+			// Always update status (even on error, the registration field may have been set with error details)
+			if err := r.Status().Update(ctx, config); err != nil {
+				log.Error(err, "Failed to update RadarrConfig status", "name", config.Name)
 			}
 		}
 	}
@@ -135,10 +134,10 @@ func (r *ProwlarrCoordinatorReconciler) Reconcile(ctx context.Context, req ctrl.
 				config.Spec.Indexers, config.Spec.Connection.URL,
 				&config.Status.ProwlarrRegistration); err != nil {
 				errs = append(errs, err)
-			} else {
-				if err := r.Status().Update(ctx, config); err != nil {
-					log.Error(err, "Failed to update SonarrConfig status", "name", config.Name)
-				}
+			}
+			// Always update status (even on error, the registration field may have been set with error details)
+			if err := r.Status().Update(ctx, config); err != nil {
+				log.Error(err, "Failed to update SonarrConfig status", "name", config.Name)
 			}
 		}
 	}
@@ -155,10 +154,10 @@ func (r *ProwlarrCoordinatorReconciler) Reconcile(ctx context.Context, req ctrl.
 				config.Spec.Indexers, config.Spec.Connection.URL,
 				&config.Status.ProwlarrRegistration); err != nil {
 				errs = append(errs, err)
-			} else {
-				if err := r.Status().Update(ctx, config); err != nil {
-					log.Error(err, "Failed to update LidarrConfig status", "name", config.Name)
-				}
+			}
+			// Always update status (even on error, the registration field may have been set with error details)
+			if err := r.Status().Update(ctx, config); err != nil {
+				log.Error(err, "Failed to update LidarrConfig status", "name", config.Name)
 			}
 		}
 	}

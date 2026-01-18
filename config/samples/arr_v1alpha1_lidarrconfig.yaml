@@ -6,4 +6,175 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
   name: lidarrconfig-sample
 spec:
-  # TODO(user): Add fields here
+  # Connection to Lidarr instance
+  # Note: Lidarr uses API v1, not v3
+  connection:
+    url: http://lidarr.media.svc.cluster.local:8686
+    apiKeySecretRef:
+      name: lidarr-credentials
+      key: apiKey
+
+  # Audio quality profile settings
+  quality:
+    preset: lossless
+    # Available presets: lossy, lossless, lossless-hires
+    # Or define custom tiers for audio quality
+
+  # Metadata profile - which album types to include
+  metadata:
+    primaryTypes:
+      - album
+      - ep
+      - single
+    secondaryTypes:
+      - studio
+      - compilation
+      - soundtrack
+    releaseStatuses:
+      - official
+
+  # Root folders for music (Lidarr-specific format with monitoring)
+  rootFolders:
+    - path: /music
+      name: Main Library
+      defaultMonitor: all
+    - path: /music-hires
+      name: Hi-Res Library
+      defaultMonitor: future
+
+  # Download clients
+  downloadClients:
+    - name: qbittorrent
+      type: qbittorrent
+      url: http://qbittorrent.media.svc.cluster.local:8080
+      credentialsSecretRef:
+        name: qbittorrent-credentials
+        usernameKey: username
+        passwordKey: password
+      category: music-lidarr
+      priority: 1
+
+    - name: sabnzbd
+      type: sabnzbd
+      url: http://sabnzbd.media.svc.cluster.local:8080
+      apiKeySecretRef:
+        name: sabnzbd-credentials
+        key: apiKey
+      category: music
+      priority: 2
+
+  # Remote path mappings
+  remotePathMappings:
+    - host: qbittorrent.media.svc.cluster.local
+      remotePath: /downloads/
+      localPath: /data/downloads/
+
+  # Indexers configuration - use Prowlarr (recommended)
+  indexers:
+    prowlarrRef:
+      name: prowlarrconfig-sample
+      autoRegister: true
+
+  # File/folder naming (Lidarr-specific)
+  naming:
+    preset: plex-friendly
+    artistFolderFormat: "{Artist CleanName}"
+    albumFolderFormat: "{Album CleanTitle} ({Release Year})"
+    # Or custom track format:
+    # trackFormat: "{Album Title} - {track:00} - {Track Title}"
+
+  # Media management settings
+  mediaManagement:
+    deleteEmptyFolders: true
+    createEmptyFolders: false
+    minimumFreeSpace: 100
+
+  # Import lists (optional)
+  importLists:
+    - name: spotify-followed
+      type: spotify
+      listType: followed
+      enabled: true
+      enableAutomaticAdd: true
+      qualityProfileId: 1
+      rootFolderPath: /music
+      settingsSecretRef:
+        name: spotify-credentials
+
+    - name: lastfm-loved
+      type: lastfm
+      listType: loved
+      enabled: true
+      enableAutomaticAdd: false
+      qualityProfileId: 1
+      rootFolderPath: /music
+      settingsSecretRef:
+        name: lastfm-credentials
+
+  # Notifications (optional)
+  notifications:
+    - name: discord
+      type: discord
+      onGrab: true
+      onReleaseImport: true
+      onUpgrade: true
+      webhookSecretRef:
+        name: discord-webhook
+        key: url
+
+  # Custom formats (Lidarr v2.0+)
+  customFormats:
+    - name: FLAC
+      specifications:
+        - type: ReleaseTitleSpecification
+          name: FLAC
+          value: "\\bFLAC\\b"
+          negate: false
+          required: true
+
+    - name: 24bit
+      specifications:
+        - type: ReleaseTitleSpecification
+          name: 24bit
+          value: "\\b24[ -]?bit\\b"
+          negate: false
+          required: true
+
+  # Delay profiles
+  delayProfiles:
+    - enableUsenet: true
+      enableTorrent: true
+      usenetDelay: 0
+      torrentDelay: 60
+      bypassIfHighestQuality: true
+
+  # Reconciliation settings
+  reconciliation:
+    interval: 5m
+    suspend: false
+---
+# Example secrets (DO NOT use in production - use sealed-secrets or external-secrets)
+apiVersion: v1
+kind: Secret
+metadata:
+  name: lidarr-credentials
+type: Opaque
+stringData:
+  apiKey: "your-lidarr-api-key"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: spotify-credentials
+type: Opaque
+stringData:
+  clientId: "your-spotify-client-id"
+  clientSecret: "your-spotify-client-secret"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: lastfm-credentials
+type: Opaque
+stringData:
+  apiKey: "your-lastfm-api-key"

@@ -15,7 +15,7 @@ type TransmissionSettingsInput struct {
 }
 
 // SyncTransmissionSettings synchronizes the desired settings to Transmission
-func SyncTransmissionSettings(ctx context.Context, client *TransmissionClient, input *TransmissionSettingsInput) error {
+func SyncTransmissionSettings(ctx context.Context, client TransmissionClientInterface, input *TransmissionSettingsInput) error {
 	settings := buildTransmissionSettings(input.Spec)
 	if len(settings) == 0 {
 		return nil
@@ -150,7 +150,7 @@ func buildTransmissionSettings(spec *arrv1alpha1.TransmissionSpec) map[string]in
 }
 
 // GetTransmissionVersion retrieves the Transmission version string
-func GetTransmissionVersion(ctx context.Context, client *TransmissionClient) (string, error) {
+func GetTransmissionVersion(ctx context.Context, client TransmissionClientInterface) (string, error) {
 	session, err := client.GetSession(ctx)
 	if err != nil {
 		return "", err

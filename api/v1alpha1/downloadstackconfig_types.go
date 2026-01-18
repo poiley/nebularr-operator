@@ -375,6 +375,236 @@ type TransmissionBlocklistSpec struct {
 }
 
 // =============================================================================
+// qBittorrent Types
+// =============================================================================
+
+// QBittorrentSpec defines qBittorrent torrent client configuration
+type QBittorrentSpec struct {
+	// Connection settings
+	// +kubebuilder:validation:Required
+	Connection QBittorrentConnectionSpec `json:"connection"`
+
+	// Speed limits
+	// +optional
+	Speed *QBittorrentSpeedSpec `json:"speed,omitempty"`
+
+	// AltSpeed (scheduled limits)
+	// +optional
+	AltSpeed *QBittorrentAltSpeedSpec `json:"altSpeed,omitempty"`
+
+	// Directories configuration
+	// +optional
+	Directories *QBittorrentDirectoriesSpec `json:"directories,omitempty"`
+
+	// Seeding limits
+	// +optional
+	Seeding *QBittorrentSeedingSpec `json:"seeding,omitempty"`
+
+	// Queue settings
+	// +optional
+	Queue *QBittorrentQueueSpec `json:"queue,omitempty"`
+
+	// Connection settings (peers, etc.)
+	// +optional
+	Connections *QBittorrentConnectionsSpec `json:"connections,omitempty"`
+
+	// BitTorrent protocol settings
+	// +optional
+	BitTorrent *QBittorrentBitTorrentSpec `json:"bittorrent,omitempty"`
+}
+
+// QBittorrentConnectionSpec defines how to connect to qBittorrent
+type QBittorrentConnectionSpec struct {
+	// URL to qBittorrent WebUI (e.g., http://localhost:8080)
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default="http://localhost:8080"
+	URL string `json:"url"`
+
+	// CredentialsSecretRef for authentication
+	// +optional
+	CredentialsSecretRef *CredentialsSecretRef `json:"credentialsSecretRef,omitempty"`
+}
+
+// QBittorrentSpeedSpec defines speed limit settings
+type QBittorrentSpeedSpec struct {
+	// DownloadLimit in KiB/s (0 = unlimited)
+	// +optional
+	DownloadLimit int `json:"downloadLimit,omitempty"`
+
+	// UploadLimit in KiB/s (0 = unlimited)
+	// +optional
+	UploadLimit int `json:"uploadLimit,omitempty"`
+
+	// GlobalDownloadSpeedLimit in KiB/s (0 = unlimited)
+	// +optional
+	GlobalDownloadSpeedLimit int `json:"globalDownloadSpeedLimit,omitempty"`
+
+	// GlobalUploadSpeedLimit in KiB/s (0 = unlimited)
+	// +optional
+	GlobalUploadSpeedLimit int `json:"globalUploadSpeedLimit,omitempty"`
+}
+
+// QBittorrentAltSpeedSpec defines alternate speed (scheduled) settings
+type QBittorrentAltSpeedSpec struct {
+	// Enabled enables alt-speed limits
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// DownloadLimit in KiB/s
+	// +optional
+	DownloadLimit int `json:"downloadLimit,omitempty"`
+
+	// UploadLimit in KiB/s
+	// +optional
+	UploadLimit int `json:"uploadLimit,omitempty"`
+
+	// SchedulerEnabled enables scheduled alt-speed
+	// +optional
+	SchedulerEnabled bool `json:"schedulerEnabled,omitempty"`
+
+	// SchedulerDays is a bitmask (1=Mon, 2=Tue, 4=Wed, 8=Thu, 16=Fri, 32=Sat, 64=Sun, 127=All)
+	// +optional
+	SchedulerDays int `json:"schedulerDays,omitempty"`
+
+	// ScheduleFromHour is the start hour (0-23)
+	// +optional
+	ScheduleFromHour int `json:"scheduleFromHour,omitempty"`
+
+	// ScheduleFromMinute is the start minute (0-59)
+	// +optional
+	ScheduleFromMinute int `json:"scheduleFromMinute,omitempty"`
+
+	// ScheduleToHour is the end hour (0-23)
+	// +optional
+	ScheduleToHour int `json:"scheduleToHour,omitempty"`
+
+	// ScheduleToMinute is the end minute (0-59)
+	// +optional
+	ScheduleToMinute int `json:"scheduleToMinute,omitempty"`
+}
+
+// QBittorrentDirectoriesSpec defines directory settings
+type QBittorrentDirectoriesSpec struct {
+	// SavePath is the default save path for downloads
+	// +optional
+	SavePath string `json:"savePath,omitempty"`
+
+	// TempPath is the temporary download path
+	// +optional
+	TempPath string `json:"tempPath,omitempty"`
+
+	// TempPathEnabled enables use of temporary path
+	// +optional
+	TempPathEnabled bool `json:"tempPathEnabled,omitempty"`
+
+	// CreateSubfolder creates subfolder for multi-file torrents
+	// +optional
+	CreateSubfolder *bool `json:"createSubfolder,omitempty"`
+
+	// AppendExtension adds .!qB extension to incomplete files
+	// +optional
+	AppendExtension *bool `json:"appendExtension,omitempty"`
+}
+
+// QBittorrentSeedingSpec defines seeding limit settings
+type QBittorrentSeedingSpec struct {
+	// MaxRatio is the max seeding ratio (e.g., 2.0)
+	// +optional
+	MaxRatio string `json:"maxRatio,omitempty"`
+
+	// MaxRatioEnabled enables ratio limit
+	// +optional
+	MaxRatioEnabled bool `json:"maxRatioEnabled,omitempty"`
+
+	// MaxSeedingTime is max seeding time in minutes
+	// +optional
+	MaxSeedingTime int `json:"maxSeedingTime,omitempty"`
+
+	// MaxSeedingTimeEnabled enables time limit
+	// +optional
+	MaxSeedingTimeEnabled bool `json:"maxSeedingTimeEnabled,omitempty"`
+
+	// MaxRatioAction: pause (0), remove (1), remove_and_delete (3), enable_super_seeding (2)
+	// +optional
+	// +kubebuilder:validation:Enum=0;1;2;3
+	MaxRatioAction *int `json:"maxRatioAction,omitempty"`
+}
+
+// QBittorrentQueueSpec defines queue settings
+type QBittorrentQueueSpec struct {
+	// QueueingEnabled enables download queueing
+	// +optional
+	QueueingEnabled *bool `json:"queueingEnabled,omitempty"`
+
+	// MaxActiveDownloads is the max concurrent downloads
+	// +optional
+	MaxActiveDownloads int `json:"maxActiveDownloads,omitempty"`
+
+	// MaxActiveUploads is the max concurrent uploads
+	// +optional
+	MaxActiveUploads int `json:"maxActiveUploads,omitempty"`
+
+	// MaxActiveTorrents is the max total active torrents
+	// +optional
+	MaxActiveTorrents int `json:"maxActiveTorrents,omitempty"`
+}
+
+// QBittorrentConnectionsSpec defines connection/peer settings
+type QBittorrentConnectionsSpec struct {
+	// MaxConnections is the global max connections
+	// +optional
+	MaxConnections int `json:"maxConnections,omitempty"`
+
+	// MaxConnectionsPerTorrent is the per-torrent max connections
+	// +optional
+	MaxConnectionsPerTorrent int `json:"maxConnectionsPerTorrent,omitempty"`
+
+	// MaxUploads is the global max upload slots
+	// +optional
+	MaxUploads int `json:"maxUploads,omitempty"`
+
+	// MaxUploadsPerTorrent is the per-torrent max upload slots
+	// +optional
+	MaxUploadsPerTorrent int `json:"maxUploadsPerTorrent,omitempty"`
+
+	// ListenPort is the listening port for incoming connections
+	// +optional
+	ListenPort int `json:"listenPort,omitempty"`
+
+	// RandomPort uses random port on startup
+	// +optional
+	RandomPort bool `json:"randomPort,omitempty"`
+
+	// UPnPEnabled enables UPnP/NAT-PMP port forwarding
+	// +optional
+	UPnPEnabled *bool `json:"upnpEnabled,omitempty"`
+}
+
+// QBittorrentBitTorrentSpec defines BitTorrent protocol settings
+type QBittorrentBitTorrentSpec struct {
+	// DHT enables Distributed Hash Table
+	// +optional
+	DHT *bool `json:"dht,omitempty"`
+
+	// PeX enables Peer Exchange
+	// +optional
+	PeX *bool `json:"pex,omitempty"`
+
+	// LSD enables Local Service Discovery
+	// +optional
+	LSD *bool `json:"lsd,omitempty"`
+
+	// Encryption: 0=prefer, 1=force_on, 2=force_off
+	// +optional
+	// +kubebuilder:validation:Enum=0;1;2
+	Encryption *int `json:"encryption,omitempty"`
+
+	// AnonymousMode hides client identity
+	// +optional
+	AnonymousMode bool `json:"anonymousMode,omitempty"`
+}
+
+// =============================================================================
 // DownloadStackConfig
 // =============================================================================
 
@@ -389,8 +619,14 @@ type DownloadStackConfigSpec struct {
 	Gluetun GluetunSpec `json:"gluetun"`
 
 	// Transmission configuration (applied via RPC)
-	// +kubebuilder:validation:Required
-	Transmission TransmissionSpec `json:"transmission"`
+	// At least one of Transmission or QBittorrent must be specified
+	// +optional
+	Transmission *TransmissionSpec `json:"transmission,omitempty"`
+
+	// QBittorrent configuration (applied via WebUI API)
+	// At least one of Transmission or QBittorrent must be specified
+	// +optional
+	QBittorrent *QBittorrentSpec `json:"qbittorrent,omitempty"`
 
 	// RestartOnGluetunChange triggers Deployment restart when Gluetun config changes
 	// +kubebuilder:default=true
@@ -424,6 +660,14 @@ type DownloadStackConfigStatus struct {
 	// TransmissionVersion is the Transmission version
 	// +optional
 	TransmissionVersion string `json:"transmissionVersion,omitempty"`
+
+	// QBittorrentConnected indicates if qBittorrent WebUI is reachable
+	// +optional
+	QBittorrentConnected bool `json:"qbittorrentConnected,omitempty"`
+
+	// QBittorrentVersion is the qBittorrent version
+	// +optional
+	QBittorrentVersion string `json:"qbittorrentVersion,omitempty"`
 
 	// LastReconcile is the timestamp of the last reconciliation
 	// +optional

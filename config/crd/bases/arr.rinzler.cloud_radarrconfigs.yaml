@@ -337,6 +337,16 @@ spec:
                       maximum: 100
                       minimum: 1
                       type: integer
+                    removeCompletedDownloads:
+                      default: true
+                      description: RemoveCompletedDownloads removes the download from
+                        the client after import.
+                      type: boolean
+                    removeFailedDownloads:
+                      default: true
+                      description: RemoveFailedDownloads removes failed downloads
+                        from the client.
+                      type: boolean
                     type:
                       description: Type is the client type. If not specified, inferred
                         from Name.

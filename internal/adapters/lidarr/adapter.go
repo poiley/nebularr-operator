@@ -6,6 +6,7 @@ package lidarr
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -361,12 +362,20 @@ type httpClient struct {
 }
 
 func (a *Adapter) newClient(conn *irv1.ConnectionIR) *httpClient {
+	hc := &http.Client{
+		Timeout: 30 * time.Second,
+	}
+
+	if conn.InsecureSkipVerify {
+		hc.Transport = &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // User explicitly requested insecure
+		}
+	}
+
 	return &httpClient{
-		baseURL: conn.URL,
-		apiKey:  conn.APIKey,
-		httpClient: &http.Client{
-			Timeout: 30 * time.Second,
-		},
+		baseURL:    conn.URL,
+		apiKey:     conn.APIKey,
+		httpClient: hc,
 	}
 }
 

@@ -70,3 +70,25 @@ func Clear() {
 	defer mu.Unlock()
 	registry = make(map[string]Adapter)
 }
+
+// RegisterOrReplace adds or replaces an adapter in the registry.
+// Unlike Register, this does not panic if an adapter already exists.
+// This is primarily useful for testing where you want to inject mock adapters.
+func RegisterOrReplace(a Adapter) {
+	mu.Lock()
+	defer mu.Unlock()
+	registry[a.SupportedApp()] = a
+}
+
+// Unregister removes an adapter from the registry.
+// Returns true if the adapter was removed, false if it didn't exist.
+// This is primarily useful for testing cleanup.
+func Unregister(app string) bool {
+	mu.Lock()
+	defer mu.Unlock()
+	if _, exists := registry[app]; exists {
+		delete(registry, app)
+		return true
+	}
+	return false
+}

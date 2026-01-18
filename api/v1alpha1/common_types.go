@@ -223,6 +223,16 @@ type DownloadClientSpec struct {
 	// +optional
 	// +kubebuilder:default=true
 	Enabled *bool `json:"enabled,omitempty"`
+
+	// RemoveCompletedDownloads removes the download from the client after import.
+	// +optional
+	// +kubebuilder:default=true
+	RemoveCompletedDownloads *bool `json:"removeCompletedDownloads,omitempty"`
+
+	// RemoveFailedDownloads removes failed downloads from the client.
+	// +optional
+	// +kubebuilder:default=true
+	RemoveFailedDownloads *bool `json:"removeFailedDownloads,omitempty"`
 }
 
 // =============================================================================
@@ -810,6 +820,70 @@ type DelayProfileSpec struct {
 	// +optional
 	// +kubebuilder:validation:Minimum=1
 	Order *int `json:"order,omitempty"`
+}
+
+// =============================================================================
+// Release Profile Types (Sonarr only)
+// =============================================================================
+
+// ReleaseProfileSpec defines a release profile for filtering and scoring releases.
+// Release profiles allow matching releases by title patterns and assigning scores,
+// or requiring/ignoring certain terms. This is Sonarr-specific functionality.
+type ReleaseProfileSpec struct {
+	// Name is the display name for this release profile.
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Enabled enables/disables this release profile.
+	// +optional
+	// +kubebuilder:default=true
+	Enabled *bool `json:"enabled,omitempty"`
+
+	// Required terms that MUST be present in the release title.
+	// If any required term is missing, the release is rejected.
+	// Each term can be a word or a regular expression (wrap in / for regex).
+	// +optional
+	Required []string `json:"required,omitempty"`
+
+	// Ignored terms that MUST NOT be present in the release title.
+	// If any ignored term is found, the release is rejected.
+	// Each term can be a word or a regular expression (wrap in / for regex).
+	// +optional
+	Ignored []string `json:"ignored,omitempty"`
+
+	// Preferred terms with scores for ranking releases.
+	// Releases matching preferred terms get their scores added/subtracted.
+	// Higher total scores are preferred.
+	// +optional
+	Preferred []PreferredTermSpec `json:"preferred,omitempty"`
+
+	// IncludePreferredWhenRenaming includes preferred term matches in file naming.
+	// +optional
+	// +kubebuilder:default=false
+	IncludePreferredWhenRenaming *bool `json:"includePreferredWhenRenaming,omitempty"`
+
+	// IndexerID restricts this profile to a specific indexer.
+	// If 0 or not specified, applies to all indexers.
+	// +optional
+	IndexerID int `json:"indexerId,omitempty"`
+
+	// Tags restricts this release profile to series with matching tags.
+	// If empty, the profile applies to all series.
+	// +optional
+	Tags []string `json:"tags,omitempty"`
+}
+
+// PreferredTermSpec defines a preferred term with a score.
+type PreferredTermSpec struct {
+	// Term is the word or pattern to match in release titles.
+	// Can be a word or a regular expression (wrap in / for regex).
+	// +kubebuilder:validation:Required
+	Term string `json:"term"`
+
+	// Score is the score to add/subtract when this term matches.
+	// Positive scores prefer releases, negative scores penalize them.
+	// +kubebuilder:validation:Required
+	Score int `json:"score"`
 }
 
 // =============================================================================

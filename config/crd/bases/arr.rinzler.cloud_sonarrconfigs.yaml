@@ -337,6 +337,16 @@ spec:
                       maximum: 100
                       minimum: 1
                       type: integer
+                    removeCompletedDownloads:
+                      default: true
+                      description: RemoveCompletedDownloads removes the download from
+                        the client after import.
+                      type: boolean
+                    removeFailedDownloads:
+                      default: true
+                      description: RemoveFailedDownloads removes failed downloads
+                        from the client.
+                      type: boolean
                     type:
                       description: Type is the client type. If not specified, inferred
                         from Name.
@@ -915,6 +925,86 @@ spec:
                     description: Suspend pauses reconciliation.
                     type: boolean
                 type: object
+              releaseProfiles:
+                description: |-
+                  ReleaseProfiles configures release filtering and scoring.
+                  Release profiles allow requiring/ignoring certain terms and scoring
+                  releases based on preferred patterns. This is useful for filtering
+                  out unwanted release groups or preferring specific qualities.
+                items:
+                  description: |-
+                    ReleaseProfileSpec defines a release profile for filtering and scoring releases.
+                    Release profiles allow matching releases by title patterns and assigning scores,
+                    or requiring/ignoring certain terms. This is Sonarr-specific functionality.
+                  properties:
+                    enabled:
+                      default: true
+                      description: Enabled enables/disables this release profile.
+                      type: boolean
+                    ignored:
+                      description: |-
+                        Ignored terms that MUST NOT be present in the release title.
+                        If any ignored term is found, the release is rejected.
+                        Each term can be a word or a regular expression (wrap in / for regex).
+                      items:
+                        type: string
+                      type: array
+                    includePreferredWhenRenaming:
+                      default: false
+                      description: IncludePreferredWhenRenaming includes preferred
+                        term matches in file naming.
+                      type: boolean
+                    indexerId:
+                      description: |-
+                        IndexerID restricts this profile to a specific indexer.
+                        If 0 or not specified, applies to all indexers.
+                      type: integer
+                    name:
+                      description: Name is the display name for this release profile.
+                      type: string
+                    preferred:
+                      description: |-
+                        Preferred terms with scores for ranking releases.
+                        Releases matching preferred terms get their scores added/subtracted.
+                        Higher total scores are preferred.
+                      items:
+                        description: PreferredTermSpec defines a preferred term with
+                          a score.
+                        properties:
+                          score:
+                            description: |-
+                              Score is the score to add/subtract when this term matches.
+                              Positive scores prefer releases, negative scores penalize them.
+                            type: integer
+                          term:
+                            description: |-
+                              Term is the word or pattern to match in release titles.
+                              Can be a word or a regular expression (wrap in / for regex).
+                            type: string
+                        required:
+                        - score
+                        - term
+                        type: object
+                      type: array
+                    required:
+                      description: |-
+                        Required terms that MUST be present in the release title.
+                        If any required term is missing, the release is rejected.
+                        Each term can be a word or a regular expression (wrap in / for regex).
+                      items:
+                        type: string
+                      type: array
+                    tags:
+                      description: |-
+                        Tags restricts this release profile to series with matching tags.
+                        If empty, the profile applies to all series.
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - name
+                  type: object
+                type: array
               remotePathMappings:
                 description: |-
                   RemotePathMappings maps download client paths to local paths.
