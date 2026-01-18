@@ -202,6 +202,14 @@ func main() {
 		setupLog.Error(err, "unable to create controller", "controller", "LidarrConfig")
 		os.Exit(1)
 	}
+	if err := (&controller.ReadarrConfigReconciler{
+		Client:   mgr.GetClient(),
+		Scheme:   mgr.GetScheme(),
+		Recorder: mgr.GetEventRecorderFor("readarrconfig-controller"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "ReadarrConfig")
+		os.Exit(1)
+	}
 	if err := (&controller.ProwlarrConfigReconciler{
 		Client:   mgr.GetClient(),
 		Scheme:   mgr.GetScheme(),
