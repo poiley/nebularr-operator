@@ -926,6 +926,322 @@ type RTorrentProtocolSpec struct {
 }
 
 // =============================================================================
+// SABnzbd Types
+// =============================================================================
+
+// SABnzbdSpec defines SABnzbd usenet client configuration
+type SABnzbdSpec struct {
+	// Connection settings
+	// +kubebuilder:validation:Required
+	Connection SABnzbdConnectionSpec `json:"connection"`
+
+	// Speed limits
+	// +optional
+	Speed *SABnzbdSpeedSpec `json:"speed,omitempty"`
+
+	// Directories configuration
+	// +optional
+	Directories *SABnzbdDirectoriesSpec `json:"directories,omitempty"`
+
+	// Categories configuration
+	// +optional
+	Categories []SABnzbdCategorySpec `json:"categories,omitempty"`
+
+	// Queue settings
+	// +optional
+	Queue *SABnzbdQueueSpec `json:"queue,omitempty"`
+
+	// Post-processing settings
+	// +optional
+	PostProcessing *SABnzbdPostProcessingSpec `json:"postProcessing,omitempty"`
+}
+
+// SABnzbdConnectionSpec defines how to connect to SABnzbd
+type SABnzbdConnectionSpec struct {
+	// URL to SABnzbd API (e.g., http://localhost:8080)
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default="http://localhost:8080"
+	URL string `json:"url"`
+
+	// APIKeySecretRef references the API key Secret for SABnzbd.
+	// +kubebuilder:validation:Required
+	APIKeySecretRef SecretKeySelector `json:"apiKeySecretRef"`
+}
+
+// SABnzbdSpeedSpec defines speed limit settings
+type SABnzbdSpeedSpec struct {
+	// SpeedLimit in KiB/s (0 = unlimited)
+	// +optional
+	SpeedLimit int `json:"speedLimit,omitempty"`
+
+	// SpeedLimitPercentage is the percentage of bandwidth to use (0-100)
+	// +optional
+	// +kubebuilder:validation:Minimum=0
+	// +kubebuilder:validation:Maximum=100
+	SpeedLimitPercentage int `json:"speedLimitPercentage,omitempty"`
+
+	// PauseDownloads pauses all downloads
+	// +optional
+	PauseDownloads bool `json:"pauseDownloads,omitempty"`
+}
+
+// SABnzbdDirectoriesSpec defines directory settings
+type SABnzbdDirectoriesSpec struct {
+	// DownloadDir is the temporary download directory
+	// +optional
+	DownloadDir string `json:"downloadDir,omitempty"`
+
+	// CompleteDir is the completed downloads directory
+	// +optional
+	CompleteDir string `json:"completeDir,omitempty"`
+
+	// IncompleteDir is the incomplete downloads directory
+	// +optional
+	IncompleteDir string `json:"incompleteDir,omitempty"`
+
+	// ScriptDir is the post-processing scripts directory
+	// +optional
+	ScriptDir string `json:"scriptDir,omitempty"`
+
+	// NzbBackupDir is the NZB backup directory
+	// +optional
+	NzbBackupDir string `json:"nzbBackupDir,omitempty"`
+}
+
+// SABnzbdCategorySpec defines a download category
+type SABnzbdCategorySpec struct {
+	// Name is the category name
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// Dir is the directory for this category
+	// +optional
+	Dir string `json:"dir,omitempty"`
+
+	// Priority: -100 (default), -2 (paused), -1 (low), 0 (normal), 1 (high), 2 (force)
+	// +optional
+	// +kubebuilder:validation:Enum=-100;-2;-1;0;1;2
+	Priority int `json:"priority,omitempty"`
+
+	// Script is the post-processing script for this category
+	// +optional
+	Script string `json:"script,omitempty"`
+}
+
+// SABnzbdQueueSpec defines queue settings
+type SABnzbdQueueSpec struct {
+	// PreCheck enables pre-download check
+	// +optional
+	PreCheck bool `json:"preCheck,omitempty"`
+
+	// MaxRetries is the max number of retries per server
+	// +optional
+	MaxRetries int `json:"maxRetries,omitempty"`
+
+	// Connections is the total number of connections
+	// +optional
+	Connections int `json:"connections,omitempty"`
+}
+
+// SABnzbdPostProcessingSpec defines post-processing settings
+type SABnzbdPostProcessingSpec struct {
+	// Enabled enables post-processing
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+
+	// QuickCheck enables quick verification
+	// +optional
+	QuickCheck bool `json:"quickCheck,omitempty"`
+
+	// UnpackEnabled enables automatic unpacking
+	// +optional
+	UnpackEnabled bool `json:"unpackEnabled,omitempty"`
+
+	// CleanupEnabled cleans up files after unpacking
+	// +optional
+	CleanupEnabled bool `json:"cleanupEnabled,omitempty"`
+
+	// ScriptEnabled enables post-processing scripts
+	// +optional
+	ScriptEnabled bool `json:"scriptEnabled,omitempty"`
+}
+
+// =============================================================================
+// NZBGet Types
+// =============================================================================
+
+// NZBGetSpec defines NZBGet usenet client configuration
+type NZBGetSpec struct {
+	// Connection settings
+	// +kubebuilder:validation:Required
+	Connection NZBGetConnectionSpec `json:"connection"`
+
+	// Speed limits
+	// +optional
+	Speed *NZBGetSpeedSpec `json:"speed,omitempty"`
+
+	// Directories configuration
+	// +optional
+	Directories *NZBGetDirectoriesSpec `json:"directories,omitempty"`
+
+	// Categories configuration
+	// +optional
+	Categories []NZBGetCategorySpec `json:"categories,omitempty"`
+
+	// Queue settings
+	// +optional
+	Queue *NZBGetQueueSpec `json:"queue,omitempty"`
+
+	// Post-processing settings
+	// +optional
+	PostProcessing *NZBGetPostProcessingSpec `json:"postProcessing,omitempty"`
+
+	// Connections settings
+	// +optional
+	Connections *NZBGetConnectionsSpec `json:"connections,omitempty"`
+}
+
+// NZBGetConnectionSpec defines how to connect to NZBGet
+type NZBGetConnectionSpec struct {
+	// URL to NZBGet JSON-RPC API (e.g., http://localhost:6789)
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default="http://localhost:6789"
+	URL string `json:"url"`
+
+	// CredentialsSecretRef for authentication (username/password)
+	// +optional
+	CredentialsSecretRef *CredentialsSecretRef `json:"credentialsSecretRef,omitempty"`
+}
+
+// NZBGetSpeedSpec defines speed limit settings
+type NZBGetSpeedSpec struct {
+	// DownloadRate in KiB/s (0 = unlimited)
+	// +optional
+	DownloadRate int `json:"downloadRate,omitempty"`
+
+	// ArticleTimeout is the timeout for fetching an article in seconds
+	// +optional
+	ArticleTimeout int `json:"articleTimeout,omitempty"`
+
+	// WriteBuffer is the disk write buffer size in bytes
+	// +optional
+	WriteBuffer int `json:"writeBuffer,omitempty"`
+}
+
+// NZBGetDirectoriesSpec defines directory settings
+type NZBGetDirectoriesSpec struct {
+	// MainDir is the main working directory
+	// +optional
+	MainDir string `json:"mainDir,omitempty"`
+
+	// DestDir is the destination directory for completed downloads
+	// +optional
+	DestDir string `json:"destDir,omitempty"`
+
+	// InterDir is the intermediate directory during download
+	// +optional
+	InterDir string `json:"interDir,omitempty"`
+
+	// NzbDir is the directory to monitor for NZB files
+	// +optional
+	NzbDir string `json:"nzbDir,omitempty"`
+
+	// TempDir is the directory for temporary files
+	// +optional
+	TempDir string `json:"tempDir,omitempty"`
+
+	// ScriptDir is the directory containing post-processing scripts
+	// +optional
+	ScriptDir string `json:"scriptDir,omitempty"`
+}
+
+// NZBGetCategorySpec defines a download category
+type NZBGetCategorySpec struct {
+	// Name is the category name
+	// +kubebuilder:validation:Required
+	Name string `json:"name"`
+
+	// DestDir is the destination directory for this category
+	// +optional
+	DestDir string `json:"destDir,omitempty"`
+
+	// Unpack enables unpacking for this category
+	// +optional
+	Unpack *bool `json:"unpack,omitempty"`
+
+	// Aliases are alternative names for this category
+	// +optional
+	Aliases []string `json:"aliases,omitempty"`
+}
+
+// NZBGetQueueSpec defines queue settings
+type NZBGetQueueSpec struct {
+	// FlushQueue writes queue to disk immediately
+	// +optional
+	FlushQueue bool `json:"flushQueue,omitempty"`
+
+	// DupeCheck enables duplicate checking
+	// +optional
+	DupeCheck bool `json:"dupeCheck,omitempty"`
+
+	// PropagationDelay is the delay before downloading in seconds
+	// +optional
+	PropagationDelay int `json:"propagationDelay,omitempty"`
+
+	// HealthCheck: none, park, delete, pause
+	// +optional
+	// +kubebuilder:validation:Enum=none;park;delete;pause
+	HealthCheck string `json:"healthCheck,omitempty"`
+}
+
+// NZBGetPostProcessingSpec defines post-processing settings
+type NZBGetPostProcessingSpec struct {
+	// ParCheck: auto, always, force, manual
+	// +optional
+	// +kubebuilder:validation:Enum=auto;always;force;manual
+	ParCheck string `json:"parCheck,omitempty"`
+
+	// ParRepair enables automatic repair
+	// +optional
+	ParRepair *bool `json:"parRepair,omitempty"`
+
+	// Unpack enables automatic unpacking
+	// +optional
+	Unpack *bool `json:"unpack,omitempty"`
+
+	// UnpackCleanupDisk removes archive files after unpacking
+	// +optional
+	UnpackCleanupDisk *bool `json:"unpackCleanupDisk,omitempty"`
+
+	// DirectUnpack enables unpacking while downloading
+	// +optional
+	DirectUnpack *bool `json:"directUnpack,omitempty"`
+
+	// ScriptOrder is the order of post-processing scripts
+	// +optional
+	ScriptOrder []string `json:"scriptOrder,omitempty"`
+}
+
+// NZBGetConnectionsSpec defines connection/server settings
+type NZBGetConnectionsSpec struct {
+	// ArticleConnections is connections per news server
+	// +optional
+	ArticleConnections int `json:"articleConnections,omitempty"`
+
+	// RetryInterval is seconds between retries
+	// +optional
+	RetryInterval int `json:"retryInterval,omitempty"`
+
+	// TerminateTimeout is timeout for graceful termination in seconds
+	// +optional
+	TerminateTimeout int `json:"terminateTimeout,omitempty"`
+
+	// Decode enables article decoding (should typically be enabled)
+	// +optional
+	Decode *bool `json:"decode,omitempty"`
+}
+
+// =============================================================================
 // DownloadStackConfig
 // =============================================================================
 
@@ -958,6 +1274,16 @@ type DownloadStackConfigSpec struct {
 	// At least one download client must be specified
 	// +optional
 	RTorrent *RTorrentSpec `json:"rtorrent,omitempty"`
+
+	// SABnzbd configuration (applied via REST API)
+	// Usenet download client
+	// +optional
+	SABnzbd *SABnzbdSpec `json:"sabnzbd,omitempty"`
+
+	// NZBGet configuration (applied via JSON-RPC API)
+	// Usenet download client
+	// +optional
+	NZBGet *NZBGetSpec `json:"nzbget,omitempty"`
 
 	// RestartOnGluetunChange triggers Deployment restart when Gluetun config changes
 	// +kubebuilder:default=true
@@ -1015,6 +1341,22 @@ type DownloadStackConfigStatus struct {
 	// RTorrentVersion is the rTorrent version
 	// +optional
 	RTorrentVersion string `json:"rtorrentVersion,omitempty"`
+
+	// SABnzbdConnected indicates if SABnzbd API is reachable
+	// +optional
+	SABnzbdConnected bool `json:"sabnzbdConnected,omitempty"`
+
+	// SABnzbdVersion is the SABnzbd version
+	// +optional
+	SABnzbdVersion string `json:"sabnzbdVersion,omitempty"`
+
+	// NZBGetConnected indicates if NZBGet JSON-RPC is reachable
+	// +optional
+	NZBGetConnected bool `json:"nzbgetConnected,omitempty"`
+
+	// NZBGetVersion is the NZBGet version
+	// +optional
+	NZBGetVersion string `json:"nzbgetVersion,omitempty"`
 
 	// LastReconcile is the timestamp of the last reconciliation
 	// +optional

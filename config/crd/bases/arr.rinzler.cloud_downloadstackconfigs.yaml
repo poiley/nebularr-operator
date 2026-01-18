@@ -381,6 +381,175 @@ spec:
                 required:
                 - provider
                 type: object
+              nzbget:
+                description: |-
+                  NZBGet configuration (applied via JSON-RPC API)
+                  Usenet download client
+                properties:
+                  categories:
+                    description: Categories configuration
+                    items:
+                      description: NZBGetCategorySpec defines a download category
+                      properties:
+                        aliases:
+                          description: Aliases are alternative names for this category
+                          items:
+                            type: string
+                          type: array
+                        destDir:
+                          description: DestDir is the destination directory for this
+                            category
+                          type: string
+                        name:
+                          description: Name is the category name
+                          type: string
+                        unpack:
+                          description: Unpack enables unpacking for this category
+                          type: boolean
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  connection:
+                    description: Connection settings
+                    properties:
+                      credentialsSecretRef:
+                        description: CredentialsSecretRef for authentication (username/password)
+                        properties:
+                          name:
+                            description: Name is the name of the Secret.
+                            type: string
+                          passwordKey:
+                            default: password
+                            description: PasswordKey is the key for the password.
+                            type: string
+                          usernameKey:
+                            default: username
+                            description: UsernameKey is the key for the username.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        default: http://localhost:6789
+                        description: URL to NZBGet JSON-RPC API (e.g., http://localhost:6789)
+                        type: string
+                    required:
+                    - url
+                    type: object
+                  connections:
+                    description: Connections settings
+                    properties:
+                      articleConnections:
+                        description: ArticleConnections is connections per news server
+                        type: integer
+                      decode:
+                        description: Decode enables article decoding (should typically
+                          be enabled)
+                        type: boolean
+                      retryInterval:
+                        description: RetryInterval is seconds between retries
+                        type: integer
+                      terminateTimeout:
+                        description: TerminateTimeout is timeout for graceful termination
+                          in seconds
+                        type: integer
+                    type: object
+                  directories:
+                    description: Directories configuration
+                    properties:
+                      destDir:
+                        description: DestDir is the destination directory for completed
+                          downloads
+                        type: string
+                      interDir:
+                        description: InterDir is the intermediate directory during
+                          download
+                        type: string
+                      mainDir:
+                        description: MainDir is the main working directory
+                        type: string
+                      nzbDir:
+                        description: NzbDir is the directory to monitor for NZB files
+                        type: string
+                      scriptDir:
+                        description: ScriptDir is the directory containing post-processing
+                          scripts
+                        type: string
+                      tempDir:
+                        description: TempDir is the directory for temporary files
+                        type: string
+                    type: object
+                  postProcessing:
+                    description: Post-processing settings
+                    properties:
+                      directUnpack:
+                        description: DirectUnpack enables unpacking while downloading
+                        type: boolean
+                      parCheck:
+                        description: 'ParCheck: auto, always, force, manual'
+                        enum:
+                        - auto
+                        - always
+                        - force
+                        - manual
+                        type: string
+                      parRepair:
+                        description: ParRepair enables automatic repair
+                        type: boolean
+                      scriptOrder:
+                        description: ScriptOrder is the order of post-processing scripts
+                        items:
+                          type: string
+                        type: array
+                      unpack:
+                        description: Unpack enables automatic unpacking
+                        type: boolean
+                      unpackCleanupDisk:
+                        description: UnpackCleanupDisk removes archive files after
+                          unpacking
+                        type: boolean
+                    type: object
+                  queue:
+                    description: Queue settings
+                    properties:
+                      dupeCheck:
+                        description: DupeCheck enables duplicate checking
+                        type: boolean
+                      flushQueue:
+                        description: FlushQueue writes queue to disk immediately
+                        type: boolean
+                      healthCheck:
+                        description: 'HealthCheck: none, park, delete, pause'
+                        enum:
+                        - none
+                        - park
+                        - delete
+                        - pause
+                        type: string
+                      propagationDelay:
+                        description: PropagationDelay is the delay before downloading
+                          in seconds
+                        type: integer
+                    type: object
+                  speed:
+                    description: Speed limits
+                    properties:
+                      articleTimeout:
+                        description: ArticleTimeout is the timeout for fetching an
+                          article in seconds
+                        type: integer
+                      downloadRate:
+                        description: DownloadRate in KiB/s (0 = unlimited)
+                        type: integer
+                      writeBuffer:
+                        description: WriteBuffer is the disk write buffer size in
+                          bytes
+                        type: integer
+                    type: object
+                required:
+                - connection
+                type: object
               qbittorrent:
                 description: |-
                   QBittorrent configuration (applied via WebUI API)
@@ -710,6 +879,137 @@ spec:
                 required:
                 - connection
                 type: object
+              sabnzbd:
+                description: |-
+                  SABnzbd configuration (applied via REST API)
+                  Usenet download client
+                properties:
+                  categories:
+                    description: Categories configuration
+                    items:
+                      description: SABnzbdCategorySpec defines a download category
+                      properties:
+                        dir:
+                          description: Dir is the directory for this category
+                          type: string
+                        name:
+                          description: Name is the category name
+                          type: string
+                        priority:
+                          description: 'Priority: -100 (default), -2 (paused), -1
+                            (low), 0 (normal), 1 (high), 2 (force)'
+                          enum:
+                          - -100
+                          - -2
+                          - -1
+                          - 0
+                          - 1
+                          - 2
+                          type: integer
+                        script:
+                          description: Script is the post-processing script for this
+                            category
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
+                  connection:
+                    description: Connection settings
+                    properties:
+                      apiKeySecretRef:
+                        description: APIKeySecretRef references the API key Secret
+                          for SABnzbd.
+                        properties:
+                          key:
+                            default: apiKey
+                            description: Key is the key within the Secret.
+                            type: string
+                          name:
+                            description: Name is the name of the Secret in the same
+                              namespace.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        default: http://localhost:8080
+                        description: URL to SABnzbd API (e.g., http://localhost:8080)
+                        type: string
+                    required:
+                    - apiKeySecretRef
+                    - url
+                    type: object
+                  directories:
+                    description: Directories configuration
+                    properties:
+                      completeDir:
+                        description: CompleteDir is the completed downloads directory
+                        type: string
+                      downloadDir:
+                        description: DownloadDir is the temporary download directory
+                        type: string
+                      incompleteDir:
+                        description: IncompleteDir is the incomplete downloads directory
+                        type: string
+                      nzbBackupDir:
+                        description: NzbBackupDir is the NZB backup directory
+                        type: string
+                      scriptDir:
+                        description: ScriptDir is the post-processing scripts directory
+                        type: string
+                    type: object
+                  postProcessing:
+                    description: Post-processing settings
+                    properties:
+                      cleanupEnabled:
+                        description: CleanupEnabled cleans up files after unpacking
+                        type: boolean
+                      enabled:
+                        description: Enabled enables post-processing
+                        type: boolean
+                      quickCheck:
+                        description: QuickCheck enables quick verification
+                        type: boolean
+                      scriptEnabled:
+                        description: ScriptEnabled enables post-processing scripts
+                        type: boolean
+                      unpackEnabled:
+                        description: UnpackEnabled enables automatic unpacking
+                        type: boolean
+                    type: object
+                  queue:
+                    description: Queue settings
+                    properties:
+                      connections:
+                        description: Connections is the total number of connections
+                        type: integer
+                      maxRetries:
+                        description: MaxRetries is the max number of retries per server
+                        type: integer
+                      preCheck:
+                        description: PreCheck enables pre-download check
+                        type: boolean
+                    type: object
+                  speed:
+                    description: Speed limits
+                    properties:
+                      pauseDownloads:
+                        description: PauseDownloads pauses all downloads
+                        type: boolean
+                      speedLimit:
+                        description: SpeedLimit in KiB/s (0 = unlimited)
+                        type: integer
+                      speedLimitPercentage:
+                        description: SpeedLimitPercentage is the percentage of bandwidth
+                          to use (0-100)
+                        maximum: 100
+                        minimum: 0
+                        type: integer
+                    type: object
+                required:
+                - connection
+                type: object
               transmission:
                 description: |-
                   Transmission configuration (applied via RPC)
@@ -982,6 +1282,12 @@ spec:
                 description: LastReconcile is the timestamp of the last reconciliation
                 format: date-time
                 type: string
+              nzbgetConnected:
+                description: NZBGetConnected indicates if NZBGet JSON-RPC is reachable
+                type: boolean
+              nzbgetVersion:
+                description: NZBGetVersion is the NZBGet version
+                type: string
               observedGeneration:
                 description: ObservedGeneration is the last observed generation
                 format: int64
@@ -998,6 +1304,12 @@ spec:
                 type: boolean
               rtorrentVersion:
                 description: RTorrentVersion is the rTorrent version
+                type: string
+              sabnzbdConnected:
+                description: SABnzbdConnected indicates if SABnzbd API is reachable
+                type: boolean
+              sabnzbdVersion:
+                description: SABnzbdVersion is the SABnzbd version
                 type: string
               transmissionConnected:
                 description: TransmissionConnected indicates if Transmission RPC is

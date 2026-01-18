@@ -222,8 +222,8 @@ func (r *DownloadStackConfigReconciler) reconcileNormal(ctx context.Context, con
 	// =========================================================================
 
 	// Validate at least one download client is configured
-	if config.Spec.Transmission == nil && config.Spec.QBittorrent == nil && config.Spec.Deluge == nil && config.Spec.RTorrent == nil {
-		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "NoDownloadClient", "At least one download client (Transmission, qBittorrent, Deluge, or rTorrent) must be configured")
+	if config.Spec.Transmission == nil && config.Spec.QBittorrent == nil && config.Spec.Deluge == nil && config.Spec.RTorrent == nil && config.Spec.SABnzbd == nil && config.Spec.NZBGet == nil {
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "NoDownloadClient", "At least one download client (Transmission, qBittorrent, Deluge, rTorrent, SABnzbd, or NZBGet) must be configured")
 		if statusErr := r.Status().Update(ctx, config); statusErr != nil {
 			log.Error(statusErr, "Failed to update status")
 		}
@@ -277,6 +277,32 @@ func (r *DownloadStackConfigReconciler) reconcileNormal(ctx context.Context, con
 			// Update status before returning error so conditions are persisted
 			if statusErr := r.Status().Update(ctx, config); statusErr != nil {
 				log.Error(statusErr, "Failed to update status after rTorrent error")
+			}
+			return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
+		}
+	}
+
+	// -------------------------------------------------------------------------
+	// SABnzbd Configuration (if specified)
+	// -------------------------------------------------------------------------
+	if config.Spec.SABnzbd != nil {
+		if err := r.reconcileSABnzbd(ctx, config, statusWrapper); err != nil {
+			// Update status before returning error so conditions are persisted
+			if statusErr := r.Status().Update(ctx, config); statusErr != nil {
+				log.Error(statusErr, "Failed to update status after SABnzbd error")
+			}
+			return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
+		}
+	}
+
+	// -------------------------------------------------------------------------
+	// NZBGet Configuration (if specified)
+	// -------------------------------------------------------------------------
+	if config.Spec.NZBGet != nil {
+		if err := r.reconcileNZBGet(ctx, config, statusWrapper); err != nil {
+			// Update status before returning error so conditions are persisted
+			if statusErr := r.Status().Update(ctx, config); statusErr != nil {
+				log.Error(statusErr, "Failed to update status after NZBGet error")
 			}
 			return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
 		}
@@ -878,6 +904,347 @@ func syncRTorrentSettings(ctx context.Context, client *downloadstack.RTorrentCli
 		if spec.Protocol.Encryption != "" {
 			if err := client.SetEncryptionMode(ctx, spec.Protocol.Encryption); err != nil {
 				return fmt.Errorf("failed to set encryption mode: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// reconcileSABnzbd handles SABnzbd configuration
+func (r *DownloadStackConfigReconciler) reconcileSABnzbd(ctx context.Context, config *arrv1alpha1.DownloadStackConfig, statusWrapper *DownloadStackStatusWrapper) error {
+	log := logf.FromContext(ctx)
+
+	// Resolve SABnzbd API key (required)
+	keyRef := &config.Spec.SABnzbd.Connection.APIKeySecretRef
+	keyName := keyRef.Key
+	if keyName == "" {
+		keyName = "apiKey"
+	}
+
+	apiKey, err := r.Helper.ResolveSecretValue(ctx, config.Namespace, keyRef.Name, keyName)
+	if err != nil {
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "SABnzbdCredentialsFailed", err.Error())
+		return err
+	}
+
+	// Create SABnzbd client
+	sabClient := downloadstack.NewSABnzbdClient(
+		config.Spec.SABnzbd.Connection.URL,
+		apiKey,
+	)
+
+	// Test connection
+	if err := sabClient.TestConnection(ctx); err != nil {
+		log.Error(err, "Failed to connect to SABnzbd")
+		config.Status.SABnzbdConnected = false
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "SABnzbdConnectionFailed", err.Error())
+		return err
+	}
+
+	config.Status.SABnzbdConnected = true
+
+	// Get SABnzbd version
+	version, err := sabClient.GetVersion(ctx)
+	if err == nil {
+		config.Status.SABnzbdVersion = version
+	}
+
+	// Sync SABnzbd settings
+	if err := syncSABnzbdSettings(ctx, sabClient, config.Spec.SABnzbd); err != nil {
+		log.Error(err, "Failed to sync SABnzbd settings")
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "SABnzbdSyncFailed", err.Error())
+		return err
+	}
+
+	log.Info("SABnzbd configuration synced successfully")
+	return nil
+}
+
+// syncSABnzbdSettings syncs SABnzbd configuration from spec
+func syncSABnzbdSettings(ctx context.Context, client *downloadstack.SABnzbdClient, spec *arrv1alpha1.SABnzbdSpec) error {
+	// Speed settings
+	if spec.Speed != nil {
+		if spec.Speed.SpeedLimit > 0 {
+			if err := client.SetSpeedLimit(ctx, spec.Speed.SpeedLimit); err != nil {
+				return fmt.Errorf("failed to set speed limit: %w", err)
+			}
+		}
+		if spec.Speed.PauseDownloads {
+			if err := client.Pause(ctx); err != nil {
+				return fmt.Errorf("failed to pause downloads: %w", err)
+			}
+		}
+	}
+
+	// Directory settings
+	if spec.Directories != nil {
+		if spec.Directories.DownloadDir != "" {
+			if err := client.SetConfig(ctx, "misc", "download_dir", spec.Directories.DownloadDir); err != nil {
+				return fmt.Errorf("failed to set download_dir: %w", err)
+			}
+		}
+		if spec.Directories.CompleteDir != "" {
+			if err := client.SetConfig(ctx, "misc", "complete_dir", spec.Directories.CompleteDir); err != nil {
+				return fmt.Errorf("failed to set complete_dir: %w", err)
+			}
+		}
+		if spec.Directories.IncompleteDir != "" {
+			if err := client.SetConfig(ctx, "misc", "incomplete_dir", spec.Directories.IncompleteDir); err != nil {
+				return fmt.Errorf("failed to set incomplete_dir: %w", err)
+			}
+		}
+		if spec.Directories.ScriptDir != "" {
+			if err := client.SetConfig(ctx, "misc", "script_dir", spec.Directories.ScriptDir); err != nil {
+				return fmt.Errorf("failed to set script_dir: %w", err)
+			}
+		}
+		if spec.Directories.NzbBackupDir != "" {
+			if err := client.SetConfig(ctx, "misc", "nzb_backup_dir", spec.Directories.NzbBackupDir); err != nil {
+				return fmt.Errorf("failed to set nzb_backup_dir: %w", err)
+			}
+		}
+	}
+
+	// Queue settings
+	if spec.Queue != nil {
+		if spec.Queue.PreCheck {
+			if err := client.SetConfig(ctx, "misc", "pre_check", "1"); err != nil {
+				return fmt.Errorf("failed to set pre_check: %w", err)
+			}
+		}
+		if spec.Queue.MaxRetries > 0 {
+			if err := client.SetConfig(ctx, "misc", "max_art_tries", fmt.Sprintf("%d", spec.Queue.MaxRetries)); err != nil {
+				return fmt.Errorf("failed to set max_art_tries: %w", err)
+			}
+		}
+	}
+
+	// Post-processing settings
+	if spec.PostProcessing != nil {
+		if spec.PostProcessing.UnpackEnabled {
+			if err := client.SetConfig(ctx, "misc", "unpack", "1"); err != nil {
+				return fmt.Errorf("failed to set unpack: %w", err)
+			}
+		}
+		if spec.PostProcessing.CleanupEnabled {
+			if err := client.SetConfig(ctx, "misc", "cleanup_list", "1"); err != nil {
+				return fmt.Errorf("failed to set cleanup_list: %w", err)
+			}
+		}
+	}
+
+	return nil
+}
+
+// reconcileNZBGet handles NZBGet configuration
+func (r *DownloadStackConfigReconciler) reconcileNZBGet(ctx context.Context, config *arrv1alpha1.DownloadStackConfig, statusWrapper *DownloadStackStatusWrapper) error {
+	log := logf.FromContext(ctx)
+
+	// Resolve NZBGet credentials (optional - defaults to nzbget:tegbzn6789)
+	var nzbgetUsername, nzbgetPassword string = "nzbget", "tegbzn6789"
+	if config.Spec.NZBGet.Connection.CredentialsSecretRef != nil {
+		creds := config.Spec.NZBGet.Connection.CredentialsSecretRef
+		usernameKey := creds.UsernameKey
+		if usernameKey == "" {
+			usernameKey = "username"
+		}
+		passwordKey := creds.PasswordKey
+		if passwordKey == "" {
+			passwordKey = "password"
+		}
+
+		var err error
+		nzbgetUsername, err = r.Helper.ResolveSecretValue(ctx, config.Namespace, creds.Name, usernameKey)
+		if err != nil {
+			r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "NZBGetCredentialsFailed", err.Error())
+			return err
+		}
+
+		nzbgetPassword, err = r.Helper.ResolveSecretValue(ctx, config.Namespace, creds.Name, passwordKey)
+		if err != nil {
+			r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "NZBGetCredentialsFailed", err.Error())
+			return err
+		}
+	}
+
+	// Create NZBGet client
+	nzbgetClient := downloadstack.NewNZBGetClient(
+		config.Spec.NZBGet.Connection.URL,
+		nzbgetUsername,
+		nzbgetPassword,
+	)
+
+	// Test connection
+	if err := nzbgetClient.TestConnection(ctx); err != nil {
+		log.Error(err, "Failed to connect to NZBGet")
+		config.Status.NZBGetConnected = false
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "NZBGetConnectionFailed", err.Error())
+		return err
+	}
+
+	config.Status.NZBGetConnected = true
+
+	// Get NZBGet version
+	version, err := nzbgetClient.GetVersion(ctx)
+	if err == nil {
+		config.Status.NZBGetVersion = version
+	}
+
+	// Sync NZBGet settings
+	if err := syncNZBGetSettings(ctx, nzbgetClient, config.Spec.NZBGet); err != nil {
+		log.Error(err, "Failed to sync NZBGet settings")
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "NZBGetSyncFailed", err.Error())
+		return err
+	}
+
+	log.Info("NZBGet configuration synced successfully")
+	return nil
+}
+
+// syncNZBGetSettings syncs NZBGet configuration from spec
+func syncNZBGetSettings(ctx context.Context, client *downloadstack.NZBGetClient, spec *arrv1alpha1.NZBGetSpec) error {
+	// Speed settings
+	if spec.Speed != nil {
+		if spec.Speed.DownloadRate > 0 {
+			if err := client.SetDownloadRate(ctx, spec.Speed.DownloadRate); err != nil {
+				return fmt.Errorf("failed to set download rate: %w", err)
+			}
+		}
+		if spec.Speed.ArticleTimeout > 0 {
+			if err := client.SetConfig(ctx, "ArticleTimeout", fmt.Sprintf("%d", spec.Speed.ArticleTimeout)); err != nil {
+				return fmt.Errorf("failed to set ArticleTimeout: %w", err)
+			}
+		}
+		if spec.Speed.WriteBuffer > 0 {
+			if err := client.SetConfig(ctx, "WriteBuffer", fmt.Sprintf("%d", spec.Speed.WriteBuffer)); err != nil {
+				return fmt.Errorf("failed to set WriteBuffer: %w", err)
+			}
+		}
+	}
+
+	// Directory settings
+	if spec.Directories != nil {
+		if spec.Directories.MainDir != "" {
+			if err := client.SetConfig(ctx, "MainDir", spec.Directories.MainDir); err != nil {
+				return fmt.Errorf("failed to set MainDir: %w", err)
+			}
+		}
+		if spec.Directories.DestDir != "" {
+			if err := client.SetConfig(ctx, "DestDir", spec.Directories.DestDir); err != nil {
+				return fmt.Errorf("failed to set DestDir: %w", err)
+			}
+		}
+		if spec.Directories.InterDir != "" {
+			if err := client.SetConfig(ctx, "InterDir", spec.Directories.InterDir); err != nil {
+				return fmt.Errorf("failed to set InterDir: %w", err)
+			}
+		}
+		if spec.Directories.NzbDir != "" {
+			if err := client.SetConfig(ctx, "NzbDir", spec.Directories.NzbDir); err != nil {
+				return fmt.Errorf("failed to set NzbDir: %w", err)
+			}
+		}
+		if spec.Directories.TempDir != "" {
+			if err := client.SetConfig(ctx, "TempDir", spec.Directories.TempDir); err != nil {
+				return fmt.Errorf("failed to set TempDir: %w", err)
+			}
+		}
+		if spec.Directories.ScriptDir != "" {
+			if err := client.SetConfig(ctx, "ScriptDir", spec.Directories.ScriptDir); err != nil {
+				return fmt.Errorf("failed to set ScriptDir: %w", err)
+			}
+		}
+	}
+
+	// Queue settings
+	if spec.Queue != nil {
+		if spec.Queue.DupeCheck {
+			if err := client.SetConfig(ctx, "DupeCheck", "yes"); err != nil {
+				return fmt.Errorf("failed to set DupeCheck: %w", err)
+			}
+		}
+		if spec.Queue.PropagationDelay > 0 {
+			if err := client.SetConfig(ctx, "PropagationDelay", fmt.Sprintf("%d", spec.Queue.PropagationDelay)); err != nil {
+				return fmt.Errorf("failed to set PropagationDelay: %w", err)
+			}
+		}
+		if spec.Queue.HealthCheck != "" {
+			if err := client.SetConfig(ctx, "HealthCheck", spec.Queue.HealthCheck); err != nil {
+				return fmt.Errorf("failed to set HealthCheck: %w", err)
+			}
+		}
+	}
+
+	// Post-processing settings
+	if spec.PostProcessing != nil {
+		if spec.PostProcessing.ParCheck != "" {
+			if err := client.SetConfig(ctx, "ParCheck", spec.PostProcessing.ParCheck); err != nil {
+				return fmt.Errorf("failed to set ParCheck: %w", err)
+			}
+		}
+		if spec.PostProcessing.ParRepair != nil {
+			value := "no"
+			if *spec.PostProcessing.ParRepair {
+				value = "yes"
+			}
+			if err := client.SetConfig(ctx, "ParRepair", value); err != nil {
+				return fmt.Errorf("failed to set ParRepair: %w", err)
+			}
+		}
+		if spec.PostProcessing.Unpack != nil {
+			value := "no"
+			if *spec.PostProcessing.Unpack {
+				value = "yes"
+			}
+			if err := client.SetConfig(ctx, "Unpack", value); err != nil {
+				return fmt.Errorf("failed to set Unpack: %w", err)
+			}
+		}
+		if spec.PostProcessing.UnpackCleanupDisk != nil {
+			value := "no"
+			if *spec.PostProcessing.UnpackCleanupDisk {
+				value = "yes"
+			}
+			if err := client.SetConfig(ctx, "UnpackCleanupDisk", value); err != nil {
+				return fmt.Errorf("failed to set UnpackCleanupDisk: %w", err)
+			}
+		}
+		if spec.PostProcessing.DirectUnpack != nil {
+			value := "no"
+			if *spec.PostProcessing.DirectUnpack {
+				value = "yes"
+			}
+			if err := client.SetConfig(ctx, "DirectUnpack", value); err != nil {
+				return fmt.Errorf("failed to set DirectUnpack: %w", err)
+			}
+		}
+	}
+
+	// Connection settings
+	if spec.Connections != nil {
+		if spec.Connections.ArticleConnections > 0 {
+			if err := client.SetConfig(ctx, "ArticleConnections", fmt.Sprintf("%d", spec.Connections.ArticleConnections)); err != nil {
+				return fmt.Errorf("failed to set ArticleConnections: %w", err)
+			}
+		}
+		if spec.Connections.RetryInterval > 0 {
+			if err := client.SetConfig(ctx, "RetryInterval", fmt.Sprintf("%d", spec.Connections.RetryInterval)); err != nil {
+				return fmt.Errorf("failed to set RetryInterval: %w", err)
+			}
+		}
+		if spec.Connections.TerminateTimeout > 0 {
+			if err := client.SetConfig(ctx, "TerminateTimeout", fmt.Sprintf("%d", spec.Connections.TerminateTimeout)); err != nil {
+				return fmt.Errorf("failed to set TerminateTimeout: %w", err)
+			}
+		}
+		if spec.Connections.Decode != nil {
+			value := "no"
+			if *spec.Connections.Decode {
+				value = "yes"
+			}
+			if err := client.SetConfig(ctx, "Decode", value); err != nil {
+				return fmt.Errorf("failed to set Decode: %w", err)
 			}
 		}
 	}
