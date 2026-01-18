@@ -9,6 +9,7 @@ import (
 
 	"github.com/poiley/nebularr-operator/internal/adapters"
 	"github.com/poiley/nebularr-operator/internal/adapters/httpclient"
+	"github.com/poiley/nebularr-operator/internal/adapters/shared"
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
@@ -235,52 +236,19 @@ func (a *Adapter) Diff(current, desired *irv1.IR, caps *adapters.Capabilities) (
 func (a *Adapter) Apply(ctx context.Context, conn *irv1.ConnectionIR, changes *adapters.ChangeSet) (*adapters.ApplyResult, error) {
 	c := a.newClient(conn)
 
-	result := &adapters.ApplyResult{}
-
 	// Ensure ownership tag exists
 	tagID, err := a.ensureOwnershipTag(ctx, c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to ensure ownership tag: %w", err)
 	}
 
-	// Apply creates
-	for _, change := range changes.Creates {
-		if err := a.applyCreate(ctx, c, change, tagID); err != nil {
-			result.Failed++
-			result.Errors = append(result.Errors, adapters.ApplyError{
-				Change: change,
-				Error:  err,
-			})
-		} else {
-			result.Applied++
-		}
-	}
-
-	// Apply updates
-	for _, change := range changes.Updates {
-		if err := a.applyUpdate(ctx, c, change, tagID); err != nil {
-			result.Failed++
-			result.Errors = append(result.Errors, adapters.ApplyError{
-				Change: change,
-				Error:  err,
-			})
-		} else {
-			result.Applied++
-		}
-	}
-
-	// Apply deletes
-	for _, change := range changes.Deletes {
-		if err := a.applyDelete(ctx, c, change); err != nil {
-			result.Failed++
-			result.Errors = append(result.Errors, adapters.ApplyError{
-				Change: change,
-				Error:  err,
-			})
-		} else {
-			result.Applied++
-		}
-	}
+	// Use shared apply loop with adapter-specific callbacks
+	result := shared.ApplyChanges(
+		changes,
+		func(change adapters.Change) error { return a.applyCreate(ctx, c, change, tagID) },
+		func(change adapters.Change) error { return a.applyUpdate(ctx, c, change, tagID) },
+		func(change adapters.Change) error { return a.applyDelete(ctx, c, change) },
+	)
 
 	return result, nil
 }
