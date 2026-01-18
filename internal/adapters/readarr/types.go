@@ -152,3 +152,13 @@ type NotificationResource struct {
 	Tags                       []int           `json:"tags,omitempty"`
 	Fields                     []FieldResource `json:"fields,omitempty"`
 }
+
+// QualityDefinitionResource represents a quality definition in Readarr
+type QualityDefinitionResource struct {
+	ID      int             `json:"id"`
+	Quality QualityResource `json:"quality"`
+	Title   string          `json:"title"`
+	Weight  int             `json:"weight"`
+	MinSize float64         `json:"minSize,omitempty"`
+	MaxSize float64         `json:"maxSize,omitempty"`
+}

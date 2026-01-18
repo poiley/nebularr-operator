@@ -222,8 +222,8 @@ func (r *DownloadStackConfigReconciler) reconcileNormal(ctx context.Context, con
 	// =========================================================================
 
 	// Validate at least one download client is configured
-	if config.Spec.Transmission == nil && config.Spec.QBittorrent == nil {
-		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "NoDownloadClient", "At least one of Transmission or qBittorrent must be configured")
+	if config.Spec.Transmission == nil && config.Spec.QBittorrent == nil && config.Spec.Deluge == nil && config.Spec.RTorrent == nil {
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "NoDownloadClient", "At least one download client (Transmission, qBittorrent, Deluge, or rTorrent) must be configured")
 		if statusErr := r.Status().Update(ctx, config); statusErr != nil {
 			log.Error(statusErr, "Failed to update status")
 		}
@@ -251,6 +251,32 @@ func (r *DownloadStackConfigReconciler) reconcileNormal(ctx context.Context, con
 			// Update status before returning error so conditions are persisted
 			if statusErr := r.Status().Update(ctx, config); statusErr != nil {
 				log.Error(statusErr, "Failed to update status after qBittorrent error")
+			}
+			return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
+		}
+	}
+
+	// -------------------------------------------------------------------------
+	// Deluge Configuration (if specified)
+	// -------------------------------------------------------------------------
+	if config.Spec.Deluge != nil {
+		if err := r.reconcileDeluge(ctx, config, statusWrapper); err != nil {
+			// Update status before returning error so conditions are persisted
+			if statusErr := r.Status().Update(ctx, config); statusErr != nil {
+				log.Error(statusErr, "Failed to update status after Deluge error")
+			}
+			return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
+		}
+	}
+
+	// -------------------------------------------------------------------------
+	// rTorrent Configuration (if specified)
+	// -------------------------------------------------------------------------
+	if config.Spec.RTorrent != nil {
+		if err := r.reconcileRTorrent(ctx, config, statusWrapper); err != nil {
+			// Update status before returning error so conditions are persisted
+			if statusErr := r.Status().Update(ctx, config); statusErr != nil {
+				log.Error(statusErr, "Failed to update status after rTorrent error")
 			}
 			return ctrl.Result{RequeueAfter: ErrorRequeueInterval}, err
 		}
@@ -553,6 +579,307 @@ func syncQBittorrentSettings(ctx context.Context, client *downloadstack.QBittorr
 	// Only set preferences if there are any
 	if len(prefs) > 0 {
 		return client.SetPreferences(ctx, prefs)
+	}
+
+	return nil
+}
+
+// reconcileDeluge handles Deluge configuration
+func (r *DownloadStackConfigReconciler) reconcileDeluge(ctx context.Context, config *arrv1alpha1.DownloadStackConfig, statusWrapper *DownloadStackStatusWrapper) error {
+	log := logf.FromContext(ctx)
+
+	// Resolve Deluge password (optional, defaults to "deluge")
+	var delugePassword string = "deluge"
+	if config.Spec.Deluge.Connection.PasswordSecretRef != nil {
+		keyRef := config.Spec.Deluge.Connection.PasswordSecretRef
+		keyName := keyRef.Key
+		if keyName == "" {
+			keyName = "password"
+		}
+
+		var err error
+		delugePassword, err = r.Helper.ResolveSecretValue(ctx, config.Namespace, keyRef.Name, keyName)
+		if err != nil {
+			r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "DelugeCredentialsFailed", err.Error())
+			return err
+		}
+	}
+
+	// Create Deluge client
+	delugeClient := downloadstack.NewDelugeClient(
+		config.Spec.Deluge.Connection.URL,
+		delugePassword,
+	)
+
+	// Test connection
+	if err := delugeClient.TestConnection(ctx); err != nil {
+		log.Error(err, "Failed to connect to Deluge")
+		config.Status.DelugeConnected = false
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "DelugeConnectionFailed", err.Error())
+		return err
+	}
+
+	config.Status.DelugeConnected = true
+
+	// Get Deluge version
+	version, err := delugeClient.GetVersion(ctx)
+	if err == nil {
+		config.Status.DelugeVersion = version
+	}
+
+	// Sync Deluge settings
+	if err := syncDelugeSettings(ctx, delugeClient, config.Spec.Deluge); err != nil {
+		log.Error(err, "Failed to sync Deluge settings")
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "DelugeSyncFailed", err.Error())
+		return err
+	}
+
+	log.Info("Deluge configuration synced successfully")
+	return nil
+}
+
+// syncDelugeSettings syncs Deluge configuration from spec
+func syncDelugeSettings(ctx context.Context, client *downloadstack.DelugeClient, spec *arrv1alpha1.DelugeSpec) error {
+	config := make(map[string]interface{})
+
+	// Speed settings
+	if spec.Speed != nil {
+		if spec.Speed.MaxDownloadSpeed != 0 {
+			config["max_download_speed"] = float64(spec.Speed.MaxDownloadSpeed)
+		}
+		if spec.Speed.MaxUploadSpeed != 0 {
+			config["max_upload_speed"] = float64(spec.Speed.MaxUploadSpeed)
+		}
+		if spec.Speed.MaxDownloadSpeedPerTorrent != 0 {
+			config["max_download_speed_per_torrent"] = float64(spec.Speed.MaxDownloadSpeedPerTorrent)
+		}
+		if spec.Speed.MaxUploadSpeedPerTorrent != 0 {
+			config["max_upload_speed_per_torrent"] = float64(spec.Speed.MaxUploadSpeedPerTorrent)
+		}
+	}
+
+	// Directory settings
+	if spec.Directories != nil {
+		if spec.Directories.DownloadLocation != "" {
+			config["download_location"] = spec.Directories.DownloadLocation
+		}
+		config["move_completed"] = spec.Directories.MoveCompleted
+		if spec.Directories.MoveCompletedPath != "" {
+			config["move_completed_path"] = spec.Directories.MoveCompletedPath
+		}
+		config["copy_torrent_file"] = spec.Directories.CopyTorrentFile
+		if spec.Directories.TorrentFilesLocation != "" {
+			config["torrentfiles_location"] = spec.Directories.TorrentFilesLocation
+		}
+	}
+
+	// Seeding settings
+	if spec.Seeding != nil {
+		config["stop_seed_at_ratio"] = spec.Seeding.StopSeedAtRatio
+		if spec.Seeding.StopSeedRatio != "" {
+			var ratio float64
+			if _, err := fmt.Sscanf(spec.Seeding.StopSeedRatio, "%f", &ratio); err == nil {
+				config["stop_seed_ratio"] = ratio
+			}
+		}
+		config["remove_seed_at_ratio"] = spec.Seeding.RemoveAtRatio
+		if spec.Seeding.ShareRatioLimit != "" {
+			var ratio float64
+			if _, err := fmt.Sscanf(spec.Seeding.ShareRatioLimit, "%f", &ratio); err == nil {
+				config["share_ratio_limit"] = ratio
+			}
+		}
+		if spec.Seeding.SeedTimeLimit != 0 {
+			config["seed_time_limit"] = spec.Seeding.SeedTimeLimit
+		}
+	}
+
+	// Queue settings
+	if spec.Queue != nil {
+		if spec.Queue.MaxActiveDownloading > 0 {
+			config["max_active_downloading"] = spec.Queue.MaxActiveDownloading
+		}
+		if spec.Queue.MaxActiveSeeding > 0 {
+			config["max_active_seeding"] = spec.Queue.MaxActiveSeeding
+		}
+		if spec.Queue.MaxActiveLimit > 0 {
+			config["max_active_limit"] = spec.Queue.MaxActiveLimit
+		}
+		config["queue_new_to_top"] = spec.Queue.QueueNewToTop
+	}
+
+	// Connection settings
+	if spec.Connections != nil {
+		if spec.Connections.MaxConnections > 0 {
+			config["max_connections_global"] = spec.Connections.MaxConnections
+		}
+		if spec.Connections.MaxConnectionsPerTorrent > 0 {
+			config["max_connections_per_torrent"] = spec.Connections.MaxConnectionsPerTorrent
+		}
+		if spec.Connections.MaxUploadSlots > 0 {
+			config["max_upload_slots_global"] = spec.Connections.MaxUploadSlots
+		}
+		if spec.Connections.MaxUploadSlotsPerTorrent > 0 {
+			config["max_upload_slots_per_torrent"] = spec.Connections.MaxUploadSlotsPerTorrent
+		}
+		if len(spec.Connections.ListenPorts) == 2 {
+			config["listen_ports"] = spec.Connections.ListenPorts
+		}
+		config["random_port"] = spec.Connections.RandomPort
+	}
+
+	// Protocol settings
+	if spec.Protocol != nil {
+		if spec.Protocol.DHT != nil {
+			config["dht"] = *spec.Protocol.DHT
+		}
+		if spec.Protocol.UPnP != nil {
+			config["upnp"] = *spec.Protocol.UPnP
+		}
+		if spec.Protocol.NATPMP != nil {
+			config["natpmp"] = *spec.Protocol.NATPMP
+		}
+		if spec.Protocol.LSD != nil {
+			config["lsd"] = *spec.Protocol.LSD
+		}
+		if spec.Protocol.ProtocolEncryption != nil {
+			config["pe_enabled"] = *spec.Protocol.ProtocolEncryption
+		}
+		if spec.Protocol.EncryptionLevel != nil {
+			config["enc_level"] = *spec.Protocol.EncryptionLevel
+		}
+	}
+
+	// Only set config if there are any changes
+	if len(config) > 0 {
+		return client.SetConfig(ctx, config)
+	}
+
+	return nil
+}
+
+// reconcileRTorrent handles rTorrent configuration
+func (r *DownloadStackConfigReconciler) reconcileRTorrent(ctx context.Context, config *arrv1alpha1.DownloadStackConfig, statusWrapper *DownloadStackStatusWrapper) error {
+	log := logf.FromContext(ctx)
+
+	// Resolve rTorrent credentials (optional - for HTTP basic auth)
+	var rtUsername, rtPassword string
+	if config.Spec.RTorrent.Connection.CredentialsSecretRef != nil {
+		creds := config.Spec.RTorrent.Connection.CredentialsSecretRef
+		usernameKey := creds.UsernameKey
+		if usernameKey == "" {
+			usernameKey = "username"
+		}
+		passwordKey := creds.PasswordKey
+		if passwordKey == "" {
+			passwordKey = "password"
+		}
+
+		var err error
+		rtUsername, err = r.Helper.ResolveSecretValue(ctx, config.Namespace, creds.Name, usernameKey)
+		if err != nil {
+			r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "RTorrentCredentialsFailed", err.Error())
+			return err
+		}
+
+		rtPassword, err = r.Helper.ResolveSecretValue(ctx, config.Namespace, creds.Name, passwordKey)
+		if err != nil {
+			r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "RTorrentCredentialsFailed", err.Error())
+			return err
+		}
+	}
+
+	// Create rTorrent client
+	rtClient := downloadstack.NewRTorrentClient(
+		config.Spec.RTorrent.Connection.URL,
+		rtUsername,
+		rtPassword,
+	)
+
+	// Test connection
+	if err := rtClient.TestConnection(ctx); err != nil {
+		log.Error(err, "Failed to connect to rTorrent")
+		config.Status.RTorrentConnected = false
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "RTorrentConnectionFailed", err.Error())
+		return err
+	}
+
+	config.Status.RTorrentConnected = true
+
+	// Get rTorrent version
+	version, err := rtClient.GetVersion(ctx)
+	if err == nil {
+		config.Status.RTorrentVersion = version
+	}
+
+	// Sync rTorrent settings
+	if err := syncRTorrentSettings(ctx, rtClient, config.Spec.RTorrent); err != nil {
+		log.Error(err, "Failed to sync rTorrent settings")
+		r.Helper.SetCondition(statusWrapper, config.Generation, ConditionTypeReady, metav1.ConditionFalse, "RTorrentSyncFailed", err.Error())
+		return err
+	}
+
+	log.Info("rTorrent configuration synced successfully")
+	return nil
+}
+
+// syncRTorrentSettings syncs rTorrent configuration from spec
+func syncRTorrentSettings(ctx context.Context, client *downloadstack.RTorrentClient, spec *arrv1alpha1.RTorrentSpec) error {
+	// Speed settings
+	if spec.Speed != nil {
+		if spec.Speed.DownloadRate > 0 {
+			// Convert KiB/s to bytes/s
+			if err := client.SetDownloadRate(ctx, int64(spec.Speed.DownloadRate)*1024); err != nil {
+				return fmt.Errorf("failed to set download rate: %w", err)
+			}
+		}
+		if spec.Speed.UploadRate > 0 {
+			if err := client.SetUploadRate(ctx, int64(spec.Speed.UploadRate)*1024); err != nil {
+				return fmt.Errorf("failed to set upload rate: %w", err)
+			}
+		}
+	}
+
+	// Directory settings
+	if spec.Directories != nil {
+		if spec.Directories.Directory != "" {
+			if err := client.SetDirectory(ctx, spec.Directories.Directory); err != nil {
+				return fmt.Errorf("failed to set directory: %w", err)
+			}
+		}
+		// Session directory is typically set in config file, not via RPC
+	}
+
+	// Connection settings
+	if spec.Connections != nil {
+		if spec.Connections.MaxPeers > 0 {
+			if err := client.SetMaxPeers(ctx, int64(spec.Connections.MaxPeers)); err != nil {
+				return fmt.Errorf("failed to set max peers: %w", err)
+			}
+		}
+		if spec.Connections.MaxUploads > 0 {
+			if err := client.SetMaxUploads(ctx, int64(spec.Connections.MaxUploads)); err != nil {
+				return fmt.Errorf("failed to set max uploads: %w", err)
+			}
+		}
+	}
+
+	// Protocol settings
+	if spec.Protocol != nil {
+		if spec.Protocol.DHT != nil {
+			mode := "off"
+			if *spec.Protocol.DHT {
+				mode = "auto"
+			}
+			if err := client.SetDHTMode(ctx, mode); err != nil {
+				return fmt.Errorf("failed to set DHT mode: %w", err)
+			}
+		}
+		if spec.Protocol.Encryption != "" {
+			if err := client.SetEncryptionMode(ctx, spec.Protocol.Encryption); err != nil {
+				return fmt.Errorf("failed to set encryption mode: %w", err)
+			}
+		}
 	}
 
 	return nil

@@ -55,6 +55,175 @@ spec:
           spec:
             description: Spec defines the desired configuration
             properties:
+              deluge:
+                description: |-
+                  Deluge configuration (applied via JSON-RPC API)
+                  At least one download client must be specified
+                properties:
+                  connection:
+                    description: Connection settings
+                    properties:
+                      passwordSecretRef:
+                        description: |-
+                          PasswordSecretRef references the password Secret for Deluge Web UI.
+                          Deluge Web UI uses a single password for authentication (default: "deluge").
+                        properties:
+                          key:
+                            default: apiKey
+                            description: Key is the key within the Secret.
+                            type: string
+                          name:
+                            description: Name is the name of the Secret in the same
+                              namespace.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        default: http://localhost:8112
+                        description: URL to Deluge Web UI (e.g., http://localhost:8112)
+                        type: string
+                    required:
+                    - url
+                    type: object
+                  connections:
+                    description: Connection settings (peers, etc.)
+                    properties:
+                      listenPorts:
+                        description: ListenPorts is the range of ports to listen on
+                          [start, end]
+                        items:
+                          type: integer
+                        type: array
+                      maxConnections:
+                        description: MaxConnections is the global max connections
+                        type: integer
+                      maxConnectionsPerTorrent:
+                        description: MaxConnectionsPerTorrent is the per-torrent max
+                          connections
+                        type: integer
+                      maxUploadSlots:
+                        description: MaxUploadSlots is the global max upload slots
+                        type: integer
+                      maxUploadSlotsPerTorrent:
+                        description: MaxUploadSlotsPerTorrent is the per-torrent max
+                          upload slots
+                        type: integer
+                      randomPort:
+                        description: RandomPort enables random port selection
+                        type: boolean
+                    type: object
+                  directories:
+                    description: Directories configuration
+                    properties:
+                      copyTorrentFile:
+                        description: CopyTorrentFile copies .torrent files to a location
+                        type: boolean
+                      downloadLocation:
+                        description: DownloadLocation is the default download directory
+                        type: string
+                      moveCompleted:
+                        description: MoveCompleted enables moving completed downloads
+                        type: boolean
+                      moveCompletedPath:
+                        description: MoveCompletedPath is the path to move completed
+                          downloads to
+                        type: string
+                      torrentFilesLocation:
+                        description: TorrentFilesLocation is where to copy .torrent
+                          files
+                        type: string
+                    type: object
+                  protocol:
+                    description: Protocol settings (DHT, encryption, etc.)
+                    properties:
+                      dht:
+                        description: DHT enables Distributed Hash Table
+                        type: boolean
+                      encryptionLevel:
+                        description: 'EncryptionLevel: 0=handshake, 1=full, 2=either'
+                        enum:
+                        - 0
+                        - 1
+                        - 2
+                        type: integer
+                      lsd:
+                        description: LSD enables Local Service Discovery
+                        type: boolean
+                      natpmp:
+                        description: NATPMP enables NAT-PMP port forwarding
+                        type: boolean
+                      protocolEncryption:
+                        description: ProtocolEncryption enables protocol encryption
+                        type: boolean
+                      upnp:
+                        description: UPnP enables UPnP port forwarding
+                        type: boolean
+                    type: object
+                  queue:
+                    description: Queue settings
+                    properties:
+                      maxActiveDownloading:
+                        description: MaxActiveDownloading is the max concurrent downloads
+                        type: integer
+                      maxActiveLimit:
+                        description: MaxActiveLimit is the total max active torrents
+                        type: integer
+                      maxActiveSeeding:
+                        description: MaxActiveSeeding is the max concurrent seeding
+                          torrents
+                        type: integer
+                      queueNewToTop:
+                        description: QueueNewToTop adds new torrents to the top of
+                          the queue
+                        type: boolean
+                    type: object
+                  seeding:
+                    description: Seeding limits
+                    properties:
+                      removeAtRatio:
+                        description: RemoveAtRatio removes the torrent when ratio
+                          is reached
+                        type: boolean
+                      seedTimeLimit:
+                        description: SeedTimeLimit is the max seeding time in seconds
+                          (-1 = unlimited)
+                        type: integer
+                      shareRatioLimit:
+                        description: ShareRatioLimit is the share ratio limit
+                        type: string
+                      stopSeedAtRatio:
+                        description: StopSeedAtRatio enables stopping seeding at a
+                          ratio
+                        type: boolean
+                      stopSeedRatio:
+                        description: StopSeedRatio is the ratio to stop seeding at
+                          (e.g., 2.0)
+                        type: string
+                    type: object
+                  speed:
+                    description: Speed limits
+                    properties:
+                      maxDownloadSpeed:
+                        default: -1
+                        description: MaxDownloadSpeed in KiB/s (-1 = unlimited)
+                        type: integer
+                      maxDownloadSpeedPerTorrent:
+                        default: -1
+                        description: MaxDownloadSpeedPerTorrent in KiB/s (-1 = unlimited)
+                        type: integer
+                      maxUploadSpeed:
+                        default: -1
+                        description: MaxUploadSpeed in KiB/s (-1 = unlimited)
+                        type: integer
+                      maxUploadSpeedPerTorrent:
+                        default: -1
+                        description: MaxUploadSpeedPerTorrent in KiB/s (-1 = unlimited)
+                        type: integer
+                    type: object
+                required:
+                - connection
+                type: object
               deploymentRef:
                 description: DeploymentRef references the Deployment to manage
                 properties:
@@ -215,7 +384,7 @@ spec:
               qbittorrent:
                 description: |-
                   QBittorrent configuration (applied via WebUI API)
-                  At least one of Transmission or QBittorrent must be specified
+                  At least one download client must be specified
                 properties:
                   altSpeed:
                     description: AltSpeed (scheduled limits)
@@ -424,10 +593,127 @@ spec:
                 description: RestartOnGluetunChange triggers Deployment restart when
                   Gluetun config changes
                 type: boolean
+              rtorrent:
+                description: |-
+                  RTorrent configuration (applied via XML-RPC API)
+                  At least one download client must be specified
+                properties:
+                  connection:
+                    description: Connection settings
+                    properties:
+                      credentialsSecretRef:
+                        description: CredentialsSecretRef for HTTP Basic authentication
+                          (if using a web server proxy)
+                        properties:
+                          name:
+                            description: Name is the name of the Secret.
+                            type: string
+                          passwordKey:
+                            default: password
+                            description: PasswordKey is the key for the password.
+                            type: string
+                          usernameKey:
+                            default: username
+                            description: UsernameKey is the key for the username.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      url:
+                        description: |-
+                          URL to rTorrent XML-RPC interface (e.g., http://localhost:8080/RPC2)
+                          Can also be a Unix socket path (e.g., /path/to/.local/share/rtorrent/rtorrent.sock)
+                        type: string
+                    required:
+                    - url
+                    type: object
+                  connections:
+                    description: Connection settings (peers, etc.)
+                    properties:
+                      maxPeers:
+                        description: MaxPeers is the global max peers
+                        type: integer
+                      maxPeersPerTorrent:
+                        description: MaxPeersPerTorrent is the per-torrent max peers
+                        type: integer
+                      maxUploads:
+                        description: MaxUploads is the global max upload slots
+                        type: integer
+                      maxUploadsPerTorrent:
+                        description: MaxUploadsPerTorrent is the per-torrent max upload
+                          slots
+                        type: integer
+                      port:
+                        description: Port is the listening port (0 = random)
+                        type: integer
+                      portRandomize:
+                        description: PortRandomize randomizes the port within the
+                          range
+                        type: boolean
+                      portRange:
+                        description: PortRange is the port range (e.g., "6881-6889")
+                        type: string
+                    type: object
+                  directories:
+                    description: Directories configuration
+                    properties:
+                      directory:
+                        description: Directory is the default download directory
+                        type: string
+                      sessionDirectory:
+                        description: SessionDirectory is the session data directory
+                        type: string
+                    type: object
+                  protocol:
+                    description: Protocol settings
+                    properties:
+                      dht:
+                        description: DHT enables Distributed Hash Table
+                        type: boolean
+                      encryption:
+                        description: 'Encryption mode: none, allow_incoming, try_outgoing,
+                          require, require_RC4, require_RC4_strong'
+                        type: string
+                      pex:
+                        description: PEX enables Peer Exchange
+                        type: boolean
+                    type: object
+                  seeding:
+                    description: Seeding limits
+                    properties:
+                      maxSeedRatio:
+                        description: MaxSeedRatio is the maximum ratio before stopping
+                          (-1 = disabled)
+                        type: string
+                      maxSeedTime:
+                        description: MaxSeedTime is maximum seeding time in seconds
+                          (-1 = disabled)
+                        type: integer
+                      minSeedRatio:
+                        description: MinSeedRatio is the minimum ratio to maintain
+                          (-1 = disabled)
+                        type: string
+                      minSeedTime:
+                        description: MinSeedTime is minimum seeding time in seconds
+                        type: integer
+                    type: object
+                  speed:
+                    description: Speed limits
+                    properties:
+                      downloadRate:
+                        description: DownloadRate in KiB/s (0 = unlimited)
+                        type: integer
+                      uploadRate:
+                        description: UploadRate in KiB/s (0 = unlimited)
+                        type: integer
+                    type: object
+                required:
+                - connection
+                type: object
               transmission:
                 description: |-
                   Transmission configuration (applied via RPC)
-                  At least one of Transmission or QBittorrent must be specified
+                  At least one download client must be specified
                 properties:
                   altSpeed:
                     description: AltSpeed (turtle mode / scheduled limits)
@@ -678,6 +964,12 @@ spec:
                 x-kubernetes-list-map-keys:
                 - type
                 x-kubernetes-list-type: map
+              delugeConnected:
+                description: DelugeConnected indicates if Deluge Web UI is reachable
+                type: boolean
+              delugeVersion:
+                description: DelugeVersion is the Deluge version
+                type: string
               gluetunConfigHash:
                 description: GluetunConfigHash is the hash of the generated Gluetun
                   config
@@ -700,6 +992,12 @@ spec:
                 type: boolean
               qbittorrentVersion:
                 description: QBittorrentVersion is the qBittorrent version
+                type: string
+              rtorrentConnected:
+                description: RTorrentConnected indicates if rTorrent XML-RPC is reachable
+                type: boolean
+              rtorrentVersion:
+                description: RTorrentVersion is the rTorrent version
                 type: string
               transmissionConnected:
                 description: TransmissionConnected indicates if Transmission RPC is

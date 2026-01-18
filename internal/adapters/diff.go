@@ -86,6 +86,33 @@ func DiffAudioQualityProfiles(
 	// The profile structure (with nested groups) makes comparison difficult.
 }
 
+// DiffBookQualityProfiles computes changes needed for book quality profiles.
+// This is shared logic used by the Readarr adapter.
+func DiffBookQualityProfiles(
+	currentProfile *irv1.BookQualityIR,
+	desiredProfile *irv1.BookQualityIR,
+	changes *ChangeSet,
+) {
+	// No desired profile - nothing to do
+	if desiredProfile == nil {
+		return
+	}
+
+	// No current profile - create new
+	if currentProfile == nil {
+		changes.Creates = append(changes.Creates, Change{
+			ResourceType: ResourceQualityProfile,
+			Name:         desiredProfile.ProfileName,
+			Payload:      desiredProfile,
+		})
+		return
+	}
+
+	// Both exist - skip update since quality profiles are complex to compare
+	// and re-applying the same profile is idempotent but noisy.
+	// The profile structure (with nested groups) makes comparison difficult.
+}
+
 // DiffDownloadClients computes changes needed for download clients.
 // Returns a map of client names to IDs for use in updates/deletes.
 func DiffDownloadClients(

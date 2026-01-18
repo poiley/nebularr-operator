@@ -605,6 +605,327 @@ type QBittorrentBitTorrentSpec struct {
 }
 
 // =============================================================================
+// Deluge Types
+// =============================================================================
+
+// DelugeSpec defines Deluge torrent client configuration
+type DelugeSpec struct {
+	// Connection settings
+	// +kubebuilder:validation:Required
+	Connection DelugeConnectionSpec `json:"connection"`
+
+	// Speed limits
+	// +optional
+	Speed *DelugeSpeedSpec `json:"speed,omitempty"`
+
+	// Directories configuration
+	// +optional
+	Directories *DelugeDirectoriesSpec `json:"directories,omitempty"`
+
+	// Seeding limits
+	// +optional
+	Seeding *DelugeSeedingSpec `json:"seeding,omitempty"`
+
+	// Queue settings
+	// +optional
+	Queue *DelugeQueueSpec `json:"queue,omitempty"`
+
+	// Connection settings (peers, etc.)
+	// +optional
+	Connections *DelugeConnectionsSpec `json:"connections,omitempty"`
+
+	// Protocol settings (DHT, encryption, etc.)
+	// +optional
+	Protocol *DelugeProtocolSpec `json:"protocol,omitempty"`
+}
+
+// DelugeConnectionSpec defines how to connect to Deluge
+type DelugeConnectionSpec struct {
+	// URL to Deluge Web UI (e.g., http://localhost:8112)
+	// +kubebuilder:validation:Required
+	// +kubebuilder:default="http://localhost:8112"
+	URL string `json:"url"`
+
+	// PasswordSecretRef references the password Secret for Deluge Web UI.
+	// Deluge Web UI uses a single password for authentication (default: "deluge").
+	// +optional
+	PasswordSecretRef *SecretKeySelector `json:"passwordSecretRef,omitempty"`
+}
+
+// DelugeSpeedSpec defines speed limit settings
+type DelugeSpeedSpec struct {
+	// MaxDownloadSpeed in KiB/s (-1 = unlimited)
+	// +optional
+	// +kubebuilder:default=-1
+	MaxDownloadSpeed int `json:"maxDownloadSpeed,omitempty"`
+
+	// MaxUploadSpeed in KiB/s (-1 = unlimited)
+	// +optional
+	// +kubebuilder:default=-1
+	MaxUploadSpeed int `json:"maxUploadSpeed,omitempty"`
+
+	// MaxDownloadSpeedPerTorrent in KiB/s (-1 = unlimited)
+	// +optional
+	// +kubebuilder:default=-1
+	MaxDownloadSpeedPerTorrent int `json:"maxDownloadSpeedPerTorrent,omitempty"`
+
+	// MaxUploadSpeedPerTorrent in KiB/s (-1 = unlimited)
+	// +optional
+	// +kubebuilder:default=-1
+	MaxUploadSpeedPerTorrent int `json:"maxUploadSpeedPerTorrent,omitempty"`
+}
+
+// DelugeDirectoriesSpec defines directory settings
+type DelugeDirectoriesSpec struct {
+	// DownloadLocation is the default download directory
+	// +optional
+	DownloadLocation string `json:"downloadLocation,omitempty"`
+
+	// MoveCompleted enables moving completed downloads
+	// +optional
+	MoveCompleted bool `json:"moveCompleted,omitempty"`
+
+	// MoveCompletedPath is the path to move completed downloads to
+	// +optional
+	MoveCompletedPath string `json:"moveCompletedPath,omitempty"`
+
+	// CopyTorrentFile copies .torrent files to a location
+	// +optional
+	CopyTorrentFile bool `json:"copyTorrentFile,omitempty"`
+
+	// TorrentFilesLocation is where to copy .torrent files
+	// +optional
+	TorrentFilesLocation string `json:"torrentFilesLocation,omitempty"`
+}
+
+// DelugeSeedingSpec defines seeding limit settings
+type DelugeSeedingSpec struct {
+	// StopSeedAtRatio enables stopping seeding at a ratio
+	// +optional
+	StopSeedAtRatio bool `json:"stopSeedAtRatio,omitempty"`
+
+	// StopSeedRatio is the ratio to stop seeding at (e.g., 2.0)
+	// +optional
+	StopSeedRatio string `json:"stopSeedRatio,omitempty"`
+
+	// RemoveAtRatio removes the torrent when ratio is reached
+	// +optional
+	RemoveAtRatio bool `json:"removeAtRatio,omitempty"`
+
+	// ShareRatioLimit is the share ratio limit
+	// +optional
+	ShareRatioLimit string `json:"shareRatioLimit,omitempty"`
+
+	// SeedTimeLimit is the max seeding time in seconds (-1 = unlimited)
+	// +optional
+	SeedTimeLimit int `json:"seedTimeLimit,omitempty"`
+}
+
+// DelugeQueueSpec defines queue settings
+type DelugeQueueSpec struct {
+	// MaxActiveDownloading is the max concurrent downloads
+	// +optional
+	MaxActiveDownloading int `json:"maxActiveDownloading,omitempty"`
+
+	// MaxActiveSeeding is the max concurrent seeding torrents
+	// +optional
+	MaxActiveSeeding int `json:"maxActiveSeeding,omitempty"`
+
+	// MaxActiveLimit is the total max active torrents
+	// +optional
+	MaxActiveLimit int `json:"maxActiveLimit,omitempty"`
+
+	// QueueNewToTop adds new torrents to the top of the queue
+	// +optional
+	QueueNewToTop bool `json:"queueNewToTop,omitempty"`
+}
+
+// DelugeConnectionsSpec defines connection/peer settings
+type DelugeConnectionsSpec struct {
+	// MaxConnections is the global max connections
+	// +optional
+	MaxConnections int `json:"maxConnections,omitempty"`
+
+	// MaxConnectionsPerTorrent is the per-torrent max connections
+	// +optional
+	MaxConnectionsPerTorrent int `json:"maxConnectionsPerTorrent,omitempty"`
+
+	// MaxUploadSlots is the global max upload slots
+	// +optional
+	MaxUploadSlots int `json:"maxUploadSlots,omitempty"`
+
+	// MaxUploadSlotsPerTorrent is the per-torrent max upload slots
+	// +optional
+	MaxUploadSlotsPerTorrent int `json:"maxUploadSlotsPerTorrent,omitempty"`
+
+	// ListenPorts is the range of ports to listen on [start, end]
+	// +optional
+	ListenPorts []int `json:"listenPorts,omitempty"`
+
+	// RandomPort enables random port selection
+	// +optional
+	RandomPort bool `json:"randomPort,omitempty"`
+}
+
+// DelugeProtocolSpec defines protocol settings
+type DelugeProtocolSpec struct {
+	// DHT enables Distributed Hash Table
+	// +optional
+	DHT *bool `json:"dht,omitempty"`
+
+	// UPnP enables UPnP port forwarding
+	// +optional
+	UPnP *bool `json:"upnp,omitempty"`
+
+	// NATPMP enables NAT-PMP port forwarding
+	// +optional
+	NATPMP *bool `json:"natpmp,omitempty"`
+
+	// LSD enables Local Service Discovery
+	// +optional
+	LSD *bool `json:"lsd,omitempty"`
+
+	// ProtocolEncryption enables protocol encryption
+	// +optional
+	ProtocolEncryption *bool `json:"protocolEncryption,omitempty"`
+
+	// EncryptionLevel: 0=handshake, 1=full, 2=either
+	// +optional
+	// +kubebuilder:validation:Enum=0;1;2
+	EncryptionLevel *int `json:"encryptionLevel,omitempty"`
+}
+
+// =============================================================================
+// rTorrent Types
+// =============================================================================
+
+// RTorrentSpec defines rTorrent client configuration
+type RTorrentSpec struct {
+	// Connection settings
+	// +kubebuilder:validation:Required
+	Connection RTorrentConnectionSpec `json:"connection"`
+
+	// Speed limits
+	// +optional
+	Speed *RTorrentSpeedSpec `json:"speed,omitempty"`
+
+	// Directories configuration
+	// +optional
+	Directories *RTorrentDirectoriesSpec `json:"directories,omitempty"`
+
+	// Seeding limits
+	// +optional
+	Seeding *RTorrentSeedingSpec `json:"seeding,omitempty"`
+
+	// Connection settings (peers, etc.)
+	// +optional
+	Connections *RTorrentConnectionsSpec `json:"connections,omitempty"`
+
+	// Protocol settings
+	// +optional
+	Protocol *RTorrentProtocolSpec `json:"protocol,omitempty"`
+}
+
+// RTorrentConnectionSpec defines how to connect to rTorrent
+type RTorrentConnectionSpec struct {
+	// URL to rTorrent XML-RPC interface (e.g., http://localhost:8080/RPC2)
+	// Can also be a Unix socket path (e.g., /path/to/.local/share/rtorrent/rtorrent.sock)
+	// +kubebuilder:validation:Required
+	URL string `json:"url"`
+
+	// CredentialsSecretRef for HTTP Basic authentication (if using a web server proxy)
+	// +optional
+	CredentialsSecretRef *CredentialsSecretRef `json:"credentialsSecretRef,omitempty"`
+}
+
+// RTorrentSpeedSpec defines speed limit settings
+type RTorrentSpeedSpec struct {
+	// DownloadRate in KiB/s (0 = unlimited)
+	// +optional
+	DownloadRate int `json:"downloadRate,omitempty"`
+
+	// UploadRate in KiB/s (0 = unlimited)
+	// +optional
+	UploadRate int `json:"uploadRate,omitempty"`
+}
+
+// RTorrentDirectoriesSpec defines directory settings
+type RTorrentDirectoriesSpec struct {
+	// Directory is the default download directory
+	// +optional
+	Directory string `json:"directory,omitempty"`
+
+	// SessionDirectory is the session data directory
+	// +optional
+	SessionDirectory string `json:"sessionDirectory,omitempty"`
+}
+
+// RTorrentSeedingSpec defines seeding limit settings
+type RTorrentSeedingSpec struct {
+	// MinSeedRatio is the minimum ratio to maintain (-1 = disabled)
+	// +optional
+	MinSeedRatio string `json:"minSeedRatio,omitempty"`
+
+	// MaxSeedRatio is the maximum ratio before stopping (-1 = disabled)
+	// +optional
+	MaxSeedRatio string `json:"maxSeedRatio,omitempty"`
+
+	// MinSeedTime is minimum seeding time in seconds
+	// +optional
+	MinSeedTime int `json:"minSeedTime,omitempty"`
+
+	// MaxSeedTime is maximum seeding time in seconds (-1 = disabled)
+	// +optional
+	MaxSeedTime int `json:"maxSeedTime,omitempty"`
+}
+
+// RTorrentConnectionsSpec defines connection/peer settings
+type RTorrentConnectionsSpec struct {
+	// MaxPeers is the global max peers
+	// +optional
+	MaxPeers int `json:"maxPeers,omitempty"`
+
+	// MaxPeersPerTorrent is the per-torrent max peers
+	// +optional
+	MaxPeersPerTorrent int `json:"maxPeersPerTorrent,omitempty"`
+
+	// MaxUploads is the global max upload slots
+	// +optional
+	MaxUploads int `json:"maxUploads,omitempty"`
+
+	// MaxUploadsPerTorrent is the per-torrent max upload slots
+	// +optional
+	MaxUploadsPerTorrent int `json:"maxUploadsPerTorrent,omitempty"`
+
+	// Port is the listening port (0 = random)
+	// +optional
+	Port int `json:"port,omitempty"`
+
+	// PortRange is the port range (e.g., "6881-6889")
+	// +optional
+	PortRange string `json:"portRange,omitempty"`
+
+	// PortRandomize randomizes the port within the range
+	// +optional
+	PortRandomize bool `json:"portRandomize,omitempty"`
+}
+
+// RTorrentProtocolSpec defines protocol settings
+type RTorrentProtocolSpec struct {
+	// DHT enables Distributed Hash Table
+	// +optional
+	DHT *bool `json:"dht,omitempty"`
+
+	// PEX enables Peer Exchange
+	// +optional
+	PEX *bool `json:"pex,omitempty"`
+
+	// Encryption mode: none, allow_incoming, try_outgoing, require, require_RC4, require_RC4_strong
+	// +optional
+	Encryption string `json:"encryption,omitempty"`
+}
+
+// =============================================================================
 // DownloadStackConfig
 // =============================================================================
 
@@ -619,14 +940,24 @@ type DownloadStackConfigSpec struct {
 	Gluetun GluetunSpec `json:"gluetun"`
 
 	// Transmission configuration (applied via RPC)
-	// At least one of Transmission or QBittorrent must be specified
+	// At least one download client must be specified
 	// +optional
 	Transmission *TransmissionSpec `json:"transmission,omitempty"`
 
 	// QBittorrent configuration (applied via WebUI API)
-	// At least one of Transmission or QBittorrent must be specified
+	// At least one download client must be specified
 	// +optional
 	QBittorrent *QBittorrentSpec `json:"qbittorrent,omitempty"`
+
+	// Deluge configuration (applied via JSON-RPC API)
+	// At least one download client must be specified
+	// +optional
+	Deluge *DelugeSpec `json:"deluge,omitempty"`
+
+	// RTorrent configuration (applied via XML-RPC API)
+	// At least one download client must be specified
+	// +optional
+	RTorrent *RTorrentSpec `json:"rtorrent,omitempty"`
 
 	// RestartOnGluetunChange triggers Deployment restart when Gluetun config changes
 	// +kubebuilder:default=true
@@ -668,6 +999,22 @@ type DownloadStackConfigStatus struct {
 	// QBittorrentVersion is the qBittorrent version
 	// +optional
 	QBittorrentVersion string `json:"qbittorrentVersion,omitempty"`
+
+	// DelugeConnected indicates if Deluge Web UI is reachable
+	// +optional
+	DelugeConnected bool `json:"delugeConnected,omitempty"`
+
+	// DelugeVersion is the Deluge version
+	// +optional
+	DelugeVersion string `json:"delugeVersion,omitempty"`
+
+	// RTorrentConnected indicates if rTorrent XML-RPC is reachable
+	// +optional
+	RTorrentConnected bool `json:"rtorrentConnected,omitempty"`
+
+	// RTorrentVersion is the rTorrent version
+	// +optional
+	RTorrentVersion string `json:"rtorrentVersion,omitempty"`
 
 	// LastReconcile is the timestamp of the last reconciliation
 	// +optional

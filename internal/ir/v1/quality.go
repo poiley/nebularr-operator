@@ -1,12 +1,15 @@
 package v1
 
-// QualityIR wraps video or audio quality (union type)
+// QualityIR wraps video, audio, or book quality (union type)
 type QualityIR struct {
 	// Video quality for Radarr/Sonarr
 	Video *VideoQualityIR `json:"video,omitempty"`
 
 	// Audio quality for Lidarr
 	Audio *AudioQualityIR `json:"audio,omitempty"`
+
+	// Book quality for Readarr
+	Book *BookQualityIR `json:"book,omitempty"`
 }
 
 // VideoQualityIR represents video quality configuration (from preset or manual)
@@ -119,4 +122,58 @@ type ReleaseProfileIR struct {
 type PreferredTermIR struct {
 	Term  string `json:"term"`
 	Score int    `json:"score"`
+}
+
+// BookQualityIR represents book quality configuration for Readarr
+type BookQualityIR struct {
+	// ProfileName is the quality profile name
+	ProfileName string `json:"profileName"`
+
+	// UpgradeAllowed enables quality upgrades
+	UpgradeAllowed bool `json:"upgradeAllowed"`
+
+	// Cutoff is the quality tier where upgrades stop
+	Cutoff BookQualityTierIR `json:"cutoff"`
+
+	// Tiers defines the quality ranking (ordered, first = lowest priority)
+	Tiers []BookQualityTierIR `json:"tiers"`
+}
+
+// BookQualityTierIR represents a book quality tier
+type BookQualityTierIR struct {
+	// Name is the tier/group name (e.g., "EPUB", "MOBI", "AZW3", "PDF")
+	Name string `json:"name"`
+
+	// Formats are the specific formats in this tier
+	Formats []string `json:"formats,omitempty"`
+
+	// Allowed indicates if this tier is allowed
+	Allowed bool `json:"allowed"`
+}
+
+// MetadataProfileIR represents a metadata profile for Readarr
+type MetadataProfileIR struct {
+	// ID is the server-side ID (nil for creates)
+	ID *int `json:"id,omitempty"`
+
+	// Name is the profile name
+	Name string `json:"name"`
+
+	// MinPopularity is the minimum GoodReads popularity score
+	MinPopularity float64 `json:"minPopularity,omitempty"`
+
+	// SkipMissingDate skips books without release date
+	SkipMissingDate bool `json:"skipMissingDate,omitempty"`
+
+	// SkipMissingIsbn skips books without ISBN
+	SkipMissingIsbn bool `json:"skipMissingIsbn,omitempty"`
+
+	// SkipPartsAndSets skips parts and sets
+	SkipPartsAndSets bool `json:"skipPartsAndSets,omitempty"`
+
+	// SkipSeriesSecondary skips non-primary series entries
+	SkipSeriesSecondary bool `json:"skipSeriesSecondary,omitempty"`
+
+	// AllowedLanguages is a comma-separated list of allowed language codes
+	AllowedLanguages string `json:"allowedLanguages,omitempty"`
 }
