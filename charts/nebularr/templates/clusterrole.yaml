@@ -27,9 +27,12 @@ rules:
   - apiGroups:
       - arr.rinzler.cloud
     resources:
+      - bazarrconfigs
+      - downloadstackconfigs
       - lidarrconfigs
       - prowlarrconfigs
       - radarrconfigs
+      - readarrconfigs
       - sonarrconfigs
     verbs:
       - create
@@ -43,9 +46,12 @@ rules:
   - apiGroups:
       - arr.rinzler.cloud
     resources:
+      - bazarrconfigs/finalizers
+      - downloadstackconfigs/finalizers
       - lidarrconfigs/finalizers
       - prowlarrconfigs/finalizers
       - radarrconfigs/finalizers
+      - readarrconfigs/finalizers
       - sonarrconfigs/finalizers
     verbs:
       - update
@@ -53,14 +59,26 @@ rules:
   - apiGroups:
       - arr.rinzler.cloud
     resources:
+      - bazarrconfigs/status
+      - downloadstackconfigs/status
       - lidarrconfigs/status
       - prowlarrconfigs/status
       - radarrconfigs/status
+      - readarrconfigs/status
       - sonarrconfigs/status
     verbs:
       - get
       - patch
       - update
+  # ConfigMaps for Bazarr config watching
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    verbs:
+      - get
+      - list
+      - watch
 ---
 # Leader election role
 apiVersion: rbac.authorization.k8s.io/v1
