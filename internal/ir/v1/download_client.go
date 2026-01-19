@@ -2,6 +2,9 @@ package v1
 
 // DownloadClientIR represents a download client configuration
 type DownloadClientIR struct {
+	// ID is the service-side ID (populated from CurrentState, used for updates/deletes)
+	ID int `json:"id,omitempty"`
+
 	// Name is the client name (generated: "nebularr-{name}")
 	Name string `json:"name"`
 

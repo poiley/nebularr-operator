@@ -259,57 +259,34 @@ func (a *Adapter) Apply(ctx context.Context, conn *irv1.ConnectionIR, changes *a
 func (a *Adapter) ApplyDirect(ctx context.Context, conn *irv1.ConnectionIR, ir *irv1.IR) (*adapters.ApplyResult, error) {
 	c := a.newClient(conn)
 
-	result := &adapters.ApplyResult{}
-
 	// Ensure ownership tag exists
 	tagID, err := a.ensureOwnershipTag(ctx, c)
 	if err != nil {
 		return nil, fmt.Errorf("failed to ensure ownership tag: %w", err)
 	}
 
-	// Apply import lists directly (they handle their own diff internally)
-	if len(ir.ImportLists) > 0 {
-		stats, err := a.applyImportLists(ctx, c, ir, tagID)
-		if err != nil {
-			return nil, fmt.Errorf("failed to apply import lists: %w", err)
-		}
-
-		result.Applied += stats.Created + stats.Updated + stats.Deleted
-		result.Skipped += stats.Skipped
-		for _, e := range stats.Errors {
-			result.Failed++
-			result.Errors = append(result.Errors, adapters.ApplyError{
-				Change: adapters.Change{ResourceType: adapters.ResourceImportList},
-				Error:  e,
-			})
-		}
-	}
-
-	// Apply media management configuration
-	if ir.MediaManagement != nil {
-		if err := a.applyMediaManagement(ctx, c, ir.MediaManagement); err != nil {
-			result.Failed++
-			result.Errors = append(result.Errors, adapters.ApplyError{
-				Change: adapters.Change{ResourceType: adapters.ResourceMediaManagement},
-				Error:  err,
-			})
-		} else {
-			result.Applied++
-		}
-	}
-
-	// Apply authentication configuration
-	if ir.Authentication != nil {
-		if err := a.applyAuthentication(ctx, c, ir.Authentication); err != nil {
-			result.Failed++
-			result.Errors = append(result.Errors, adapters.ApplyError{
-				Change: adapters.Change{ResourceType: adapters.ResourceAuthentication},
-				Error:  err,
-			})
-		} else {
-			result.Applied++
-		}
-	}
+	// Use shared apply direct helper with adapter-specific callbacks
+	result := shared.ApplyDirect(ir, shared.DirectApplyCallbacks{
+		ApplyImportLists: func() (*shared.ImportListStats, error) {
+			stats, err := a.applyImportLists(ctx, c, ir, tagID)
+			if err != nil {
+				return nil, err
+			}
+			return &shared.ImportListStats{
+				Created: stats.Created,
+				Updated: stats.Updated,
+				Deleted: stats.Deleted,
+				Skipped: stats.Skipped,
+				Errors:  stats.Errors,
+			}, nil
+		},
+		ApplyMediaManagement: func() error {
+			return a.applyMediaManagement(ctx, c, ir.MediaManagement)
+		},
+		ApplyAuthentication: func() error {
+			return a.applyAuthentication(ctx, c, ir.Authentication)
+		},
+	})
 
 	return result, nil
 }

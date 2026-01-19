@@ -9,9 +9,6 @@ import (
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
-// indexerIDMap tracks IDs for managed indexers
-var indexerIDMap = make(map[string]int)
-
 // getManagedIndexers retrieves indexers managed by Nebularr
 func (a *Adapter) getManagedIndexers(ctx context.Context, c *httpclient.Client, tagID int) ([]irv1.IndexerIR, error) {
 	var indexers []IndexerResource
@@ -22,7 +19,6 @@ func (a *Adapter) getManagedIndexers(ctx context.Context, c *httpclient.Client, 
 	var managed []irv1.IndexerIR
 	for _, idx := range indexers {
 		if hasTag(idx.Tags, tagID) {
-			indexerIDMap[idx.Name] = idx.ID
 			managed = append(managed, a.indexerToIR(&idx))
 		}
 	}
@@ -33,6 +29,7 @@ func (a *Adapter) getManagedIndexers(ctx context.Context, c *httpclient.Client, 
 // indexerToIR converts a Lidarr indexer to IR
 func (a *Adapter) indexerToIR(idx *IndexerResource) irv1.IndexerIR {
 	ir := irv1.IndexerIR{
+		ID:                      idx.ID, // Capture ID for updates/deletes
 		Name:                    idx.Name,
 		Implementation:          idx.Implementation,
 		Protocol:                idx.Protocol,
@@ -61,7 +58,6 @@ func (a *Adapter) diffIndexers(current, desired *irv1.IR, changes *adapters.Chan
 		desiredIndexers = desired.Indexers.Direct
 	}
 
-	// Use shared diff logic
-	adapters.DiffIndexers(currentIndexers, desiredIndexers, indexerIDMap, changes)
+	adapters.DiffIndexersWithIR(currentIndexers, desiredIndexers, changes)
 	return nil
 }

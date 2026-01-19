@@ -9,9 +9,6 @@ import (
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
-// downloadClientIDMap tracks IDs for managed download clients
-var downloadClientIDMap = make(map[string]int)
-
 // getManagedDownloadClients retrieves download clients managed by Nebularr
 func (a *Adapter) getManagedDownloadClients(ctx context.Context, c *httpclient.Client, tagID int) ([]irv1.DownloadClientIR, error) {
 	var clients []DownloadClientResource
@@ -22,7 +19,6 @@ func (a *Adapter) getManagedDownloadClients(ctx context.Context, c *httpclient.C
 	var managed []irv1.DownloadClientIR
 	for _, dc := range clients {
 		if hasTag(dc.Tags, tagID) {
-			downloadClientIDMap[dc.Name] = dc.ID
 			managed = append(managed, a.clientToIR(&dc))
 		}
 	}
@@ -33,6 +29,7 @@ func (a *Adapter) getManagedDownloadClients(ctx context.Context, c *httpclient.C
 // clientToIR converts a Lidarr download client to IR
 func (a *Adapter) clientToIR(dc *DownloadClientResource) irv1.DownloadClientIR {
 	ir := irv1.DownloadClientIR{
+		ID:                       dc.ID, // Capture ID for updates/deletes
 		Name:                     dc.Name,
 		Implementation:           dc.Implementation,
 		Protocol:                 dc.Protocol,
@@ -50,7 +47,6 @@ func (a *Adapter) clientToIR(dc *DownloadClientResource) irv1.DownloadClientIR {
 
 // diffDownloadClients computes changes needed for download clients using shared logic
 func (a *Adapter) diffDownloadClients(current, desired *irv1.IR, changes *adapters.ChangeSet) error {
-	// Use shared diff logic
-	adapters.DiffDownloadClients(current.DownloadClients, desired.DownloadClients, downloadClientIDMap, changes)
+	adapters.DiffDownloadClientsWithIR(current.DownloadClients, desired.DownloadClients, changes)
 	return nil
 }

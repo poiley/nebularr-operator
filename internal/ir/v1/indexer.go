@@ -27,6 +27,9 @@ type ProwlarrRefIR struct {
 
 // IndexerIR represents a direct indexer configuration
 type IndexerIR struct {
+	// ID is the service-side ID (populated from CurrentState, used for updates/deletes)
+	ID int `json:"id,omitempty"`
+
 	// Name is the indexer name (generated: "nebularr-{name}")
 	Name string `json:"name"`
 

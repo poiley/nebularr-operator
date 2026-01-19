@@ -114,7 +114,7 @@ func DiffBookQualityProfiles(
 }
 
 // DiffDownloadClients computes changes needed for download clients.
-// Returns a map of client names to IDs for use in updates/deletes.
+// Deprecated: Use DiffDownloadClientsWithIR which uses IDs from the IR structs.
 func DiffDownloadClients(
 	current []irv1.DownloadClientIR,
 	desired []irv1.DownloadClientIR,
@@ -155,6 +155,56 @@ func DiffDownloadClients(
 	for name := range currentMap {
 		if _, exists := desiredMap[name]; !exists {
 			id := clientIDs[name]
+			changes.Deletes = append(changes.Deletes, Change{
+				ResourceType: ResourceDownloadClient,
+				Name:         name,
+				ID:           &id,
+			})
+		}
+	}
+}
+
+// DiffDownloadClientsWithIR computes changes needed for download clients.
+// Uses the ID field from the IR structs directly (thread-safe, no global state).
+func DiffDownloadClientsWithIR(
+	current []irv1.DownloadClientIR,
+	desired []irv1.DownloadClientIR,
+	changes *ChangeSet,
+) {
+	currentMap := make(map[string]irv1.DownloadClientIR)
+	for _, dc := range current {
+		currentMap[dc.Name] = dc
+	}
+
+	desiredMap := make(map[string]irv1.DownloadClientIR)
+	for _, dc := range desired {
+		desiredMap[dc.Name] = dc
+	}
+
+	// Find creates and updates
+	for name, desiredDC := range desiredMap {
+		currentDC, exists := currentMap[name]
+		if !exists {
+			changes.Creates = append(changes.Creates, Change{
+				ResourceType: ResourceDownloadClient,
+				Name:         name,
+				Payload:      desiredDC,
+			})
+		} else if !DownloadClientsEqual(currentDC, desiredDC) {
+			id := currentDC.ID // Use ID from current state IR
+			changes.Updates = append(changes.Updates, Change{
+				ResourceType: ResourceDownloadClient,
+				Name:         name,
+				ID:           &id,
+				Payload:      desiredDC,
+			})
+		}
+	}
+
+	// Find deletes
+	for name, currentDC := range currentMap {
+		if _, exists := desiredMap[name]; !exists {
+			id := currentDC.ID // Use ID from current state IR
 			changes.Deletes = append(changes.Deletes, Change{
 				ResourceType: ResourceDownloadClient,
 				Name:         name,
@@ -267,6 +317,7 @@ func FormatSpecsEqual(current, desired irv1.FormatSpecIR) bool {
 }
 
 // DiffIndexers computes changes needed for indexers.
+// Deprecated: Use DiffIndexersWithIR which uses IDs from the IR structs.
 func DiffIndexers(
 	current []irv1.IndexerIR,
 	desired []irv1.IndexerIR,
@@ -307,6 +358,56 @@ func DiffIndexers(
 	for name := range currentMap {
 		if _, exists := desiredMap[name]; !exists {
 			id := indexerIDs[name]
+			changes.Deletes = append(changes.Deletes, Change{
+				ResourceType: ResourceIndexer,
+				Name:         name,
+				ID:           &id,
+			})
+		}
+	}
+}
+
+// DiffIndexersWithIR computes changes needed for indexers.
+// Uses the ID field from the IR structs directly (thread-safe, no global state).
+func DiffIndexersWithIR(
+	current []irv1.IndexerIR,
+	desired []irv1.IndexerIR,
+	changes *ChangeSet,
+) {
+	currentMap := make(map[string]irv1.IndexerIR)
+	for _, idx := range current {
+		currentMap[idx.Name] = idx
+	}
+
+	desiredMap := make(map[string]irv1.IndexerIR)
+	for _, idx := range desired {
+		desiredMap[idx.Name] = idx
+	}
+
+	// Find creates and updates
+	for name, desiredIdx := range desiredMap {
+		currentIdx, exists := currentMap[name]
+		if !exists {
+			changes.Creates = append(changes.Creates, Change{
+				ResourceType: ResourceIndexer,
+				Name:         name,
+				Payload:      desiredIdx,
+			})
+		} else if !IndexersEqual(currentIdx, desiredIdx) {
+			id := currentIdx.ID // Use ID from current state IR
+			changes.Updates = append(changes.Updates, Change{
+				ResourceType: ResourceIndexer,
+				Name:         name,
+				ID:           &id,
+				Payload:      desiredIdx,
+			})
+		}
+	}
+
+	// Find deletes
+	for name, currentIdx := range currentMap {
+		if _, exists := desiredMap[name]; !exists {
+			id := currentIdx.ID // Use ID from current state IR
 			changes.Deletes = append(changes.Deletes, Change{
 				ResourceType: ResourceIndexer,
 				Name:         name,

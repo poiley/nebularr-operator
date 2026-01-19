@@ -8,9 +8,6 @@ import (
 	irv1 "github.com/poiley/nebularr-operator/internal/ir/v1"
 )
 
-// rootFolderIDMap tracks IDs for root folders
-var rootFolderIDMap = make(map[string]int)
-
 // getRootFolders retrieves all root folders
 func (a *Adapter) getRootFolders(ctx context.Context, c *httpclient.Client) ([]irv1.RootFolderIR, error) {
 	var folders []RootFolderResource
@@ -20,7 +17,6 @@ func (a *Adapter) getRootFolders(ctx context.Context, c *httpclient.Client) ([]i
 
 	result := make([]irv1.RootFolderIR, 0, len(folders))
 	for _, f := range folders {
-		rootFolderIDMap[f.Path] = f.ID
 		result = append(result, irv1.RootFolderIR{
 			Path: f.Path,
 		})
