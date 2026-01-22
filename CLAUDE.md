@@ -1,0 +1,3 @@
+## ADR 1: Adopt Kubernetes Custom Resource Definitions (CRDs) for External API Contracts
+
+1. Implement Kubernetes Custom Resource Definitions (CRDs) as the primary mechanism for defining public/external API contracts. Structure the codebase with clear separation between: (1) Public API types in 'api/v1alpha1/' following Kubernetes API conventions with proper versioning, (2) Internal intermediate representations (IR) in 'internal/ir/' for domain logic, (3) Adapter layers in 'internal/adapters/' to translate between external contracts and internal models, and (4) Preset configurations in 'internal/presets/' for common use cases. All external-facing types must include proper JSON/YAML serialization tags, validation markers, and comprehensive documentation comments.
